@@ -160,17 +160,122 @@ app.delete('/api/comments/:id', requireAuth, (req, res) => {
 // ============================================================
 // 签到
 // ============================================================
+
+// 辅助函数：日期工具
+function dateStr(d) { return new Date(d).toLocaleDateString('sv-SE'); }
+function todayStr() { return dateStr(new Date()); }
+function addDays(d, n) { const r = new Date(d); r.setDate(r.getDate() + n); return r; }
+function daysBetween(a, b) { return Math.floor((new Date(b) - new Date(a)) / 86400000); }
+
+// 辅助函数：计算连续天数和统计
+function calcStreaks(checkinDates) {
+  if (!checkinDates.length) return { current: 0, longest: 0, total: 0 };
+  const sorted = [...checkinDates].sort();
+  const dateSet = new Set(sorted);
+  let current = 0, longest = 0, streak = 0;
+  // 从今天往回数当前连续天数
+  const today = todayStr();
+  let d = today;
+  while (dateSet.has(d)) { current++; d = dateStr(addDays(d, -1)); }
+  // 计算最长连续天数
+  for (let i = 0; i < sorted.length; i++) {
+    if (i === 0 || daysBetween(sorted[i - 1], sorted[i]) === 1) { streak++; }
+    else { streak = 1; }
+    longest = Math.max(longest, streak);
+  }
+  return { current, longest, total: sorted.length };
+}
+
+// 获取今日签到状态
 app.get('/api/checkin/today', (req, res) => {
   if (!req.session.userId) return res.json({ checkedIn: false });
   const db = loadDB();
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = todayStr();
   const found = db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today);
   res.json({ checkedIn: !!found });
 });
 
+// 获取签到历史（365天日历 + 统计 + 可补签日期）
+app.get('/api/checkin/history', (req, res) => {
+  if (!req.session.userId) return res.json({ checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 });
+  const db = loadDB();
+  const user = db.profiles.find(p => p.id === req.session.userId);
+  if (!user) return res.json({ checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 });
+
+  const today = todayStr();
+  const regDate = dateStr(user.created_at);
+  // 取最近365天
+  const yearAgo = dateStr(addDays(today, -364));
+  const startDate = regDate > yearAgo ? regDate : yearAgo;
+
+  const userCheckins = db.check_ins.filter(c => c.user_id === req.session.userId).map(c => c.check_in_date);
+  const checkinSet = new Set(userCheckins);
+
+  // 365天内已签到日期
+  const checkinDates = userCheckins.filter(d => d >= yearAgo);
+
+  // 计算可补签的日期（注册到今天之间，未签到的日期）
+  const missedDays = [];
+  let d = startDate;
+  while (d <= today) {
+    if (!checkinSet.has(d)) {
+      missedDays.push(d);
+    }
+    d = dateStr(addDays(d, 1));
+  }
+
+  const streaks = calcStreaks(userCheckins);
+
+  res.json({
+    checkinDates,
+    currentStreak: streaks.current,
+    longestStreak: streaks.longest,
+    totalDays: streaks.total,
+    missedDays,
+    retroactiveCost: 10,
+    retroactiveTotal: missedDays.length * 10,
+    points: user.points || 0
+  });
+});
+
+// 补签
+app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
+  const { date } = req.body;
+  if (!date) return res.status(400).json({ error: '请指定补签日期' });
+
+  const db = loadDB();
+  const user = db.profiles.find(p => p.id === req.session.userId);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+
+  const today = todayStr();
+  const regDate = dateStr(user.created_at);
+
+  // 校验：必须是注册日到今天之间的日期
+  if (date < regDate || date > today) {
+    return res.status(400).json({ error: '只能补签注册日至今天的日期' });
+  }
+  // 校验：不能补签已签到的日期
+  if (db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === date)) {
+    return res.status(400).json({ error: '该日期已签到' });
+  }
+  // 校验：积分是否足够
+  const cost = 10;
+  if ((user.points || 0) < cost) {
+    return res.status(400).json({ error: `积分不足，补签需要 ${cost} 积分，当前 ${user.points || 0} 积分` });
+  }
+
+  // 扣积分 + 补签
+  user.points -= cost;
+  db.check_ins.push({ id: db.nextId.check_ins++, user_id: req.session.userId, check_in_date: date, retroactive: true, created_at: new Date().toISOString() });
+  saveDB(db);
+
+  res.json({ ok: true, points: user.points, date });
+});
+
+// 每日签到
 app.post('/api/checkin', requireAuth, (req, res) => {
   const db = loadDB();
-  const today = new Date().toLocaleDateString('sv-SE');
+  const today = todayStr();
   if (db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today)) {
     return res.status(400).json({ error: '今天已经签到过了' });
   }
@@ -178,7 +283,7 @@ app.post('/api/checkin', requireAuth, (req, res) => {
   const user = db.profiles.find(p => p.id === req.session.userId);
   if (user) user.points = (user.points || 0) + 10;
   saveDB(db);
-  res.json({ ok: true });
+  res.json({ ok: true, points: user ? user.points : 0 });
 });
 
 // ============================================================

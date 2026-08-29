@@ -23,6 +23,16 @@ tailwind.config = {
   .sidebar-link.active{background:#eef2ff;color:#4f46e5;font-weight:600}
   .skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .cal-grid{display:grid;grid-template-columns:repeat(53,1fr);gap:2px}
+  .cal-day{width:12px;height:12px;border-radius:2px;cursor:default;transition:transform .1s}
+  .cal-day:hover{transform:scale(1.4)}
+  .cal-checked{background:#22c55e}
+  .cal-missed{background:#fca5a5;cursor:pointer}
+  .cal-missed:hover{background:#f87171}
+  .cal-future{background:#f1f5f9}
+  .cal-before{background:transparent}
+  .cal-today{outline:2px solid #6366f1;outline-offset:1px}
+  .streak-num{font-size:1.5rem;font-weight:700;line-height:1}
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -84,9 +94,12 @@ tailwind.config = {
           </div>
           <span id="pointsBadge" class="hidden text-xs bg-white/20 px-2 py-0.5 rounded-full">0 积分</span>
         </div>
-        <p class="text-xs text-white/70 mb-3">坚持签到获取积分奖励</p>
+        <div id="streakInfo" class="hidden flex gap-4 mb-3 text-center">
+          <div class="flex-1"><div class="streak-num" id="streakCurrent">0</div><div class="text-xs text-white/60">连续签到</div></div>
+          <div class="flex-1"><div class="streak-num" id="streakTotal">0</div><div class="text-xs text-white/60">累计签到</div></div>
+        </div>
         <button id="checkinBtn" onclick="doCheckin()" class="w-full py-2 bg-white/20 hover:bg-white/30 backdrop-blur text-white text-sm font-medium rounded-xl transition disabled:opacity-50">立即签到</button>
-        <p id="checkinStatus" class="text-xs text-white/60 mt-2 text-center hidden"></p>
+        <button onclick="showCheckinHistory()" class="w-full mt-2 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl transition">查看签到日历</button>
       </div>
     </div>
 
@@ -192,6 +205,56 @@ tailwind.config = {
 
 <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
 
+<!-- Check-in History Modal -->
+<div id="checkinHistoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">签到日历</h2>
+      <button onclick="hideCheckinHistory()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-5">
+      <!-- Stats Row -->
+      <div class="grid grid-cols-4 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-primary-600" id="histCurrent">0</div><div class="text-xs text-gray-500 mt-1">连续签到</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-amber-500" id="histLongest">0</div><div class="text-xs text-gray-500 mt-1">最长连续</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-green-600" id="histTotal">0</div><div class="text-xs text-gray-500 mt-1">累计签到</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-gray-400" id="histMissed">0</div><div class="text-xs text-gray-500 mt-1">可补签</div></div>
+      </div>
+
+      <!-- Calendar -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <h3 class="text-sm font-semibold text-gray-700">近一年签到记录</h3>
+          <div class="flex items-center gap-3 text-xs text-gray-400">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-green-500"></span>已签到</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-red-300"></span>可补签</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-gray-100"></span>未到</span>
+          </div>
+        </div>
+        <div class="flex gap-1">
+          <div class="flex flex-col gap-[2px] text-[10px] text-gray-400 leading-[12px] pt-[2px]">
+            <span></span><span>一</span><span></span><span>三</span><span></span><span>五</span><span></span>
+          </div>
+          <div id="calGrid" class="cal-grid overflow-x-auto"></div>
+        </div>
+        <div id="calMonths" class="flex text-[10px] text-gray-400 mt-1 ml-6"></div>
+      </div>
+
+      <!-- Retroactive -->
+      <div id="retroSection" class="hidden">
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">补签</h3>
+        <p class="text-xs text-gray-500 mb-3">点击日历中的红色日期进行补签，每次消耗 <strong>10 积分</strong></p>
+        <div class="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
+          <div class="flex-1">
+            <div class="text-sm font-medium text-amber-800">当前积分：<span id="retroPoints">0</span></div>
+            <div class="text-xs text-amber-600">可补签 <span id="retroCanCount">0</span> 天</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
 <script>
 const CAT_MAP = { all:'全部话题', tech:'技术', life:'生活', notice:'公告' };
 const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
@@ -268,24 +331,180 @@ function renderAuth() {
 }
 
 // ===== 签到 =====
+let checkinData = null;
+
 async function loadCheckin() {
   if (!state.user) { renderCheckin(false); return; }
   const { checkedIn } = await api('/api/checkin/today');
   const me = await api('/api/me');
   if (me.user) state.user.points = me.user.points;
+  // 加载签到统计
+  try {
+    checkinData = await api('/api/checkin/history');
+  } catch(e) { checkinData = null; }
   renderCheckin(checkedIn);
 }
+
 function renderCheckin(checked) {
-  const btn=document.getElementById('checkinBtn'), st=document.getElementById('checkinStatus'), badge=document.getElementById('pointsBadge');
-  if (!state.user) { btn.disabled=false; btn.textContent='请先登录'; btn.onclick=()=>{toast('请先登录');showAuthModal();}; st.classList.add('hidden'); badge.classList.add('hidden'); return; }
-  badge.textContent=state.user.points+' 积分'; badge.classList.remove('hidden');
-  if (checked) { btn.disabled=true; btn.textContent='✓ 已签到'; st.textContent='今日已签到，积分 +10'; st.classList.remove('hidden'); }
-  else { btn.disabled=false; btn.textContent='立即签到'; btn.onclick=doCheckin; st.classList.add('hidden'); }
+  const btn = document.getElementById('checkinBtn');
+  const badge = document.getElementById('pointsBadge');
+  const streakInfo = document.getElementById('streakInfo');
+
+  if (!state.user) {
+    btn.disabled = false; btn.textContent = '请先登录';
+    btn.onclick = () => { toast('请先登录'); showAuthModal(); };
+    badge.classList.add('hidden'); streakInfo.classList.add('hidden');
+    return;
+  }
+
+  badge.textContent = state.user.points + ' 积分';
+  badge.classList.remove('hidden');
+
+  if (checkinData) {
+    document.getElementById('streakCurrent').textContent = checkinData.currentStreak;
+    document.getElementById('streakTotal').textContent = checkinData.totalDays;
+    streakInfo.classList.remove('hidden');
+  }
+
+  if (checked) {
+    btn.disabled = true; btn.textContent = '✓ 已签到';
+  } else {
+    btn.disabled = false; btn.textContent = '立即签到';
+    btn.onclick = doCheckin;
+  }
 }
+
 async function doCheckin() {
   if (!state.user) { toast('请先登录'); showAuthModal(); return; }
-  try { await api('/api/checkin',{method:'POST'}); state.user.points=(state.user.points||0)+10; renderCheckin(true); toast('签到成功！积分 +10'); }
-  catch(e) { toast(e.message); renderCheckin(true); }
+  try {
+    const res = await api('/api/checkin', { method: 'POST' });
+    state.user.points = res.points;
+    checkinData = await api('/api/checkin/history');
+    renderCheckin(true);
+    toast('签到成功！积分 +10');
+  } catch(e) { toast(e.message); }
+}
+
+function showCheckinHistory() {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  loadCheckinHistory();
+  document.getElementById('checkinHistoryModal').classList.remove('hidden');
+  document.getElementById('checkinHistoryModal').classList.add('flex');
+}
+function hideCheckinHistory() {
+  document.getElementById('checkinHistoryModal').classList.add('hidden');
+  document.getElementById('checkinHistoryModal').classList.remove('flex');
+}
+
+async function loadCheckinHistory() {
+  if (!checkinData) {
+    try { checkinData = await api('/api/checkin/history'); } catch(e) { toast('加载失败'); return; }
+  }
+  const d = checkinData;
+  // 统计卡片
+  document.getElementById('histCurrent').textContent = d.currentStreak;
+  document.getElementById('histLongest').textContent = d.longestStreak;
+  document.getElementById('histTotal').textContent = d.totalDays;
+  document.getElementById('histMissed').textContent = d.missedDays.length;
+
+  // 补签区域
+  const retroSection = document.getElementById('retroSection');
+  if (d.missedDays.length > 0) {
+    retroSection.classList.remove('hidden');
+    document.getElementById('retroPoints').textContent = d.points;
+    document.getElementById('retroCanCount').textContent = Math.min(d.missedDays.length, Math.floor(d.points / 10));
+  } else {
+    retroSection.classList.add('hidden');
+  }
+
+  renderCalendar(d);
+}
+
+function renderCalendar(data) {
+  const grid = document.getElementById('calGrid');
+  const monthsEl = document.getElementById('calMonths');
+  const checkinSet = new Set(data.checkinDates);
+  const missedSet = new Set(data.missedDays);
+
+  // 计算365天的日期范围（从364天前到今天）
+  const today = new Date();
+  const startDate = new Date(today);
+  startDate.setDate(startDate.getDate() - 364);
+
+  // 找到startDate所在周的周日（日历从周日开始）
+  const startDay = startDate.getDay();
+  const calStart = new Date(startDate);
+  calStart.setDate(calStart.getDate() - startDay);
+
+  const cells = [];
+  const monthLabels = [];
+  let lastMonth = -1;
+  const totalWeeks = 53;
+
+  for (let w = 0; w < totalWeeks; w++) {
+    for (let d = 0; d < 7; d++) {
+      const cellDate = new Date(calStart);
+      cellDate.setDate(cellDate.getDate() + (w * 7 + d));
+      const ds = cellDate.toLocaleDateString('sv-SE');
+      const todayStr = today.toLocaleDateString('sv-SE');
+
+      // 记录月份标签（每周第一个格子的月份）
+      if (d === 0 && cellDate.getMonth() !== lastMonth) {
+        lastMonth = cellDate.getMonth();
+        monthLabels.push({ week: w, label: (cellDate.getMonth() + 1) + '月' });
+      }
+
+      let cls = 'cal-day ';
+      let title = ds;
+      let clickable = false;
+
+      if (ds > todayStr) {
+        cls += 'cal-future';
+      } else if (ds < data.checkinDates[0] && !checkinSet.has(ds) && ds < (data.missedDays[0] || todayStr)) {
+        // 注册日期之前的日期（如果missedDays为空则用todayStr兜底）
+        cls += 'cal-before';
+      } else if (checkinSet.has(ds)) {
+        cls += 'cal-checked';
+        title += ' ✓';
+      } else if (missedSet.has(ds)) {
+        cls += 'cal-missed';
+        title += ' (可补签)';
+        clickable = true;
+      } else if (ds <= todayStr) {
+        // 注册前或数据外的日期
+        cls += 'cal-before';
+      }
+
+      if (ds === todayStr) cls += ' cal-today';
+
+      cells.push({ cls, title, date: ds, clickable });
+    }
+  }
+
+  grid.innerHTML = cells.map(c =>
+    `<div class="${c.cls}" title="${c.title}"${c.clickable ? ` onclick="doRetroactive('${c.date}')"` : ''}></div>`
+  ).join('');
+
+  // 月份标签
+  const gridWidth = totalWeeks * 14; // 12px + 2px gap
+  monthsEl.innerHTML = monthLabels.map(m => {
+    const left = (m.week / totalWeeks * 100);
+    return `<span style="position:absolute;left:${left}%">${m.label}</span>`;
+  }).join('');
+  monthsEl.style.position = 'relative';
+  monthsEl.style.minHeight = '16px';
+}
+
+async function doRetroactive(date) {
+  if (!confirm(`确认补签 ${date}？\n消耗 10 积分`)) return;
+  try {
+    const res = await api('/api/checkin/retroactive', { method: 'POST', body: JSON.stringify({ date }) });
+    state.user.points = res.points;
+    checkinData = null; // 清除缓存，重新加载
+    await loadCheckinHistory();
+    renderCheckin(false); // 刷新侧边栏
+    toast(`补签成功！${date}，剩余 ${res.points} 积分`);
+  } catch(e) { toast(e.message); }
 }
 
 // ===== 帖子 =====
