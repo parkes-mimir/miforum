@@ -26,12 +26,10 @@ tailwind.config = {
   .streak-num{font-size:1.5rem;font-weight:700;line-height:1}
   .cal-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
   .cal-head{font-size:11px;color:#9ca3af;font-weight:500;padding:4px 0}
-  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:default;transition:all .15s;position:relative}
+  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:default;transition:all .15s;position:relative;color:#1f2937}
   .cal-cell.checked{background:#22c55e;color:#fff;font-weight:600}
   .cal-cell.missed{background:#fee2e2;color:#ef4444;cursor:pointer}
   .cal-cell.missed:hover{background:#fca5a5;color:#fff;transform:scale(1.1)}
-  .cal-cell.future{background:#f9fafb;color:#d1d5db}
-  .cal-cell.empty{background:transparent}
   .cal-cell.today{outline:2px solid #6366f1;outline-offset:1px;font-weight:700}
 </style>
 </head>
@@ -458,19 +456,49 @@ function drawMonth() {
   const startPad = firstDay.getDay(); // 0=周日
   const totalDays = lastDay.getDate();
 
+  // 上月末尾几天
+  const prevLast = new Date(calYear, calMonth, 0);
+  const prevDays = prevLast.getDate();
+
   let html = '';
-  // 前置空白
-  for (let i = 0; i < startPad; i++) {
-    html += '<div class="cal-cell empty"></div>';
-  }
-  // 日期格子
-  for (let d = 1; d <= totalDays; d++) {
-    const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+  const totalCells = 42; // 6行×7列
+
+  for (let i = 0; i < totalCells; i++) {
+    let d, y, m, isCurrent = true;
+
+    if (i < startPad) {
+      // 上月日期
+      d = prevDays - startPad + 1 + i;
+      y = calMonth === 0 ? calYear - 1 : calYear;
+      m = calMonth === 0 ? 12 : calMonth;
+      isCurrent = false;
+    } else if (i >= startPad + totalDays) {
+      // 下月日期
+      d = i - startPad - totalDays + 1;
+      y = calMonth === 11 ? calYear + 1 : calYear;
+      m = calMonth === 11 ? 1 : calMonth + 2;
+      isCurrent = false;
+    } else {
+      // 本月日期
+      d = i - startPad + 1;
+      y = calYear;
+      m = calMonth + 1;
+    }
+
+    const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+
+    if (!isCurrent) {
+      // 非本月：浅色
+      html += `<div class="cal-cell" style="color:#d1d5db">${d}</div>`;
+      continue;
+    }
+
+    // 本月日期
     let cls = 'cal-cell';
     let clickable = '';
 
     if (ds > calTodayStr) {
-      cls += ' future';
+      // 未来：黑色数字
     } else if (calCheckinSet.has(ds)) {
       cls += ' checked';
     } else if (calMissedSet.has(ds)) {
@@ -481,13 +509,7 @@ function drawMonth() {
 
     html += `<div class="${cls}"${clickable}>${d}</div>`;
   }
-  // 补齐到6行（42格）保持高度固定
-  const totalCells = startPad + totalDays;
-  const rows = Math.ceil(totalCells / 7);
-  const padding = (6 - rows) * 7;
-  for (let i = 0; i < padding; i++) {
-    html += '<div class="cal-cell empty"></div>';
-  }
+
   grid.innerHTML = html;
 }
 
