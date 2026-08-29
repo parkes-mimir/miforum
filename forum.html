@@ -233,20 +233,24 @@ tailwind.config = {
           <button onclick="calPrev()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
             <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
           </button>
-          <span id="calTitle" class="text-base font-bold text-gray-800"></span>
+          <div class="relative">
+            <button onclick="toggleMonthPicker()" id="calTitle" class="text-base font-bold text-gray-800 hover:text-primary-600 transition cursor-pointer px-3 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1"></button>
+            <!-- Month Picker Dropdown -->
+            <div id="monthPicker" class="hidden absolute top-full left-1/2 -translate-x-1/2 mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-3 z-10 fade-in" style="width:240px">
+              <div class="grid grid-cols-3 gap-2" id="monthPickerGrid"></div>
+            </div>
+          </div>
           <button onclick="calNext()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
             <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
           </button>
         </div>
         <!-- Month Grid -->
-        <div class="bg-gray-50 rounded-2xl p-4">
+        <div class="bg-gray-50 rounded-2xl p-4 overflow-hidden">
           <div class="cal-month mb-2">
             <span class="cal-head">日</span><span class="cal-head">一</span><span class="cal-head">二</span><span class="cal-head">三</span><span class="cal-head">四</span><span class="cal-head">五</span><span class="cal-head">六</span>
           </div>
-          <div id="calGrid" class="cal-month"></div>
+          <div id="calGrid" class="cal-month" style="transition:opacity .2s ease,transform .2s ease"></div>
         </div>
-        <!-- Month Quick Jump -->
-        <div id="monthJump" class="flex gap-1.5 mt-3 flex-wrap"></div>
       </div>
 
       <!-- Retroactive -->
@@ -442,44 +446,54 @@ function renderCalendar(data) {
   const now = new Date();
   calYear = now.getFullYear();
   calMonth = now.getMonth();
-  renderMonthJump();
   drawMonth();
 }
 
-function drawMonth() {
+function drawMonth(direction) {
   const grid = document.getElementById('calGrid');
   const title = document.getElementById('calTitle');
-  title.textContent = `${calYear}年${calMonth + 1}月`;
+  title.innerHTML = `${calYear}年${calMonth + 1}月 <svg class="w-3.5 h-3.5 inline-block text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>`;
 
+  // 动画
+  if (direction) {
+    grid.style.opacity = '0';
+    grid.style.transform = direction === 'left' ? 'translateX(20px)' : 'translateX(-20px)';
+    setTimeout(() => {
+      renderGridCells(grid);
+      grid.style.transform = direction === 'left' ? 'translateX(-20px)' : 'translateX(20px)';
+      requestAnimationFrame(() => {
+        grid.style.opacity = '1';
+        grid.style.transform = 'translateX(0)';
+      });
+    }, 150);
+  } else {
+    renderGridCells(grid);
+  }
+}
+
+function renderGridCells(grid) {
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
-  const startPad = firstDay.getDay(); // 0=周日
+  const startPad = firstDay.getDay();
   const totalDays = lastDay.getDate();
-
-  // 上月末尾几天
   const prevLast = new Date(calYear, calMonth, 0);
   const prevDays = prevLast.getDate();
 
   let html = '';
-  const totalCells = 42; // 6行×7列
-
-  for (let i = 0; i < totalCells; i++) {
+  for (let i = 0; i < 42; i++) {
     let d, y, m, isCurrent = true;
 
     if (i < startPad) {
-      // 上月日期
       d = prevDays - startPad + 1 + i;
       y = calMonth === 0 ? calYear - 1 : calYear;
       m = calMonth === 0 ? 12 : calMonth;
       isCurrent = false;
     } else if (i >= startPad + totalDays) {
-      // 下月日期
       d = i - startPad - totalDays + 1;
       y = calMonth === 11 ? calYear + 1 : calYear;
       m = calMonth === 11 ? 1 : calMonth + 2;
       isCurrent = false;
     } else {
-      // 本月日期
       d = i - startPad + 1;
       y = calYear;
       m = calMonth + 1;
@@ -488,17 +502,15 @@ function drawMonth() {
     const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
     if (!isCurrent) {
-      // 非本月：浅色
       html += `<div class="cal-cell" style="color:#d1d5db">${d}</div>`;
       continue;
     }
 
-    // 本月日期
     let cls = 'cal-cell';
     let clickable = '';
 
     if (ds > calTodayStr) {
-      // 未来：黑色数字
+      // 未来
     } else if (calCheckinSet.has(ds)) {
       cls += ' checked';
     } else if (calMissedSet.has(ds)) {
@@ -509,40 +521,54 @@ function drawMonth() {
 
     html += `<div class="${cls}"${clickable}>${d}</div>`;
   }
-
   grid.innerHTML = html;
 }
 
 function calPrev() {
+  closeMonthPicker();
   calMonth--;
   if (calMonth < 0) { calMonth = 11; calYear--; }
-  drawMonth();
-  highlightMonthBtn();
+  drawMonth('right');
 }
 function calNext() {
+  closeMonthPicker();
   calMonth++;
   if (calMonth > 11) { calMonth = 0; calYear++; }
-  drawMonth();
-  highlightMonthBtn();
+  drawMonth('left');
 }
-function calJump(m) {
-  calMonth = m;
-  drawMonth();
-  highlightMonthBtn();
-}
-function renderMonthJump() {
-  const el = document.getElementById('monthJump');
+
+function toggleMonthPicker() {
+  const picker = document.getElementById('monthPicker');
+  const isOpen = !picker.classList.contains('hidden');
+  if (isOpen) { closeMonthPicker(); return; }
+
+  const grid = document.getElementById('monthPickerGrid');
   const names = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  el.innerHTML = names.map((n, i) =>
-    `<button onclick="calJump(${i})" data-month="${i}" class="month-btn px-2.5 py-1 text-xs rounded-lg border transition ${i===calMonth ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'}">${n}</button>`
+  grid.innerHTML = names.map((n, i) =>
+    `<button onclick="selectMonth(${i})" class="py-2 text-sm rounded-lg transition ${i === calMonth ? 'bg-primary-600 text-white font-semibold' : 'text-gray-600 hover:bg-gray-100'}">${n}</button>`
   ).join('');
+  picker.classList.remove('hidden');
 }
-function highlightMonthBtn() {
-  document.querySelectorAll('.month-btn').forEach(btn => {
-    const m = Number(btn.dataset.month);
-    btn.className = `month-btn px-2.5 py-1 text-xs rounded-lg border transition ${m===calMonth ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'}`;
-  });
+
+function selectMonth(m) {
+  const oldMonth = calMonth;
+  calMonth = m;
+  closeMonthPicker();
+  drawMonth(m > oldMonth ? 'left' : m < oldMonth ? 'right' : null);
 }
+
+function closeMonthPicker() {
+  document.getElementById('monthPicker').classList.add('hidden');
+}
+
+// 点击外部关闭月份选择器
+document.addEventListener('click', (e) => {
+  const picker = document.getElementById('monthPicker');
+  const title = document.getElementById('calTitle');
+  if (picker && !picker.contains(e.target) && !title.contains(e.target)) {
+    closeMonthPicker();
+  }
+});
 
 async function doRetroactive(date) {
   if (!confirm(`确认补签 ${date}？\n消耗 10 积分`)) return;
