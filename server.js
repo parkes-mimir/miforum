@@ -317,13 +317,36 @@ app.delete('/api/like/:postId', requireAuth, (req, res) => {
 // ============================================================
 // 启动
 // ============================================================
-const server = app.listen(PORT, () => {
-  console.log(`\n  MiForum 运行在 http://localhost:${PORT}\n`);
-});
-server.on('error', (err) => {
-  if (err.code === 'EADDRINUSE') {
-    console.error(`\n  ✗ 端口 ${PORT} 被占用，先执行: fuser -k ${PORT}/tcp\n`);
-    process.exit(1);
-  }
-  throw err;
-});
+const { execSync } = require('child_process');
+
+function killPort(port) {
+  try {
+    const pids = execSync(`ss -tlnp | grep :${port} | grep -oP 'pid=\\K\\d+'`, { encoding: 'utf8' }).trim();
+    if (pids) {
+      pids.split('\n').forEach(pid => { try { process.kill(Number(pid)); } catch(e) {} });
+      return true;
+    }
+  } catch(e) {}
+  return false;
+}
+
+function startServer() {
+  const server = app.listen(PORT, () => {
+    console.log(`\n  MiForum 运行在 http://localhost:${PORT}\n`);
+  });
+  server.on('error', (err) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`  端口 ${PORT} 被占用，尝试自动关闭旧进程...`);
+      if (killPort(PORT)) {
+        setTimeout(() => startServer(), 500);
+      } else {
+        console.error(`  ✗ 无法释放端口 ${PORT}`);
+        process.exit(1);
+      }
+    } else {
+      throw err;
+    }
+  });
+}
+
+startServer();
