@@ -247,6 +247,8 @@ tailwind.config = {
           </div>
           <div id="calGrid" class="cal-month"></div>
         </div>
+        <!-- Month Quick Jump -->
+        <div id="monthJump" class="flex gap-1.5 mt-3 flex-wrap"></div>
       </div>
 
       <!-- Retroactive -->
@@ -442,6 +444,7 @@ function renderCalendar(data) {
   const now = new Date();
   calYear = now.getFullYear();
   calMonth = now.getMonth();
+  renderMonthJump();
   drawMonth();
 }
 
@@ -478,6 +481,13 @@ function drawMonth() {
 
     html += `<div class="${cls}"${clickable}>${d}</div>`;
   }
+  // 补齐到6行（42格）保持高度固定
+  const totalCells = startPad + totalDays;
+  const rows = Math.ceil(totalCells / 7);
+  const padding = (6 - rows) * 7;
+  for (let i = 0; i < padding; i++) {
+    html += '<div class="cal-cell empty"></div>';
+  }
   grid.innerHTML = html;
 }
 
@@ -485,11 +495,31 @@ function calPrev() {
   calMonth--;
   if (calMonth < 0) { calMonth = 11; calYear--; }
   drawMonth();
+  highlightMonthBtn();
 }
 function calNext() {
   calMonth++;
   if (calMonth > 11) { calMonth = 0; calYear++; }
   drawMonth();
+  highlightMonthBtn();
+}
+function calJump(m) {
+  calMonth = m;
+  drawMonth();
+  highlightMonthBtn();
+}
+function renderMonthJump() {
+  const el = document.getElementById('monthJump');
+  const names = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
+  el.innerHTML = names.map((n, i) =>
+    `<button onclick="calJump(${i})" data-month="${i}" class="month-btn px-2.5 py-1 text-xs rounded-lg border transition ${i===calMonth ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'}">${n}</button>`
+  ).join('');
+}
+function highlightMonthBtn() {
+  document.querySelectorAll('.month-btn').forEach(btn => {
+    const m = Number(btn.dataset.month);
+    btn.className = `month-btn px-2.5 py-1 text-xs rounded-lg border transition ${m===calMonth ? 'bg-primary-600 text-white border-primary-600' : 'bg-white text-gray-600 border-gray-200 hover:border-primary-300'}`;
+  });
 }
 
 async function doRetroactive(date) {
