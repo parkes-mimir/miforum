@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiForum - 现代微论坛</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: { primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' } } } }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{font-family:'Inter',system-ui,-apple-system,sans-serif}
+  body{background:#f0f2f5}
+  .fade-in{animation:fadeIn .2s ease-out}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .toast-in{animation:slideUp .3s ease-out}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  .post-card:hover{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+  .sidebar-link.active{background:#eef2ff;color:#4f46e5;font-weight:600}
+  .skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
+  @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<!-- Topbar -->
+<header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
+    <div class="flex items-center gap-3">
+      <button id="sidebarToggle" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+      </button>
+      <a href="#" onclick="location.reload()" class="flex items-center gap-2 font-bold text-xl text-primary-600">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+        MiForum
+      </a>
+    </div>
+    <div class="hidden sm:flex flex-1 max-w-md mx-6">
+      <div class="relative w-full">
+        <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+        <input id="searchInput" type="text" placeholder="搜索话题..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:bg-white transition">
+      </div>
+    </div>
+    <div id="authArea" class="flex items-center gap-2"></div>
+  </div>
+</header>
+
+<div id="sidebarOverlay" class="fixed inset-0 bg-black/30 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
+
+<div class="max-w-7xl mx-auto flex relative">
+  <!-- Sidebar -->
+  <aside id="sidebar" class="fixed lg:sticky top-14 left-0 z-30 w-64 h-[calc(100vh-3.5rem)] bg-white border-r border-gray-200/60 overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform flex-shrink-0">
+    <nav class="p-4 space-y-1">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">版块分类</p>
+      <button onclick="filterCategory('all')" data-cat="all" class="sidebar-link active w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        全部话题
+      </button>
+      <button onclick="filterCategory('tech')" data-cat="tech" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
+        技术
+      </button>
+      <button onclick="filterCategory('life')" data-cat="life" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+        生活
+      </button>
+      <button onclick="filterCategory('notice')" data-cat="notice" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
+        公告
+      </button>
+    </nav>
+
+    <!-- Check-in Card -->
+    <div class="p-4">
+      <div class="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl p-4 text-white">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="font-semibold text-sm">每日签到</span>
+          </div>
+          <span id="pointsBadge" class="hidden text-xs bg-white/20 px-2 py-0.5 rounded-full">0 积分</span>
+        </div>
+        <p class="text-xs text-white/70 mb-3">坚持签到获取积分奖励</p>
+        <button id="checkinBtn" onclick="doCheckin()" class="w-full py-2 bg-white/20 hover:bg-white/30 backdrop-blur text-white text-sm font-medium rounded-xl transition disabled:opacity-50">立即签到</button>
+        <p id="checkinStatus" class="text-xs text-white/60 mt-2 text-center hidden"></p>
+      </div>
+    </div>
+
+    <!-- Stats -->
+    <div class="p-4">
+      <div class="bg-gray-50 rounded-2xl p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">社区统计</p>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">话题数</span><span id="statPosts" class="font-semibold">-</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">评论数</span><span id="statComments" class="font-semibold">-</span></div>
+      </div>
+    </div>
+  </aside>
+
+  <!-- Main Content -->
+  <main class="flex-1 min-w-0 p-4 lg:p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 id="pageTitle" class="text-xl font-bold text-gray-900">全部话题</h1>
+        <p id="pageSub" class="text-sm text-gray-500 mt-0.5">欢迎来到社区，参与讨论吧</p>
+      </div>
+      <button onclick="showNewPostModal()" class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 shadow-lg shadow-primary-600/20 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        发布新话题
+      </button>
+    </div>
+
+    <div id="postSkeleton" class="space-y-3">
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+    </div>
+    <div id="postList" class="space-y-3"></div>
+    <div id="emptyState" class="hidden text-center py-20">
+      <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      <p class="text-gray-400">暂无话题，快来发布第一条吧</p>
+    </div>
+  </main>
+</div>
+
+<!-- Auth Modal -->
+<div id="authModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">欢迎</h2>
+      <button onclick="hideAuthModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
+      <button id="tabLogin" onclick="switchAuthTab('login')" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white text-gray-900 shadow-sm transition">登录</button>
+      <button id="tabRegister" onclick="switchAuthTab('register')" class="flex-1 py-2 text-sm font-medium rounded-lg text-gray-500 transition">注册</button>
+    </div>
+    <div id="loginForm" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input id="loginEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input id="loginPassword" type="password" placeholder="输入密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <button onclick="doLogin()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">登录</button>
+    </div>
+    <div id="registerForm" class="space-y-3 hidden">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">用户名</label><input id="regUsername" type="text" placeholder="你的昵称" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input id="regEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input id="regPassword" type="password" placeholder="至少 6 位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <button onclick="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Post Modal -->
+<div id="newPostModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-6">
+      <h2 class="text-lg font-bold">发布新话题</h2>
+      <button onclick="hideNewPostModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">标题</label><input id="postTitle" type="text" placeholder="请输入话题标题" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">分类</label><select id="postCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"><option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option></select></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">正文</label><textarea id="postContent" rows="5" placeholder="分享你的想法..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea></div>
+      <button id="submitPostBtn" onclick="doNewPost()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">发布话题</button>
+    </div>
+  </div>
+</div>
+
+<!-- Post Detail Modal -->
+<div id="postDetailModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 id="detailTitle" class="text-lg font-bold truncate"></h2>
+      <button onclick="hidePostDetail()" class="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-4"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-5">
+      <div id="detailMeta" class="flex items-center gap-3"></div>
+      <div id="detailContent" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <div class="border-t border-gray-100 pt-4">
+        <h3 class="text-sm font-semibold text-gray-900 mb-3">评论 <span id="commentCount" class="text-gray-400 font-normal"></span></h3>
+        <div id="commentList" class="space-y-3 mb-4"></div>
+        <div id="commentForm" class="hidden">
+          <textarea id="commentInput" rows="3" placeholder="写下你的评论..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+          <div class="flex justify-end mt-2"><button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button></div>
+        </div>
+        <p id="commentLoginHint" class="text-sm text-gray-400 text-center py-4 hidden">请先<a href="#" onclick="hidePostDetail();showAuthModal()" class="text-primary-600 font-medium">登录</a>后评论</p>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
+
+<script>
+const CAT_MAP = { all:'全部话题', tech:'技术', life:'生活', notice:'公告' };
+const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
+
+let state = { user: null, currentCat: 'all', currentPostId: null, posts: [], likedIds: new Set() };
+
+// ===== 工具 =====
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg';
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2500);
+}
+function relTime(iso) {
+  const d = Date.now() - new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z')).getTime();
+  const m = Math.floor(d/60000); if(m<1) return '刚刚'; if(m<60) return m+'分钟前';
+  const h = Math.floor(m/60); if(h<24) return h+'小时前'; return Math.floor(h/24)+'天前';
+}
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+async function api(url, opts) {
+  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Modal =====
+function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('authModal').classList.add('flex'); }
+function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('flex'); }
+function showNewPostModal() { if(!state.user){toast('请先登录');showAuthModal();return;} document.getElementById('newPostModal').classList.remove('hidden');document.getElementById('newPostModal').classList.add('flex');document.getElementById('postTitle').focus(); }
+function hideNewPostModal() { document.getElementById('newPostModal').classList.add('hidden');document.getElementById('newPostModal').classList.remove('flex'); }
+function showPostDetail() { document.getElementById('postDetailModal').classList.remove('hidden');document.getElementById('postDetailModal').classList.add('flex'); }
+function hidePostDetail() { document.getElementById('postDetailModal').classList.add('hidden');document.getElementById('postDetailModal').classList.remove('flex'); state.currentPostId=null; }
+function switchAuthTab(t) {
+  document.getElementById('tabLogin').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='login'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
+  document.getElementById('tabRegister').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='register'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
+  document.getElementById('loginForm').classList.toggle('hidden',t!=='login');
+  document.getElementById('registerForm').classList.toggle('hidden',t!=='register');
+}
+
+// ===== Auth =====
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email||!password) { toast('请填写邮箱和密码'); return; }
+  try {
+    const { user } = await api('/api/login', { method:'POST', body:JSON.stringify({email,password}) });
+    state.user = user; hideAuthModal(); renderAuth(); await loadCheckin(); await loadPosts(); toast('登录成功！');
+  } catch(e) { toast(e.message); }
+}
+async function doRegister() {
+  const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  if (!username||!email||!password) { toast('请填写所有字段'); return; }
+  if (password.length<6) { toast('密码至少6位'); return; }
+  try {
+    const { user } = await api('/api/register', { method:'POST', body:JSON.stringify({username,email,password}) });
+    state.user = user; hideAuthModal(); renderAuth(); await loadCheckin(); await loadPosts(); toast('注册成功！');
+  } catch(e) { toast(e.message); }
+}
+async function doLogout() {
+  await api('/api/logout', { method:'POST' });
+  state.user=null; state.likedIds.clear(); renderAuth(); renderCheckin(false); toast('已退出');
+}
+function renderAuth() {
+  const a = document.getElementById('authArea');
+  if (state.user) {
+    a.innerHTML = `<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div><span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span><button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button></div>`;
+  } else {
+    a.innerHTML = '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
+  }
+}
+
+// ===== 签到 =====
+async function loadCheckin() {
+  if (!state.user) { renderCheckin(false); return; }
+  const { checkedIn } = await api('/api/checkin/today');
+  const me = await api('/api/me');
+  if (me.user) state.user.points = me.user.points;
+  renderCheckin(checkedIn);
+}
+function renderCheckin(checked) {
+  const btn=document.getElementById('checkinBtn'), st=document.getElementById('checkinStatus'), badge=document.getElementById('pointsBadge');
+  if (!state.user) { btn.disabled=false; btn.textContent='请先登录'; btn.onclick=()=>{toast('请先登录');showAuthModal();}; st.classList.add('hidden'); badge.classList.add('hidden'); return; }
+  badge.textContent=state.user.points+' 积分'; badge.classList.remove('hidden');
+  if (checked) { btn.disabled=true; btn.textContent='✓ 已签到'; st.textContent='今日已签到，积分 +10'; st.classList.remove('hidden'); }
+  else { btn.disabled=false; btn.textContent='立即签到'; btn.onclick=doCheckin; st.classList.add('hidden'); }
+}
+async function doCheckin() {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  try { await api('/api/checkin',{method:'POST'}); state.user.points=(state.user.points||0)+10; renderCheckin(true); toast('签到成功！积分 +10'); }
+  catch(e) { toast(e.message); renderCheckin(true); }
+}
+
+// ===== 帖子 =====
+async function loadPosts() {
+  const params = new URLSearchParams();
+  if (state.currentCat!=='all') params.set('category', state.currentCat);
+  const { posts } = await api('/api/posts?'+params);
+  state.posts = posts;
+  if (state.user) { const { ids } = await api('/api/likes'); state.likedIds = new Set(ids); }
+  else state.likedIds = new Set();
+  document.getElementById('postSkeleton').classList.add('hidden');
+  renderPosts();
+}
+function renderPosts() {
+  const list=document.getElementById('postList'), empty=document.getElementById('emptyState');
+  if (!state.posts.length) { list.innerHTML=''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  list.innerHTML = state.posts.map(p => {
+    const liked = state.likedIds.has(p.id);
+    return `<div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" onclick="openPost('${p.id}')">
+      <div class="flex items-start gap-3">
+        <div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">${esc(p.author_name[0].toUpperCase())}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
+            <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
+          </div>
+          <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
+          <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g,' ')}</p>
+          <div class="flex items-center gap-4 mt-3">
+            <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked?'text-red-500':'text-gray-400'} hover:text-red-500 transition">
+              <svg class="w-4 h-4" fill="${liked?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+              ${p.likes_count}
+            </button>
+            <span class="flex items-center gap-1 text-xs text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+              ${p.comments_count}
+            </span>
+          </div>
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+  document.getElementById('statPosts').textContent = state.posts.length;
+  document.getElementById('statComments').textContent = state.posts.reduce((s,p)=>s+p.comments_count,0);
+}
+async function doNewPost() {
+  const title=document.getElementById('postTitle').value.trim(), cat=document.getElementById('postCategory').value, content=document.getElementById('postContent').value.trim();
+  if (!title) { toast('请输入标题'); return; } if (!content) { toast('请输入正文'); return; }
+  const btn=document.getElementById('submitPostBtn'); btn.disabled=true; btn.textContent='发布中...';
+  try {
+    await api('/api/posts',{method:'POST',body:JSON.stringify({title,content,category:cat})});
+    hideNewPostModal(); document.getElementById('postTitle').value=''; document.getElementById('postContent').value='';
+    if (state.currentCat!=='all'&&state.currentCat!==cat) filterCategory('all'); else await loadPosts();
+    toast('发布成功！');
+  } catch(e) { toast(e.message); }
+  finally { btn.disabled=false; btn.textContent='发布话题'; }
+}
+async function toggleLike(pid) {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  try {
+    if (state.likedIds.has(pid)) { await api('/api/like/'+pid,{method:'DELETE'}); state.likedIds.delete(pid); }
+    else { await api('/api/like/'+pid,{method:'POST'}); state.likedIds.add(pid); }
+    await loadPosts();
+  } catch(e) { toast(e.message); }
+}
+
+// ===== 详情 + 评论 =====
+async function openPost(pid) {
+  const p = state.posts.find(x=>x.id==pid); if(!p) return;
+  state.currentPostId = pid;
+  document.getElementById('detailTitle').textContent = p.title;
+  document.getElementById('detailMeta').innerHTML = `<div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(p.author_name[0].toUpperCase())}</div><div><span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span><span class="text-xs text-gray-400 ml-2">${relTime(p.created_at)}</span><span class="text-xs px-2 py-0.5 rounded-full ml-2 ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span></div>`;
+  document.getElementById('detailContent').textContent = p.content;
+  showPostDetail();
+  await loadComments(pid);
+}
+async function loadComments(pid) {
+  const { comments } = await api('/api/posts/'+pid+'/comments');
+  renderComments(comments);
+}
+function renderComments(cl) {
+  document.getElementById('commentCount').textContent = '('+cl.length+')';
+  if (!cl.length) { document.getElementById('commentList').innerHTML='<p class="text-sm text-gray-400 text-center py-4">暂无评论，快来抢沙发吧</p>'; }
+  else {
+    document.getElementById('commentList').innerHTML = cl.map(c => {
+      const own = state.user && c.author_id === state.user.id;
+      return `<div class="flex gap-3" id="comment-${c.id}">
+        <div class="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
+        <div class="flex-1 bg-gray-50 rounded-xl px-3 py-2">
+          <div class="flex items-center gap-2 mb-1">
+            <span class="text-xs font-semibold text-gray-900">${esc(c.author_name)}</span>
+            <span class="text-xs text-gray-400">${relTime(c.created_at)}</span>
+            ${own?`<button onclick="startEdit(${c.id})" class="ml-auto text-gray-400 hover:text-primary-600" title="编辑"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button><button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600" title="删除"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`:''}
+          </div>
+          <p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if (state.user) { document.getElementById('commentForm').classList.remove('hidden'); document.getElementById('commentLoginHint').classList.add('hidden'); }
+  else { document.getElementById('commentForm').classList.add('hidden'); document.getElementById('commentLoginHint').classList.remove('hidden'); }
+}
+async function doComment() {
+  const input=document.getElementById('commentInput'), text=input.value.trim();
+  if (!text) { toast('请输入评论'); return; }
+  try { await api('/api/posts/'+state.currentPostId+'/comments',{method:'POST',body:JSON.stringify({content:text})}); input.value=''; await loadComments(state.currentPostId); await loadPosts(); toast('评论成功！'); }
+  catch(e) { toast(e.message); }
+}
+function startEdit(cid) {
+  const el=document.getElementById('comment-'+cid); if(!el) return;
+  const p=el.querySelector('.comment-content'), old=p.textContent;
+  p.outerHTML=`<div class="edit-area mt-1"><textarea class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" rows="2">${esc(old)}</textarea><div class="flex gap-2 mt-1.5 justify-end"><button onclick="cancelEdit(${cid})" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button><button onclick="saveEdit(${cid})" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button></div></div>`;
+  el.querySelector('textarea').focus();
+}
+function cancelEdit(cid) {
+  const el=document.getElementById('comment-'+cid); if(!el) return;
+  const area=el.querySelector('.edit-area');
+  const ta=area.querySelector('textarea');
+  area.outerHTML=`<p class="text-sm text-gray-700 comment-content">${esc(ta.value)}</p>`;
+}
+async function saveEdit(cid) {
+  const el=document.getElementById('comment-'+cid); if(!el) return;
+  const text=el.querySelector('textarea').value.trim();
+  if (!text) { toast('评论不能为空'); return; }
+  try { await api('/api/comments/'+cid,{method:'PUT',body:JSON.stringify({content:text})}); await loadComments(state.currentPostId); toast('已更新'); }
+  catch(e) { toast(e.message); }
+}
+async function deleteComment(cid) {
+  if (!confirm('确定删除这条评论？')) return;
+  try { await api('/api/comments/'+cid,{method:'DELETE'}); await loadComments(state.currentPostId); await loadPosts(); toast('已删除'); }
+  catch(e) { toast(e.message); }
+}
+
+// ===== 分类 / 搜索 =====
+function filterCategory(cat) {
+  state.currentCat = cat;
+  document.querySelectorAll('.sidebar-link').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
+  document.getElementById('pageTitle').textContent = CAT_MAP[cat];
+  document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
+  loadPosts();
+  if (window.innerWidth<1024) toggleSidebar();
+}
+function toggleSidebar() {
+  document.getElementById('sidebar').classList.toggle('-translate-x-full');
+  document.getElementById('sidebarOverlay').classList.toggle('hidden');
+}
+let searchTimer=null;
+document.getElementById('searchInput').addEventListener('input', function(e) {
+  clearTimeout(searchTimer);
+  const q=e.target.value.trim();
+  searchTimer=setTimeout(async()=>{
+    if (!q) { document.getElementById('pageTitle').textContent=CAT_MAP[state.currentCat]; document.getElementById('pageSub').textContent='欢迎来到社区，参与讨论吧'; await loadPosts(); return; }
+    const params=new URLSearchParams({search:q});
+    const { posts } = await api('/api/posts?'+params);
+    state.posts=posts;
+    document.getElementById('postSkeleton').classList.add('hidden');
+    document.getElementById('pageTitle').textContent='搜索: '+q;
+    document.getElementById('pageSub').textContent='找到 '+posts.length+' 条结果';
+    renderPosts();
+  },300);
+});
+
+// ===== 事件 =====
+document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
+document.querySelectorAll('[id$="Modal"]').forEach(m=>{m.addEventListener('click',function(e){if(e.target===this){this.classList.add('hidden');this.classList.remove('flex');}});});
+document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+document.getElementById('regPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+
+// ===== 初始化 =====
+(async()=>{
+  try {
+    const { user } = await api('/api/me');
+    state.user = user;
+  } catch(e) {}
+  renderAuth();
+  await loadCheckin();
+  await loadPosts();
+})();
+</script>
+</body>
+</html>
