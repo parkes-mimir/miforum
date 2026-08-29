@@ -67,4 +67,4 @@ npm start
 
 ## License
 
-MIT
+[The Unlicense](LICENSE) — 公共领域，无任何版权限制
