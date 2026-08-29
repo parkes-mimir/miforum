@@ -23,16 +23,16 @@ tailwind.config = {
   .sidebar-link.active{background:#eef2ff;color:#4f46e5;font-weight:600}
   .skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
-  .cal-grid{display:grid;grid-template-rows:repeat(7,1fr);grid-auto-flow:column;gap:3px}
-  .cal-day{width:13px;height:13px;border-radius:2px;cursor:default;transition:transform .1s}
-  .cal-day:hover{transform:scale(1.5)}
-  .cal-checked{background:#22c55e}
-  .cal-missed{background:#e5e7eb;cursor:pointer}
-  .cal-missed:hover{background:#f87171}
-  .cal-future{background:#f1f5f9}
-  .cal-before{background:#f1f5f9}
-  .cal-today{outline:2px solid #6366f1;outline-offset:1px}
   .streak-num{font-size:1.5rem;font-weight:700;line-height:1}
+  .cal-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+  .cal-head{font-size:11px;color:#9ca3af;font-weight:500;padding:4px 0}
+  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:50%;font-size:13px;cursor:default;transition:all .15s;position:relative}
+  .cal-cell.checked{background:#22c55e;color:#fff;font-weight:600}
+  .cal-cell.missed{background:#fee2e2;color:#ef4444;cursor:pointer}
+  .cal-cell.missed:hover{background:#fca5a5;color:#fff;transform:scale(1.1)}
+  .cal-cell.future{background:#f9fafb;color:#d1d5db}
+  .cal-cell.empty{background:transparent}
+  .cal-cell.today{outline:2px solid #6366f1;outline-offset:1px;font-weight:700}
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -224,25 +224,28 @@ tailwind.config = {
       <!-- Calendar -->
       <div>
         <div class="flex items-center justify-between mb-3">
-          <h3 class="text-sm font-semibold text-gray-700">近一年签到记录</h3>
+          <h3 class="text-sm font-semibold text-gray-700">签到日历</h3>
           <div class="flex items-center gap-3 text-xs text-gray-400">
-            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-green-500 inline-block"></span>已签到</span>
-            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-gray-300 inline-block"></span>未签到</span>
-            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-sm bg-gray-100 inline-block"></span>未到</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>已签</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-200 inline-block"></span>未签</span>
           </div>
         </div>
-        <div id="calMonths" class="flex text-[10px] text-gray-400 mb-1 ml-8"></div>
-        <div class="flex">
-          <div class="flex flex-col text-[10px] text-gray-400 mr-1.5" style="gap:3px;padding-top:0">
-            <span style="height:13px;line-height:13px"></span>
-            <span style="height:13px;line-height:13px">一</span>
-            <span style="height:13px;line-height:13px"></span>
-            <span style="height:13px;line-height:13px">三</span>
-            <span style="height:13px;line-height:13px"></span>
-            <span style="height:13px;line-height:13px">五</span>
-            <span style="height:13px;line-height:13px"></span>
+        <!-- Month Navigation -->
+        <div class="flex items-center justify-between mb-3">
+          <button onclick="calPrev()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <span id="calTitle" class="text-base font-bold text-gray-800"></span>
+          <button onclick="calNext()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+        <!-- Month Grid -->
+        <div class="bg-gray-50 rounded-2xl p-4">
+          <div class="cal-month mb-2">
+            <span class="cal-head">日</span><span class="cal-head">一</span><span class="cal-head">二</span><span class="cal-head">三</span><span class="cal-head">四</span><span class="cal-head">五</span><span class="cal-head">六</span>
           </div>
-          <div id="calGrid" class="cal-grid overflow-x-auto pb-1"></div>
+          <div id="calGrid" class="cal-month"></div>
         </div>
       </div>
 
@@ -426,78 +429,67 @@ async function loadCheckinHistory() {
   renderCalendar(d);
 }
 
+// ===== 日历状态 =====
+let calYear, calMonth; // 当前显示的年月
+let calCheckinSet, calMissedSet, calTodayStr;
+
 function renderCalendar(data) {
+  calCheckinSet = new Set(data.checkinDates);
+  calMissedSet = new Set(data.missedDays);
+  calTodayStr = new Date().toLocaleDateString('sv-SE');
+
+  // 默认显示当前月
+  const now = new Date();
+  calYear = now.getFullYear();
+  calMonth = now.getMonth();
+  drawMonth();
+}
+
+function drawMonth() {
   const grid = document.getElementById('calGrid');
-  const monthsEl = document.getElementById('calMonths');
-  const checkinSet = new Set(data.checkinDates);
-  const missedSet = new Set(data.missedDays);
+  const title = document.getElementById('calTitle');
+  title.textContent = `${calYear}年${calMonth + 1}月`;
 
-  const today = new Date();
-  const todayStr = today.toLocaleDateString('sv-SE');
+  const firstDay = new Date(calYear, calMonth, 1);
+  const lastDay = new Date(calYear, calMonth + 1, 0);
+  const startPad = firstDay.getDay(); // 0=周日
+  const totalDays = lastDay.getDate();
 
-  // 往前推365天
-  const start = new Date(today);
-  start.setDate(start.getDate() - 364);
-
-  // 回到当周周日（日历从周日开始）
-  const dayOfWeek = start.getDay();
-  start.setDate(start.getDate() - dayOfWeek);
-
-  const cells = [];
-  const monthLabels = [];
-  let lastMonth = -1;
-
-  // 生成 53周 × 7天 = 371 个格子，覆盖完整一年
-  for (let w = 0; w < 53; w++) {
-    for (let d = 0; d < 7; d++) {
-      const cellDate = new Date(start);
-      cellDate.setDate(cellDate.getDate() + (w * 7 + d));
-      const ds = cellDate.toLocaleDateString('sv-SE');
-
-      // 月份标签：每个新月份第一行出现
-      if (d === 0 && cellDate.getMonth() !== lastMonth) {
-        lastMonth = cellDate.getMonth();
-        monthLabels.push({ week: w, label: (cellDate.getMonth() + 1) + '月' });
-      }
-
-      let cls = 'cal-day ';
-      let title = ds;
-      let clickable = false;
-
-      if (ds > todayStr) {
-        // 未来日期：浅灰
-        cls += 'cal-future';
-      } else if (checkinSet.has(ds)) {
-        // 已签到：绿色
-        cls += 'cal-checked';
-        title += ' ✓ 已签到';
-      } else if (missedSet.has(ds)) {
-        // 未签到但可补签：白底，hover 变红
-        cls += 'cal-missed';
-        title += ' · 可补签(10积分)';
-        clickable = true;
-      } else {
-        // 注册前或其他：浅灰
-        cls += 'cal-before';
-      }
-
-      if (ds === todayStr) cls += ' cal-today';
-
-      cells.push({ cls, title, date: ds, clickable });
-    }
+  let html = '';
+  // 前置空白
+  for (let i = 0; i < startPad; i++) {
+    html += '<div class="cal-cell empty"></div>';
   }
+  // 日期格子
+  for (let d = 1; d <= totalDays; d++) {
+    const ds = `${calYear}-${String(calMonth + 1).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
+    let cls = 'cal-cell';
+    let clickable = '';
 
-  grid.innerHTML = cells.map(c =>
-    `<div class="${c.cls}" title="${c.title}"${c.clickable ? ` onclick="doRetroactive('${c.date}')"` : ''}></div>`
-  ).join('');
+    if (ds > calTodayStr) {
+      cls += ' future';
+    } else if (calCheckinSet.has(ds)) {
+      cls += ' checked';
+    } else if (calMissedSet.has(ds)) {
+      cls += ' missed';
+      clickable = ` onclick="doRetroactive('${ds}')" title="点击补签"`;
+    }
+    if (ds === calTodayStr) cls += ' today';
 
-  // 月份标签
-  monthsEl.innerHTML = monthLabels.map(m => {
-    const pct = (m.week / 53) * 100;
-    return `<span style="position:absolute;left:${pct}%">${m.label}</span>`;
-  }).join('');
-  monthsEl.style.position = 'relative';
-  monthsEl.style.height = '14px';
+    html += `<div class="${cls}"${clickable}>${d}</div>`;
+  }
+  grid.innerHTML = html;
+}
+
+function calPrev() {
+  calMonth--;
+  if (calMonth < 0) { calMonth = 11; calYear--; }
+  drawMonth();
+}
+function calNext() {
+  calMonth++;
+  if (calMonth > 11) { calMonth = 0; calYear++; }
+  drawMonth();
 }
 
 async function doRetroactive(date) {
