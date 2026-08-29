@@ -65,6 +65,6 @@ npm start
 | POST | `/api/like/:id` | 点赞 |
 | DELETE | `/api/like/:id` | 取消点赞 |
 
-## License
+## 声明
 
-[The Unlicense](LICENSE) — 公共领域，无任何版权限制
+本项目由 AI（OpenCode / mimo-v2.5-pro）编写，人类提供需求和测试反馈。许可证待定。
