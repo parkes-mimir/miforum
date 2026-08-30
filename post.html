@@ -1,0 +1,543 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiForum</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: { primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' } } } }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{font-family:'Inter',system-ui,-apple-system,sans-serif}
+  body{background:#f0f2f5}
+  .fade-in{animation:fadeIn .2s ease-out}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .toast-in{animation:slideUp .3s ease-out}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<!-- Topbar -->
+<header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-4xl mx-auto flex items-center justify-between px-4 h-14">
+    <a href="/" class="flex items-center gap-2 font-bold text-xl text-primary-600">
+      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+      MiForum
+    </a>
+    <div id="authArea" class="flex items-center gap-2"></div>
+  </div>
+</header>
+
+<!-- Loading -->
+<div id="loading" class="max-w-4xl mx-auto p-4 lg:p-6">
+  <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+    <div class="flex gap-3"><div class="w-10 h-10 rounded-full bg-gray-100 skeleton"></div><div class="space-y-2 flex-1"><div class="h-4 w-24 bg-gray-100 rounded skeleton"></div><div class="h-3 w-16 bg-gray-100 rounded skeleton"></div></div></div>
+    <div class="h-6 w-3/4 bg-gray-100 rounded skeleton"></div>
+    <div class="space-y-2"><div class="h-4 w-full bg-gray-100 rounded skeleton"></div><div class="h-4 w-5/6 bg-gray-100 rounded skeleton"></div><div class="h-4 w-2/3 bg-gray-100 rounded skeleton"></div></div>
+  </div>
+</div>
+
+<!-- Post Content -->
+<div id="postPage" class="max-w-4xl mx-auto p-4 lg:p-6 hidden">
+  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <!-- Post Header -->
+    <div class="p-5 sm:p-6 border-b border-gray-100">
+      <div class="flex items-center gap-3 mb-4">
+        <div id="postAvatar" class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold"></div>
+        <div>
+          <div class="flex items-center gap-2">
+            <span id="postAuthor" class="text-sm font-semibold"></span>
+            <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full"></span>
+          </div>
+          <span id="postTime" class="text-xs text-gray-400"></span>
+        </div>
+        <div id="postActions" class="ml-auto hidden flex items-center gap-1">
+          <button onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <h1 id="postTitle" class="text-2xl font-bold mb-4"></h1>
+      <div id="postImages" class="flex flex-wrap gap-2 mb-4"></div>
+      <div id="postContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+        <button id="likeBtn" onclick="toggleLike()" class="flex items-center gap-1 text-sm text-gray-400 hover:text-red-500 transition">
+          <svg id="likeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span id="likeCount">0</span>
+        </button>
+        <span class="flex items-center gap-1 text-sm text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span id="commentCount">0</span> 评论
+        </span>
+      </div>
+    </div>
+
+    <!-- Edit Post Area -->
+    <div id="editPostArea" class="hidden p-5 sm:p-6 border-b border-gray-100 space-y-3">
+      <input id="editTitle" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标题">
+      <select id="editCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+        <option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option>
+      </select>
+      <textarea id="editContent" rows="6" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="正文"></textarea>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">图片管理</label>
+        <div id="editImageGrid" class="flex flex-wrap gap-2 mb-2"></div>
+        <div onclick="document.getElementById('editNewImages').click()" class="w-16 h-16 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-300 transition">
+          <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        </div>
+        <input type="file" id="editNewImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleEditImageSelect(this)">
+      </div>
+      <div class="flex gap-2 justify-end">
+        <button onclick="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
+        <button onclick="saveEditPost()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">保存修改</button>
+      </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="p-5 sm:p-6">
+      <h2 class="text-base font-semibold mb-4">评论 <span id="commentCount2" class="text-gray-400 font-normal"></span></h2>
+      <div id="commentList" class="space-y-4 mb-6"></div>
+
+      <!-- Comment Form -->
+      <div id="commentForm" class="hidden">
+        <textarea id="commentInput" rows="3" placeholder="写下你的评论..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+        <div id="commentImageGrid" class="flex flex-wrap gap-2 mt-2"></div>
+        <div class="flex items-center justify-between mt-2">
+          <div class="flex items-center gap-2">
+            <button onclick="document.getElementById('commentImages').click()" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              图片 <span id="commentImageCount" class="text-gray-400"></span>
+            </button>
+            <input type="file" id="commentImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleCommentImageSelect(this)">
+          </div>
+          <button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button>
+        </div>
+      </div>
+      <p id="commentLoginHint" class="text-sm text-gray-400 text-center py-4 hidden">请先<a href="#" onclick="showAuthModal()" class="text-primary-600 font-medium">登录</a>后评论</p>
+    </div>
+  </div>
+</div>
+
+<!-- Auth Modal -->
+<div id="authModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">欢迎</h2>
+      <button onclick="hideAuthModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
+      <button id="tabLogin" onclick="switchAuthTab('login')" class="flex-1 py-2 text-sm font-medium rounded-lg bg-white text-gray-900 shadow-sm transition">登录</button>
+      <button id="tabRegister" onclick="switchAuthTab('register')" class="flex-1 py-2 text-sm font-medium rounded-lg text-gray-500 transition">注册</button>
+    </div>
+    <div id="loginForm" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input id="loginEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input id="loginPassword" type="password" placeholder="输入密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <button onclick="doLogin()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">登录</button>
+    </div>
+    <div id="registerForm" class="space-y-3 hidden">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">用户名</label><input id="regUsername" type="text" placeholder="你的昵称" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input id="regEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input id="regPassword" type="password" placeholder="至少 6 位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <button onclick="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Lightbox -->
+<div id="lightbox" class="fixed inset-0 z-[60] hidden items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" onclick="closeLightbox()">
+  <button onclick="closeLightbox()" class="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  <img id="lightboxImg" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" onclick="event.stopPropagation()">
+</div>
+
+<!-- Toast -->
+<div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] space-y-2"></div>
+
+<style>.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
+
+<script>
+const CAT_MAP = { tech:'技术', life:'生活', notice:'公告' };
+const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
+
+let state = { user: null, post: null, liked: false, postOwnerId: null };
+let commentImages = [];
+let commentsDataCache = [];
+let editingPostId = null;
+let editRemoveImages = [];
+let editNewImages = [];
+
+// ===== 工具 =====
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg';
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2500);
+}
+function relTime(iso) {
+  const d = Date.now() - new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z')).getTime();
+  const m = Math.floor(d/60000);
+  if (m < 1) return '刚刚';
+  if (m < 60) return m + '分钟前';
+  const h = Math.floor(m/60);
+  if (h < 24) return h + '小时前';
+  const date = new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z'));
+  return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
+}
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+async function api(url, opts) {
+  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Auth =====
+function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('authModal').classList.add('flex'); }
+function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('flex'); }
+function switchAuthTab(t) {
+  document.getElementById('tabLogin').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='login'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
+  document.getElementById('tabRegister').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='register'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
+  document.getElementById('loginForm').classList.toggle('hidden',t!=='login');
+  document.getElementById('registerForm').classList.toggle('hidden',t!=='register');
+}
+async function doLogin() {
+  const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value;
+  if(!email||!password){toast('请填写邮箱和密码');return;}
+  try{const{user}=await api('/api/login',{method:'POST',body:JSON.stringify({email,password})});state.user=user;hideAuthModal();renderAuth();loadPage();toast('登录成功！');}catch(e){toast(e.message);}
+}
+async function doRegister() {
+  const username=document.getElementById('regUsername').value.trim(), email=document.getElementById('regEmail').value.trim(), password=document.getElementById('regPassword').value;
+  if(!username||!email||!password){toast('请填写所有字段');return;}
+  if(password.length<6){toast('密码至少6位');return;}
+  try{const{user}=await api('/api/register',{method:'POST',body:JSON.stringify({username,email,password})});state.user=user;hideAuthModal();renderAuth();loadPage();toast('注册成功！');}catch(e){toast(e.message);}
+}
+async function doLogout() {
+  await api('/api/logout',{method:'POST'});state.user=null;renderAuth();toast('已退出');
+}
+function renderAuth() {
+  const a=document.getElementById('authArea');
+  if(state.user){
+    a.innerHTML=`<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div><span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span><button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button></div>`;
+  }else{
+    a.innerHTML='<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
+  }
+}
+
+// ===== Lightbox =====
+function openLightbox(url) {
+  document.getElementById('lightboxImg').src = url;
+  document.getElementById('lightbox').classList.remove('hidden');
+  document.getElementById('lightbox').classList.add('flex');
+  document.body.style.overflow = 'hidden';
+}
+function closeLightbox() {
+  document.getElementById('lightbox').classList.add('hidden');
+  document.getElementById('lightbox').classList.remove('flex');
+  document.body.style.overflow = '';
+}
+
+// ===== 加载帖子 =====
+async function loadPage() {
+  const params = new URLSearchParams(window.location.search);
+  const pid = params.get('id');
+  if (!pid) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
+  try {
+    const { posts } = await api('/api/posts');
+    const post = posts.find(p => p.id == pid);
+    if (!post) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
+    state.post = post;
+    document.title = post.title + ' - MiForum';
+    document.getElementById('postAvatar').textContent = post.author_name[0].toUpperCase();
+    document.getElementById('postAuthor').textContent = post.author_name;
+    document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full ' + (CAT_COLORS[post.category]||'bg-gray-100 text-gray-600');
+    document.getElementById('postCategory').textContent = CAT_MAP[post.category];
+    document.getElementById('postTime').textContent = relTime(post.created_at) + (post.updated_at ? ' (已编辑)' : '');
+    document.getElementById('postTitle').textContent = post.title;
+    document.getElementById('postContent').textContent = post.content;
+    // Images
+    const imgsEl = document.getElementById('postImages');
+    if (post.images && post.images.length > 0) {
+      imgsEl.innerHTML = post.images.map(url => `<img src="${url}" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('${url}')">`).join('');
+      imgsEl.classList.remove('hidden');
+    } else { imgsEl.innerHTML = ''; imgsEl.classList.add('hidden'); }
+    // Like
+    if (state.user) {
+      const { ids } = await api('/api/likes');
+      state.liked = ids.includes(post.id);
+    }
+    renderLike();
+    // Actions
+    if (state.user && post.author_id === state.user.id) {
+      document.getElementById('postActions').classList.remove('hidden');
+    }
+    // Comments
+    await loadComments(pid);
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('postPage').classList.remove('hidden');
+  } catch(e) { document.getElementById('loading').innerHTML='<p class="text-center text-red-400 py-20">'+esc(e.message)+'</p>'; }
+}
+
+function renderLike() {
+  const btn = document.getElementById('likeBtn');
+  const icon = document.getElementById('likeIcon');
+  const count = document.getElementById('likeCount');
+  count.textContent = state.post.likes_count;
+  if (state.liked) { icon.setAttribute('fill','currentColor'); btn.classList.add('text-red-500'); btn.classList.remove('text-gray-400'); }
+  else { icon.setAttribute('fill','none'); btn.classList.remove('text-red-500'); btn.classList.add('text-gray-400'); }
+}
+
+async function toggleLike() {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  try {
+    if (state.liked) { await api('/api/like/'+state.post.id,{method:'DELETE'}); state.post.likes_count--; state.liked=false; }
+    else { await api('/api/like/'+state.post.id,{method:'POST'}); state.post.likes_count++; state.liked=true; }
+    renderLike();
+  } catch(e) { toast(e.message); }
+}
+
+// ===== Edit Post =====
+function startEditPost() {
+  editingPostId = state.post.id;
+  editRemoveImages = [];
+  editNewImages = [];
+  document.getElementById('editTitle').value = state.post.title;
+  document.getElementById('editCategory').value = state.post.category;
+  document.getElementById('editContent').value = state.post.content;
+  renderEditImages(state.post.images || []);
+  document.getElementById('editPostArea').classList.remove('hidden');
+  document.getElementById('postTitle').classList.add('hidden');
+  document.getElementById('postContent').classList.add('hidden');
+  document.getElementById('postImages').classList.add('hidden');
+}
+function cancelEditPost() {
+  editingPostId = null;
+  document.getElementById('editPostArea').classList.add('hidden');
+  document.getElementById('postTitle').classList.remove('hidden');
+  document.getElementById('postContent').classList.remove('hidden');
+  document.getElementById('postImages').classList.remove('hidden');
+}
+function renderEditImages(images) {
+  const grid = document.getElementById('editImageGrid');
+  let html = '';
+  images.forEach(url => {
+    const removed = editRemoveImages.includes(url);
+    html += `<div class="relative w-16 h-16 rounded overflow-hidden ${removed?'opacity-40':''}">
+      <img src="${url}" class="w-full h-full object-cover">
+      ${removed
+        ? `<button onclick="undoRemoveImg('${url}')" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`
+        : `<button onclick="markRemoveImg('${url}')" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`
+      }
+    </div>`;
+  });
+  editNewImages.forEach((f,i) => {
+    const url = URL.createObjectURL(f);
+    html += `<div class="relative w-16 h-16 rounded overflow-hidden ring-2 ring-green-400">
+      <img src="${url}" class="w-full h-full object-cover">
+      <button onclick="removeEditNewImg(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>`;
+  });
+  grid.innerHTML = html;
+}
+function markRemoveImg(url) { editRemoveImages.push(url); renderEditImages(state.post.images||[]); }
+function undoRemoveImg(url) { editRemoveImages=editRemoveImages.filter(u=>u!==url); renderEditImages(state.post.images||[]); }
+function handleEditImageSelect(input) {
+  const files = Array.from(input.files);
+  const existing = (state.post.images||[]).length - editRemoveImages.length;
+  if (existing + editNewImages.length + files.length > 30) { toast('最多30张'); input.value=''; return; }
+  editNewImages.push(...files);
+  renderEditImages(state.post.images||[]);
+  input.value = '';
+}
+function removeEditNewImg(i) { editNewImages.splice(i,1); renderEditImages(state.post.images||[]); }
+
+async function saveEditPost() {
+  const title=document.getElementById('editTitle').value.trim(), content=document.getElementById('editContent').value.trim(), category=document.getElementById('editCategory').value;
+  if(!title){toast('请输入标题');return;} if(!content){toast('请输入正文');return;}
+  try {
+    const fd = new FormData();
+    fd.append('title',title); fd.append('content',content); fd.append('category',category);
+    if(editRemoveImages.length>0) fd.append('removeImages',JSON.stringify(editRemoveImages));
+    editNewImages.forEach(f=>fd.append('images',f));
+    const res = await fetch('/api/posts/'+editingPostId,{method:'PUT',body:fd});
+    const data = await res.json();
+    if(!res.ok) throw new Error(data.error||'修改失败');
+    toast('修改成功');
+    cancelEditPost();
+    await loadPage();
+  } catch(e) { toast(e.message); }
+}
+
+async function deletePost() {
+  if(!confirm('确定删除这篇帖子？'))return;
+  try{await api('/api/posts/'+state.post.id,{method:'DELETE'});toast('已删除');window.location='/';}catch(e){toast(e.message);}
+}
+
+// ===== Comments =====
+async function loadComments(pid) {
+  const { comments, postOwnerId } = await api('/api/posts/'+pid+'/comments');
+  commentsDataCache = comments;
+  state.postOwnerId = postOwnerId;
+  renderComments(comments, postOwnerId);
+}
+function renderComments(cl, postOwnerId) {
+  document.getElementById('commentCount').textContent = cl.length;
+  document.getElementById('commentCount2').textContent = '('+cl.length+')';
+  if (!cl.length) { document.getElementById('commentList').innerHTML='<p class="text-sm text-gray-400 text-center py-8">暂无评论，快来抢沙发吧</p>'; }
+  else {
+    document.getElementById('commentList').innerHTML = cl.map(c => {
+      const own = state.user && c.author_id === state.user.id;
+      const isPostOwner = state.user && postOwnerId === state.user.id;
+      const canDelete = own || isPostOwner;
+      const hasImgs = c.images && c.images.length > 0;
+      return `<div class="flex gap-3 ${c.pinned?'bg-amber-50 rounded-xl p-3 -mx-3':''}" id="comment-${c.id}">
+        <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
+            <span class="text-sm font-semibold text-gray-900">${esc(c.author_name)}</span>
+            ${c.is_post_owner?'<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>':''}
+            ${c.pinned?'<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>':''}
+            <span class="text-xs text-gray-400">#${c.floor}</span>
+            <span class="text-xs text-gray-400">${relTime(c.created_at)}</span>
+            <div class="ml-auto flex items-center gap-1">
+              ${isPostOwner?`<button onclick="togglePin(${c.id})" class="text-gray-400 hover:text-amber-500 transition" title="${c.pinned?'取消置顶':'置顶'}"><svg class="w-4 h-4" fill="${c.pinned?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg></button>`:''}
+              ${own?`<button onclick="startEditComment(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>`:''}
+              ${canDelete?`<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`:''}
+            </div>
+          </div>
+          ${c.content?`<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>`:''}
+          ${hasImgs?`<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url=>`<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${url}')">`).join('')}</div>`:''}
+        </div>
+      </div>`;
+    }).join('');
+  }
+  if(state.user){document.getElementById('commentForm').classList.remove('hidden');document.getElementById('commentLoginHint').classList.add('hidden');}
+  else{document.getElementById('commentForm').classList.add('hidden');document.getElementById('commentLoginHint').classList.remove('hidden');}
+}
+
+function handleCommentImageSelect(input) {
+  const files = Array.from(input.files);
+  if(commentImages.length+files.length>3){toast('最多3张');input.value='';return;}
+  commentImages.push(...files);
+  renderCommentImages();
+  input.value='';
+}
+function renderCommentImages() {
+  const grid=document.getElementById('commentImageGrid'),countEl=document.getElementById('commentImageCount');
+  if(!commentImages.length){grid.innerHTML='';countEl.textContent='';return;}
+  countEl.textContent=`${commentImages.length}/3`;
+  grid.innerHTML=commentImages.map((f,i)=>{
+    const url=URL.createObjectURL(f);
+    return `<div class="relative w-16 h-16 rounded-lg overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeCommentImg(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
+  }).join('');
+}
+function removeCommentImg(i){commentImages.splice(i,1);renderCommentImages();}
+
+async function doComment() {
+  const input=document.getElementById('commentInput'),text=input.value.trim();
+  if(!text&&commentImages.length===0){toast('请输入评论或上传图片');return;}
+  try{
+    const fd=new FormData();
+    if(text)fd.append('content',text);
+    commentImages.forEach(f=>fd.append('images',f));
+    const res=await fetch('/api/posts/'+state.post.id+'/comments',{method:'POST',body:fd});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'评论失败');
+    input.value='';commentImages=[];renderCommentImages();
+    await loadComments(state.post.id);toast('评论成功！');
+  }catch(e){toast(e.message);}
+}
+
+async function togglePin(cid) {
+  try{const res=await api('/api/comments/'+cid+'/pin',{method:'PUT'});toast(res.pinned?'已置顶':'已取消置顶');await loadComments(state.post.id);}catch(e){toast(e.message);}
+}
+
+// Comment edit state
+let editingCommentId=null,editCommentRemoveImages=[],editCommentNewImages=[];
+
+function startEditComment(cid) {
+  const el=document.getElementById('comment-'+cid);if(!el)return;
+  const c=commentsDataCache.find(x=>x.id===cid);if(!c)return;
+  editingCommentId=cid;editCommentRemoveImages=[];editCommentNewImages=[];
+  const contentEl=el.querySelector('.comment-content');
+  const oldContent=contentEl?contentEl.textContent:'';
+  const editArea=document.createElement('div');
+  editArea.className='edit-area mt-2 space-y-2';
+  editArea.innerHTML=`
+    <textarea class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" rows="2">${esc(oldContent)}</textarea>
+    <div id="editCommentImgGrid-${cid}" class="flex flex-wrap gap-1.5"></div>
+    <div class="flex items-center justify-between">
+      <button onclick="document.getElementById('editCImgs-${cid}').click()" class="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-primary-600 rounded transition"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>图片</button>
+      <input type="file" id="editCImgs-${cid}" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleEditCImgSelect(this,${cid})">
+      <div class="flex gap-2"><button onclick="cancelEditC(${cid})" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button><button onclick="saveEditC(${cid})" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button></div>
+    </div>`;
+  if(contentEl)contentEl.replaceWith(editArea);
+  renderEditCImgs(cid,c.images||[]);
+  el.querySelector('textarea').focus();
+}
+function renderEditCImgs(cid,existing) {
+  const grid=document.getElementById(`editCommentImgGrid-${cid}`);if(!grid)return;
+  let html='';
+  existing.forEach(url=>{
+    const removed=editCommentRemoveImages.includes(url);
+    html+=`<div class="relative w-14 h-14 rounded overflow-hidden ${removed?'opacity-40':''}"><img src="${url}" class="w-full h-full object-cover">${removed?`<button onclick="undoRemoveCImg('${url}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`:`<button onclick="markRemoveCImg('${url}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
+  });
+  editCommentNewImages.forEach((f,i)=>{
+    const url=URL.createObjectURL(f);
+    html+=`<div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeEditCNewImg(${i},${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
+  });
+  grid.innerHTML=html;
+}
+function markRemoveCImg(url,cid){editCommentRemoveImages.push(url);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
+function undoRemoveCImg(url,cid){editCommentRemoveImages=editCommentRemoveImages.filter(u=>u!==url);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
+function handleEditCImgSelect(input,cid){
+  const files=Array.from(input.files);
+  const c=commentsDataCache.find(x=>x.id===cid);
+  const existing=(c?(c.images||[]).length:0)-editCommentRemoveImages.length;
+  if(existing+editCommentNewImages.length+files.length>3){toast('最多3张');input.value='';return;}
+  editCommentNewImages.push(...files);
+  renderEditCImgs(cid,c?c.images||[]:[]);
+  input.value='';
+}
+function removeEditCNewImg(i,cid){editCommentNewImages.splice(i,1);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
+function cancelEditC(cid){editingCommentId=null;editCommentRemoveImages=[];editCommentNewImages=[];loadComments(state.post.id);}
+async function saveEditC(cid){
+  const el=document.getElementById('comment-'+cid);if(!el)return;
+  const textarea=el.querySelector('textarea'),text=textarea?textarea.value.trim():'';
+  if(!text&&editCommentNewImages.length===0){toast('评论不能为空');return;}
+  try{
+    const fd=new FormData();
+    if(text)fd.append('content',text);
+    if(editCommentRemoveImages.length>0)fd.append('removeImages',JSON.stringify(editCommentRemoveImages));
+    editCommentNewImages.forEach(f=>fd.append('images',f));
+    const res=await fetch('/api/comments/'+cid,{method:'PUT',body:fd});
+    const data=await res.json();
+    if(!res.ok)throw new Error(data.error||'修改失败');
+    editingCommentId=null;editCommentRemoveImages=[];editCommentNewImages=[];
+    await loadComments(state.post.id);toast('已更新');
+  }catch(e){toast(e.message);}
+}
+async function deleteComment(cid){
+  if(!confirm('确定删除这条评论？'))return;
+  try{await api('/api/comments/'+cid,{method:'DELETE'});await loadComments(state.post.id);toast('已删除');}catch(e){toast(e.message);}
+}
+
+// ===== Init =====
+(async()=>{
+  try{const{user}=await api('/api/me');state.user=user;}catch(e){}
+  renderAuth();
+  await loadPage();
+  document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
+  document.getElementById('regPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+})();
+</script>
+</body>
+</html>
