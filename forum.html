@@ -396,9 +396,6 @@ let checkinData = null;
 
 async function loadCheckin() {
   if (!state.user) { renderCheckin(false); return; }
-  const { checkedIn } = await api('/api/checkin/today');
-async function loadCheckin() {
-  if (!state.user) { renderCheckin(false); return; }
   // 自动签到
   try {
     const res = await api('/api/checkin/auto', { method: 'POST' });
