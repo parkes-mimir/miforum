@@ -164,74 +164,58 @@ tailwind.config = {
 <style>.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
 
 <script>
-const CAT_MAP = { tech:'技术', life:'生活', notice:'公告' };
-const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
+// ============================================================
+// 配置常量
+// ============================================================
+const CAT_MAP = { tech: '技术', life: '生活', notice: '公告' };
+const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
 
+// 全局状态
 let state = { user: null, post: null, liked: false };
-let commentImages = [];
-let commentsDataCache = [];
-let editRemoveImages = [];
-let editNewImages = [];
+let commentImages = [];           // 新评论选中的图片
+let commentsDataCache = [];       // 评论数据缓存（编辑时查找用）
+let editCommentRemoveImages = []; // 编辑评论时待删除的图片 URL
+let editCommentNewImages = [];    // 编辑评论时新增的图片文件
 
-// ===== 工具 =====
+// ============================================================
+// 工具函数
+// ============================================================
+
+/** 显示 toast 提示 */
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg';
   el.textContent = msg;
   document.getElementById('toastContainer').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2500);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 2500);
 }
+
+/** ISO 时间 → 相对时间 */
 function relTime(iso) {
-  const d = Date.now() - new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z')).getTime();
-  const m = Math.floor(d/60000);
+  const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
+  const m = Math.floor(d / 60000);
   if (m < 1) return '刚刚';
   if (m < 60) return m + '分钟前';
-  const h = Math.floor(m/60);
+  const h = Math.floor(m / 60);
   if (h < 24) return h + '小时前';
-  const date = new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z'));
-  return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
+  const date = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
+  return date.getFullYear() + '年' + (date.getMonth() + 1) + '月' + date.getDate() + '日';
 }
-function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+
+/** HTML 转义 */
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/** 通用 API 请求（JSON 格式） */
 async function api(url, opts) {
-  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '请求失败');
   return data;
 }
 
-// ===== Auth =====
-function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('authModal').classList.add('flex'); }
-function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('flex'); }
-function switchAuthTab(t) {
-  document.getElementById('tabLogin').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='login'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
-  document.getElementById('tabRegister').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='register'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
-  document.getElementById('loginForm').classList.toggle('hidden',t!=='login');
-  document.getElementById('registerForm').classList.toggle('hidden',t!=='register');
-}
-async function doLogin() {
-  const email=document.getElementById('loginEmail').value.trim(), password=document.getElementById('loginPassword').value;
-  if(!email||!password){toast('请填写邮箱和密码');return;}
-  try{const{user}=await api('/api/login',{method:'POST',body:JSON.stringify({email,password})});state.user=user;hideAuthModal();renderAuth();loadPage();toast('登录成功！');}catch(e){toast(e.message);}
-}
-async function doRegister() {
-  const username=document.getElementById('regUsername').value.trim(), email=document.getElementById('regEmail').value.trim(), password=document.getElementById('regPassword').value;
-  if(!username||!email||!password){toast('请填写所有字段');return;}
-  if(password.length<6){toast('密码至少6位');return;}
-  try{const{user}=await api('/api/register',{method:'POST',body:JSON.stringify({username,email,password})});state.user=user;hideAuthModal();renderAuth();loadPage();toast('注册成功！');}catch(e){toast(e.message);}
-}
-async function doLogout() {
-  await api('/api/logout',{method:'POST'});state.user=null;renderAuth();toast('已退出');
-}
-function renderAuth() {
-  const a=document.getElementById('authArea');
-  if(state.user){
-    a.innerHTML=`<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div><span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span><button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button></div>`;
-  }else{
-    a.innerHTML='<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
-  }
-}
-
-// ===== Lightbox =====
+// ============================================================
+// Lightbox 图片弹窗
+// ============================================================
 function openLightbox(url) {
   document.getElementById('lightboxImg').src = url;
   document.getElementById('lightbox').classList.remove('hidden');
@@ -244,64 +228,134 @@ function closeLightbox() {
   document.body.style.overflow = '';
 }
 
-// ===== 加载帖子 =====
+// ============================================================
+// 用户认证
+// ============================================================
+function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('authModal').classList.add('flex'); }
+function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('flex'); }
+
+function switchAuthTab(t) {
+  document.getElementById('tabLogin').className = `flex-1 py-2 text-sm font-medium rounded-lg transition ${t === 'login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
+  document.getElementById('tabRegister').className = `flex-1 py-2 text-sm font-medium rounded-lg transition ${t === 'register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
+  document.getElementById('loginForm').classList.toggle('hidden', t !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', t !== 'register');
+}
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  if (!email || !password) { toast('请填写邮箱和密码'); return; }
+  try {
+    const { user } = await api('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    state.user = user; hideAuthModal(); renderAuth(); loadPage(); toast('登录成功！');
+  } catch (e) { toast(e.message); }
+}
+
+async function doRegister() {
+  const username = document.getElementById('regUsername').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  if (!username || !email || !password) { toast('请填写所有字段'); return; }
+  if (password.length < 6) { toast('密码至少6位'); return; }
+  try {
+    const { user } = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, email, password }) });
+    state.user = user; hideAuthModal(); renderAuth(); loadPage(); toast('注册成功！');
+  } catch (e) { toast(e.message); }
+}
+
+async function doLogout() {
+  await api('/api/logout', { method: 'POST' });
+  state.user = null; renderAuth(); toast('已退出');
+}
+
+function renderAuth() {
+  const a = document.getElementById('authArea');
+  if (state.user) {
+    a.innerHTML = `<div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
+      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
+    </div>`;
+  } else {
+    a.innerHTML = '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
+  }
+}
+
+// ============================================================
+// 加载帖子详情
+// ============================================================
 async function loadPage() {
   const params = new URLSearchParams(window.location.search);
   const pid = params.get('id');
-  if (!pid) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
+  if (!pid) { document.getElementById('loading').innerHTML = '<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
+
   try {
     const { post } = await api('/api/posts/' + pid);
     state.post = post;
+
+    // 设置页面标题和元信息
     document.title = post.title + ' - MiForum';
     document.getElementById('postAvatar').textContent = post.author_name[0].toUpperCase();
     document.getElementById('postAuthor').textContent = post.author_name;
-    document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full ' + (CAT_COLORS[post.category]||'bg-gray-100 text-gray-600');
+    document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full ' + (CAT_COLORS[post.category] || 'bg-gray-100 text-gray-600');
     document.getElementById('postCategory').textContent = CAT_MAP[post.category];
     document.getElementById('postTime').textContent = relTime(post.created_at) + (post.updated_at ? ' (已编辑)' : '');
     document.getElementById('postTitle').textContent = post.title;
     document.getElementById('postContent').textContent = post.content;
-    // Images
+
+    // 帖子图片
     const imgsEl = document.getElementById('postImages');
     if (post.images && post.images.length > 0) {
       imgsEl.innerHTML = post.images.map(url => `<img src="${url}" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('${url}')">`).join('');
       imgsEl.classList.remove('hidden');
     } else { imgsEl.innerHTML = ''; imgsEl.classList.add('hidden'); }
-    // Like
+
+    // 点赞状态
     if (state.user) {
       const { ids } = await api('/api/likes');
       state.liked = ids.includes(post.id);
     }
     renderLike();
-    // Actions
+
+    // 编辑/删除按钮（仅作者可见）
     if (state.user && post.author_id === state.user.id) {
       document.getElementById('postActions').classList.remove('hidden');
     }
-    // Comments
+
+    // 加载评论
     await loadComments(pid);
     document.getElementById('loading').classList.add('hidden');
     document.getElementById('postPage').classList.remove('hidden');
-  } catch(e) { document.getElementById('loading').innerHTML='<p class="text-center text-red-400 py-20">'+esc(e.message)+'</p>'; }
+  } catch (e) {
+    document.getElementById('loading').innerHTML = '<p class="text-center text-red-400 py-20">' + esc(e.message) + '</p>';
+  }
 }
 
+// ============================================================
+// 点赞
+// ============================================================
 function renderLike() {
   const btn = document.getElementById('likeBtn');
   const icon = document.getElementById('likeIcon');
-  const count = document.getElementById('likeCount');
-  count.textContent = state.post.likes_count;
-  if (state.liked) { icon.setAttribute('fill','currentColor'); btn.classList.add('text-red-500'); btn.classList.remove('text-gray-400'); }
-  else { icon.setAttribute('fill','none'); btn.classList.remove('text-red-500'); btn.classList.add('text-gray-400'); }
+  document.getElementById('likeCount').textContent = state.post.likes_count;
+  if (state.liked) { icon.setAttribute('fill', 'currentColor'); btn.classList.add('text-red-500'); btn.classList.remove('text-gray-400'); }
+  else { icon.setAttribute('fill', 'none'); btn.classList.remove('text-red-500'); btn.classList.add('text-gray-400'); }
 }
 
 async function toggleLike() {
   if (!state.user) { toast('请先登录'); showAuthModal(); return; }
   try {
-    if (state.liked) { await api('/api/like/'+state.post.id,{method:'DELETE'}); state.post.likes_count--; state.liked=false; }
-    else { await api('/api/like/'+state.post.id,{method:'POST'}); state.post.likes_count++; state.liked=true; }
+    if (state.liked) { await api('/api/like/' + state.post.id, { method: 'DELETE' }); state.post.likes_count--; state.liked = false; }
+    else { await api('/api/like/' + state.post.id, { method: 'POST' }); state.post.likes_count++; state.liked = true; }
     renderLike();
-  } catch(e) { toast(e.message); }
+  } catch (e) { toast(e.message); }
 }
 
-// ===== Edit Post =====
+// ============================================================
+// 帖子编辑（支持增删图片）
+// ============================================================
+
+/** 进入编辑模式 */
 function startEditPost() {
   editRemoveImages = [];
   editNewImages = [];
@@ -314,18 +368,23 @@ function startEditPost() {
   document.getElementById('postContent').classList.add('hidden');
   document.getElementById('postImages').classList.add('hidden');
 }
+
+/** 取消编辑 */
 function cancelEditPost() {
   document.getElementById('editPostArea').classList.add('hidden');
   document.getElementById('postTitle').classList.remove('hidden');
   document.getElementById('postContent').classList.remove('hidden');
   document.getElementById('postImages').classList.remove('hidden');
 }
+
+/** 渲染编辑区的图片网格（已有图片 + 新增图片） */
 function renderEditImages(images) {
   const grid = document.getElementById('editImageGrid');
   let html = '';
+  // 已有图片（可标记删除）
   images.forEach(url => {
     const removed = editRemoveImages.includes(url);
-    html += `<div class="relative w-16 h-16 rounded overflow-hidden ${removed?'opacity-40':''}">
+    html += `<div class="relative w-16 h-16 rounded overflow-hidden ${removed ? 'opacity-40' : ''}">
       <img src="${url}" class="w-full h-full object-cover">
       ${removed
         ? `<button onclick="undoRemoveImg('${url}')" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`
@@ -333,7 +392,8 @@ function renderEditImages(images) {
       }
     </div>`;
   });
-  editNewImages.forEach((f,i) => {
+  // 新增图片（绿色边框标记）
+  editNewImages.forEach((f, i) => {
     const url = URL.createObjectURL(f);
     html += `<div class="relative w-16 h-16 rounded overflow-hidden ring-2 ring-green-400">
       <img src="${url}" class="w-full h-full object-cover">
@@ -342,130 +402,157 @@ function renderEditImages(images) {
   });
   grid.innerHTML = html;
 }
-function markRemoveImg(url) { editRemoveImages.push(url); renderEditImages(state.post.images||[]); }
-function undoRemoveImg(url) { editRemoveImages=editRemoveImages.filter(u=>u!==url); renderEditImages(state.post.images||[]); }
+
+function markRemoveImg(url) { editRemoveImages.push(url); renderEditImages(state.post.images || []); }
+function undoRemoveImg(url) { editRemoveImages = editRemoveImages.filter(u => u !== url); renderEditImages(state.post.images || []); }
 function handleEditImageSelect(input) {
   const files = Array.from(input.files);
-  const existing = (state.post.images||[]).length - editRemoveImages.length;
-  if (existing + editNewImages.length + files.length > 30) { toast('最多30张'); input.value=''; return; }
+  const existing = (state.post.images || []).length - editRemoveImages.length;
+  if (existing + editNewImages.length + files.length > 30) { toast('最多30张'); input.value = ''; return; }
   editNewImages.push(...files);
-  renderEditImages(state.post.images||[]);
+  renderEditImages(state.post.images || []);
   input.value = '';
 }
-function removeEditNewImg(i) { editNewImages.splice(i,1); renderEditImages(state.post.images||[]); }
+function removeEditNewImg(i) { editNewImages.splice(i, 1); renderEditImages(state.post.images || []); }
 
+/** 保存编辑（FormData 上传新图片 + 删除旧图片） */
 async function saveEditPost() {
-  const title=document.getElementById('editTitle').value.trim(), content=document.getElementById('editContent').value.trim(), category=document.getElementById('editCategory').value;
-  if(!title){toast('请输入标题');return;} if(!content){toast('请输入正文');return;}
+  const title = document.getElementById('editTitle').value.trim();
+  const content = document.getElementById('editContent').value.trim();
+  const category = document.getElementById('editCategory').value;
+  if (!title) { toast('请输入标题'); return; }
+  if (!content) { toast('请输入正文'); return; }
   try {
     const fd = new FormData();
-    fd.append('title',title); fd.append('content',content); fd.append('category',category);
-    if(editRemoveImages.length>0) fd.append('removeImages',JSON.stringify(editRemoveImages));
-    editNewImages.forEach(f=>fd.append('images',f));
-    const res = await fetch('/api/posts/'+state.post.id,{method:'PUT',body:fd});
+    fd.append('title', title); fd.append('content', content); fd.append('category', category);
+    if (editRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editRemoveImages));
+    editNewImages.forEach(f => fd.append('images', f));
+    const res = await fetch('/api/posts/' + state.post.id, { method: 'PUT', body: fd });
     const data = await res.json();
-    if(!res.ok) throw new Error(data.error||'修改失败');
+    if (!res.ok) throw new Error(data.error || '修改失败');
     toast('修改成功');
     cancelEditPost();
     await loadPage();
-  } catch(e) { toast(e.message); }
+  } catch (e) { toast(e.message); }
 }
 
+/** 删除帖子 */
 async function deletePost() {
-  if(!confirm('确定删除这篇帖子？'))return;
-  try{await api('/api/posts/'+state.post.id,{method:'DELETE'});toast('已删除');window.location='/';}catch(e){toast(e.message);}
+  if (!confirm('确定删除这篇帖子？')) return;
+  try { await api('/api/posts/' + state.post.id, { method: 'DELETE' }); toast('已删除'); window.location = '/'; } catch (e) { toast(e.message); }
 }
 
-// ===== Comments =====
+// ============================================================
+// 评论系统
+// ============================================================
+
+/** 加载评论列表 */
 async function loadComments(pid) {
-  const { comments, postOwnerId } = await api('/api/posts/'+pid+'/comments');
+  const { comments, postOwnerId } = await api('/api/posts/' + pid + '/comments');
   commentsDataCache = comments;
   renderComments(comments, postOwnerId);
 }
+
+/** 渲染评论列表（含楼层号、楼主标签、置顶、编辑删除按钮） */
 function renderComments(cl, postOwnerId) {
   document.getElementById('commentCount').textContent = cl.length;
-  document.getElementById('commentCount2').textContent = '('+cl.length+')';
-  if (!cl.length) { document.getElementById('commentList').innerHTML='<p class="text-sm text-gray-400 text-center py-8">暂无评论，快来抢沙发吧</p>'; }
-  else {
+  document.getElementById('commentCount2').textContent = '(' + cl.length + ')';
+
+  if (!cl.length) {
+    document.getElementById('commentList').innerHTML = '<p class="text-sm text-gray-400 text-center py-8">暂无评论，快来抢沙发吧</p>';
+  } else {
     document.getElementById('commentList').innerHTML = cl.map(c => {
       const own = state.user && c.author_id === state.user.id;
       const isPostOwner = state.user && postOwnerId === state.user.id;
       const canDelete = own || isPostOwner;
       const hasImgs = c.images && c.images.length > 0;
-      return `<div class="flex gap-3 ${c.pinned?'bg-amber-50 rounded-xl p-3 -mx-3':''}" id="comment-${c.id}">
+      return `<div class="flex gap-3 ${c.pinned ? 'bg-amber-50 rounded-xl p-3 -mx-3' : ''}" id="comment-${c.id}">
         <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(c.author_name)}</span>
-            ${c.is_post_owner?'<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>':''}
-            ${c.pinned?'<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>':''}
+            ${c.is_post_owner ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>' : ''}
+            ${c.pinned ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>' : ''}
             <span class="text-xs text-gray-400">#${c.floor}</span>
             <span class="text-xs text-gray-400">${relTime(c.created_at)}</span>
             <div class="ml-auto flex items-center gap-1">
-              ${isPostOwner?`<button onclick="togglePin(${c.id})" class="text-gray-400 hover:text-amber-500 transition" title="${c.pinned?'取消置顶':'置顶'}"><svg class="w-4 h-4" fill="${c.pinned?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg></button>`:''}
-              ${own?`<button onclick="startEditComment(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>`:''}
-              ${canDelete?`<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`:''}
+              ${isPostOwner ? `<button onclick="togglePin(${c.id})" class="text-gray-400 hover:text-amber-500 transition" title="${c.pinned ? '取消置顶' : '置顶'}"><svg class="w-4 h-4" fill="${c.pinned ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg></button>` : ''}
+              ${own ? `<button onclick="startEditComment(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>` : ''}
+              ${canDelete ? `<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>` : ''}
             </div>
           </div>
-          ${c.content?`<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>`:''}
-          ${hasImgs?`<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url=>`<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${url}')">`).join('')}</div>`:''}
+          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : ''}
+          ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${url}')">`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('');
   }
-  if(state.user){document.getElementById('commentForm').classList.remove('hidden');document.getElementById('commentLoginHint').classList.add('hidden');}
-  else{document.getElementById('commentForm').classList.add('hidden');document.getElementById('commentLoginHint').classList.remove('hidden');}
+
+  // 登录状态显示评论表单
+  if (state.user) { document.getElementById('commentForm').classList.remove('hidden'); document.getElementById('commentLoginHint').classList.add('hidden'); }
+  else { document.getElementById('commentForm').classList.add('hidden'); document.getElementById('commentLoginHint').classList.remove('hidden'); }
 }
 
+/** 选择评论图片（最多3张） */
 function handleCommentImageSelect(input) {
   const files = Array.from(input.files);
-  if(commentImages.length+files.length>3){toast('最多3张');input.value='';return;}
+  if (commentImages.length + files.length > 3) { toast('最多3张'); input.value = ''; return; }
   commentImages.push(...files);
   renderCommentImages();
-  input.value='';
+  input.value = '';
 }
+
 function renderCommentImages() {
-  const grid=document.getElementById('commentImageGrid'),countEl=document.getElementById('commentImageCount');
-  if(!commentImages.length){grid.innerHTML='';countEl.textContent='';return;}
-  countEl.textContent=`${commentImages.length}/3`;
-  grid.innerHTML=commentImages.map((f,i)=>{
-    const url=URL.createObjectURL(f);
+  const grid = document.getElementById('commentImageGrid');
+  const countEl = document.getElementById('commentImageCount');
+  if (!commentImages.length) { grid.innerHTML = ''; countEl.textContent = ''; return; }
+  countEl.textContent = `${commentImages.length}/3`;
+  grid.innerHTML = commentImages.map((f, i) => {
+    const url = URL.createObjectURL(f);
     return `<div class="relative w-16 h-16 rounded-lg overflow-hidden group"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeCommentImg(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
   }).join('');
 }
-function removeCommentImg(i){commentImages.splice(i,1);renderCommentImages();}
+function removeCommentImg(i) { commentImages.splice(i, 1); renderCommentImages(); }
 
+/** 发表评论 */
 async function doComment() {
-  const input=document.getElementById('commentInput'),text=input.value.trim();
-  if(!text&&commentImages.length===0){toast('请输入评论或上传图片');return;}
-  try{
-    const fd=new FormData();
-    if(text)fd.append('content',text);
-    commentImages.forEach(f=>fd.append('images',f));
-    const res=await fetch('/api/posts/'+state.post.id+'/comments',{method:'POST',body:fd});
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'评论失败');
-    input.value='';commentImages=[];renderCommentImages();
-    await loadComments(state.post.id);toast('评论成功！');
-  }catch(e){toast(e.message);}
+  const input = document.getElementById('commentInput'), text = input.value.trim();
+  if (!text && commentImages.length === 0) { toast('请输入评论或上传图片'); return; }
+  try {
+    const fd = new FormData();
+    if (text) fd.append('content', text);
+    commentImages.forEach(f => fd.append('images', f));
+    const res = await fetch('/api/posts/' + state.post.id + '/comments', { method: 'POST', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '评论失败');
+    input.value = ''; commentImages = []; renderCommentImages();
+    await loadComments(state.post.id); toast('评论成功！');
+  } catch (e) { toast(e.message); }
 }
 
+/** 置顶/取消置顶评论（仅帖主） */
 async function togglePin(cid) {
-  try{const res=await api('/api/comments/'+cid+'/pin',{method:'PUT'});toast(res.pinned?'已置顶':'已取消置顶');await loadComments(state.post.id);}catch(e){toast(e.message);}
+  try { const res = await api('/api/comments/' + cid + '/pin', { method: 'PUT' }); toast(res.pinned ? '已置顶' : '已取消置顶'); await loadComments(state.post.id); } catch (e) { toast(e.message); }
 }
 
-// Comment edit state
-let editCommentRemoveImages=[],editCommentNewImages=[];
+// ============================================================
+// 评论编辑（支持增删图片）
+// ============================================================
 
+/** 进入评论编辑模式 */
 function startEditComment(cid) {
-  const el=document.getElementById('comment-'+cid);if(!el)return;
-  const c=commentsDataCache.find(x=>x.id===cid);if(!c)return;
-  editCommentRemoveImages=[];editCommentNewImages=[];
-  const contentEl=el.querySelector('.comment-content');
-  const oldContent=contentEl?contentEl.textContent:'';
-  const editArea=document.createElement('div');
-  editArea.className='edit-area mt-2 space-y-2';
-  editArea.innerHTML=`
+  const el = document.getElementById('comment-' + cid);
+  if (!el) return;
+  const c = commentsDataCache.find(x => x.id === cid);
+  if (!c) return;
+  editCommentRemoveImages = []; editCommentNewImages = [];
+
+  const contentEl = el.querySelector('.comment-content');
+  const oldContent = contentEl ? contentEl.textContent : '';
+
+  const editArea = document.createElement('div');
+  editArea.className = 'edit-area mt-2 space-y-2';
+  editArea.innerHTML = `
     <textarea class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" rows="2">${esc(oldContent)}</textarea>
     <div id="editCommentImgGrid-${cid}" class="flex flex-wrap gap-1.5"></div>
     <div class="flex items-center justify-between">
@@ -473,64 +560,82 @@ function startEditComment(cid) {
       <input type="file" id="editCImgs-${cid}" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleEditCImgSelect(this,${cid})">
       <div class="flex gap-2"><button onclick="cancelEditC(${cid})" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button><button onclick="saveEditC(${cid})" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button></div>
     </div>`;
-  if(contentEl)contentEl.replaceWith(editArea);
-  renderEditCImgs(cid,c.images||[]);
+
+  if (contentEl) contentEl.replaceWith(editArea);
+  renderEditCImgs(cid, c.images || []);
   el.querySelector('textarea').focus();
 }
-function renderEditCImgs(cid,existing) {
-  const grid=document.getElementById(`editCommentImgGrid-${cid}`);if(!grid)return;
-  let html='';
-  existing.forEach(url=>{
-    const removed=editCommentRemoveImages.includes(url);
-    html+=`<div class="relative w-14 h-14 rounded overflow-hidden ${removed?'opacity-40':''}"><img src="${url}" class="w-full h-full object-cover">${removed?`<button onclick="undoRemoveCImg('${url}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`:`<button onclick="markRemoveCImg('${url}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
+
+/** 渲染评论编辑区的图片 */
+function renderEditCImgs(cid, existing) {
+  const grid = document.getElementById(`editCommentImgGrid-${cid}`);
+  if (!grid) return;
+  let html = '';
+  existing.forEach(url => {
+    const removed = editCommentRemoveImages.includes(url);
+    html += `<div class="relative w-14 h-14 rounded overflow-hidden ${removed ? 'opacity-40' : ''}"><img src="${url}" class="w-full h-full object-cover">${removed ? `<button onclick="undoRemoveCImg('${url}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>` : `<button onclick="markRemoveCImg('${url}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
   });
-  editCommentNewImages.forEach((f,i)=>{
-    const url=URL.createObjectURL(f);
-    html+=`<div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeEditCNewImg(${i},${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
+  editCommentNewImages.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    html += `<div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeEditCNewImg(${i},${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
   });
-  grid.innerHTML=html;
-}
-function markRemoveCImg(url,cid){editCommentRemoveImages.push(url);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
-function undoRemoveCImg(url,cid){editCommentRemoveImages=editCommentRemoveImages.filter(u=>u!==url);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
-function handleEditCImgSelect(input,cid){
-  const files=Array.from(input.files);
-  const c=commentsDataCache.find(x=>x.id===cid);
-  const existing=(c?(c.images||[]).length:0)-editCommentRemoveImages.length;
-  if(existing+editCommentNewImages.length+files.length>3){toast('最多3张');input.value='';return;}
-  editCommentNewImages.push(...files);
-  renderEditCImgs(cid,c?c.images||[]:[]);
-  input.value='';
-}
-function removeEditCNewImg(i,cid){editCommentNewImages.splice(i,1);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
-function cancelEditC(cid){editCommentRemoveImages=[];editCommentNewImages=[];loadComments(state.post.id);}
-async function saveEditC(cid){
-  const el=document.getElementById('comment-'+cid);if(!el)return;
-  const textarea=el.querySelector('textarea'),text=textarea?textarea.value.trim():'';
-  if(!text&&editCommentNewImages.length===0){toast('评论不能为空');return;}
-  try{
-    const fd=new FormData();
-    if(text)fd.append('content',text);
-    if(editCommentRemoveImages.length>0)fd.append('removeImages',JSON.stringify(editCommentRemoveImages));
-    editCommentNewImages.forEach(f=>fd.append('images',f));
-    const res=await fetch('/api/comments/'+cid,{method:'PUT',body:fd});
-    const data=await res.json();
-    if(!res.ok)throw new Error(data.error||'修改失败');
-    editCommentRemoveImages=[];editCommentNewImages=[];
-    await loadComments(state.post.id);toast('已更新');
-  }catch(e){toast(e.message);}
-}
-async function deleteComment(cid){
-  if(!confirm('确定删除这条评论？'))return;
-  try{await api('/api/comments/'+cid,{method:'DELETE'});await loadComments(state.post.id);toast('已删除');}catch(e){toast(e.message);}
+  grid.innerHTML = html;
 }
 
-// ===== Init =====
-(async()=>{
-  try{const{user}=await api('/api/me');state.user=user;}catch(e){}
+function markRemoveCImg(url, cid) { editCommentRemoveImages.push(url); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
+function undoRemoveCImg(url, cid) { editCommentRemoveImages = editCommentRemoveImages.filter(u => u !== url); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
+function handleEditCImgSelect(input, cid) {
+  const files = Array.from(input.files);
+  const c = commentsDataCache.find(x => x.id === cid);
+  const existing = (c ? (c.images || []).length : 0) - editCommentRemoveImages.length;
+  if (existing + editCommentNewImages.length + files.length > 3) { toast('最多3张'); input.value = ''; return; }
+  editCommentNewImages.push(...files);
+  renderEditCImgs(cid, c ? c.images || [] : []);
+  input.value = '';
+}
+function removeEditCNewImg(i, cid) { editCommentNewImages.splice(i, 1); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
+
+/** 取消编辑评论 */
+function cancelEditC(cid) {
+  editCommentRemoveImages = []; editCommentNewImages = [];
+  loadComments(state.post.id);
+}
+
+/** 保存评论编辑 */
+async function saveEditC(cid) {
+  const el = document.getElementById('comment-' + cid);
+  if (!el) return;
+  const textarea = el.querySelector('textarea');
+  const text = textarea ? textarea.value.trim() : '';
+  if (!text && editCommentNewImages.length === 0) { toast('评论不能为空'); return; }
+  try {
+    const fd = new FormData();
+    if (text) fd.append('content', text);
+    if (editCommentRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editCommentRemoveImages));
+    editCommentNewImages.forEach(f => fd.append('images', f));
+    const res = await fetch('/api/comments/' + cid, { method: 'PUT', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '修改失败');
+    editCommentRemoveImages = []; editCommentNewImages = [];
+    await loadComments(state.post.id); toast('已更新');
+  } catch (e) { toast(e.message); }
+}
+
+/** 删除评论 */
+async function deleteComment(cid) {
+  if (!confirm('确定删除这条评论？')) return;
+  try { await api('/api/comments/' + cid, { method: 'DELETE' }); await loadComments(state.post.id); toast('已删除'); } catch (e) { toast(e.message); }
+}
+
+// ============================================================
+// 页面初始化（恢复登录状态 → 加载帖子）
+// ============================================================
+(async () => {
+  try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
   renderAuth();
   await loadPage();
-  document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-  document.getElementById('regPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+  document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+  document.getElementById('regPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 })();
 </script>
 </body>
