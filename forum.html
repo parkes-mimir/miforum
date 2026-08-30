@@ -1051,7 +1051,7 @@ let editCommentNewImages = [];
 function startEditComment(cid) {
   const el = document.getElementById('comment-'+cid);
   if (!el) return;
-  const c = state.commentsCache ? state.commentsCache.find(x => x.id === cid) : null;
+  const c = commentsDataCache ? commentsDataCache.find(x => x.id === cid) : null;
   if (!c) return;
   
   editingCommentId = cid;
