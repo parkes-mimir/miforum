@@ -67,6 +67,17 @@ function requireAuth(req, res, next) {
   next();
 }
 
+// multer 错误处理（忽略 Unexpected field）
+function multerUpload(middleware) {
+  return (req, res, next) => {
+    middleware(req, res, (err) => {
+      if (err && err.code === 'LIMIT_UNEXPECTED_FILE') return next();
+      if (err) return res.status(400).json({ error: err.message });
+      next();
+    });
+  };
+}
+
 // ============================================================
 // Auth
 // ============================================================
@@ -132,7 +143,7 @@ app.get('/api/posts', (req, res) => {
 });
 
 // 发帖（支持多图片上传）
-app.post('/api/posts', requireAuth, upload.array('images', 30), (req, res) => {
+app.post('/api/posts', requireAuth, multerUpload(upload.array('images', 30)), (req, res) => {
   const { title, content, category } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
@@ -156,7 +167,7 @@ app.post('/api/posts', requireAuth, upload.array('images', 30), (req, res) => {
 });
 
 // 编辑帖子（支持新增/删除图片）
-app.put('/api/posts/:id', requireAuth, upload.array('images', 30), (req, res) => {
+app.put('/api/posts/:id', requireAuth, multerUpload(upload.array('images', 30)), (req, res) => {
   const { title, content, category, removeImages } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
@@ -243,7 +254,7 @@ app.get('/api/posts/:id/comments', (req, res) => {
   res.json({ comments, postOwnerId: post ? post.author_id : null });
 });
 
-app.post('/api/posts/:id/comments', requireAuth, upload.array('images', 3), (req, res) => {
+app.post('/api/posts/:id/comments', requireAuth, multerUpload(upload.array('images', 3)), (req, res) => {
   const { content } = req.body;
   if (!content && (!req.files || req.files.length === 0)) return res.status(400).json({ error: '请输入评论内容或上传图片' });
   const db = loadDB();
@@ -262,7 +273,7 @@ app.post('/api/posts/:id/comments', requireAuth, upload.array('images', 3), (req
   res.json({ commentId: comment.id });
 });
 
-app.put('/api/comments/:id', requireAuth, upload.array('images', 3), (req, res) => {
+app.put('/api/comments/:id', requireAuth, multerUpload(upload.array('images', 3)), (req, res) => {
   const { content, removeImages } = req.body;
   if (!content && (!req.files || req.files.length === 0)) return res.status(400).json({ error: '评论不能为空' });
   const db = loadDB();
