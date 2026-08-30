@@ -167,10 +167,9 @@ tailwind.config = {
 const CAT_MAP = { tech:'技术', life:'生活', notice:'公告' };
 const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
 
-let state = { user: null, post: null, liked: false, postOwnerId: null };
+let state = { user: null, post: null, liked: false };
 let commentImages = [];
 let commentsDataCache = [];
-let editingPostId = null;
 let editRemoveImages = [];
 let editNewImages = [];
 
@@ -251,9 +250,7 @@ async function loadPage() {
   const pid = params.get('id');
   if (!pid) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
   try {
-    const { posts } = await api('/api/posts');
-    const post = posts.find(p => p.id == pid);
-    if (!post) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
+    const { post } = await api('/api/posts/' + pid);
     state.post = post;
     document.title = post.title + ' - MiForum';
     document.getElementById('postAvatar').textContent = post.author_name[0].toUpperCase();
@@ -306,7 +303,6 @@ async function toggleLike() {
 
 // ===== Edit Post =====
 function startEditPost() {
-  editingPostId = state.post.id;
   editRemoveImages = [];
   editNewImages = [];
   document.getElementById('editTitle').value = state.post.title;
@@ -319,7 +315,6 @@ function startEditPost() {
   document.getElementById('postImages').classList.add('hidden');
 }
 function cancelEditPost() {
-  editingPostId = null;
   document.getElementById('editPostArea').classList.add('hidden');
   document.getElementById('postTitle').classList.remove('hidden');
   document.getElementById('postContent').classList.remove('hidden');
@@ -367,7 +362,7 @@ async function saveEditPost() {
     fd.append('title',title); fd.append('content',content); fd.append('category',category);
     if(editRemoveImages.length>0) fd.append('removeImages',JSON.stringify(editRemoveImages));
     editNewImages.forEach(f=>fd.append('images',f));
-    const res = await fetch('/api/posts/'+editingPostId,{method:'PUT',body:fd});
+    const res = await fetch('/api/posts/'+state.post.id,{method:'PUT',body:fd});
     const data = await res.json();
     if(!res.ok) throw new Error(data.error||'修改失败');
     toast('修改成功');
@@ -385,7 +380,6 @@ async function deletePost() {
 async function loadComments(pid) {
   const { comments, postOwnerId } = await api('/api/posts/'+pid+'/comments');
   commentsDataCache = comments;
-  state.postOwnerId = postOwnerId;
   renderComments(comments, postOwnerId);
 }
 function renderComments(cl, postOwnerId) {
@@ -461,12 +455,12 @@ async function togglePin(cid) {
 }
 
 // Comment edit state
-let editingCommentId=null,editCommentRemoveImages=[],editCommentNewImages=[];
+let editCommentRemoveImages=[],editCommentNewImages=[];
 
 function startEditComment(cid) {
   const el=document.getElementById('comment-'+cid);if(!el)return;
   const c=commentsDataCache.find(x=>x.id===cid);if(!c)return;
-  editingCommentId=cid;editCommentRemoveImages=[];editCommentNewImages=[];
+  editCommentRemoveImages=[];editCommentNewImages=[];
   const contentEl=el.querySelector('.comment-content');
   const oldContent=contentEl?contentEl.textContent:'';
   const editArea=document.createElement('div');
@@ -508,7 +502,7 @@ function handleEditCImgSelect(input,cid){
   input.value='';
 }
 function removeEditCNewImg(i,cid){editCommentNewImages.splice(i,1);const c=commentsDataCache.find(x=>x.id===cid);renderEditCImgs(cid,c?c.images||[]:[]);}
-function cancelEditC(cid){editingCommentId=null;editCommentRemoveImages=[];editCommentNewImages=[];loadComments(state.post.id);}
+function cancelEditC(cid){editCommentRemoveImages=[];editCommentNewImages=[];loadComments(state.post.id);}
 async function saveEditC(cid){
   const el=document.getElementById('comment-'+cid);if(!el)return;
   const textarea=el.querySelector('textarea'),text=textarea?textarea.value.trim():'';
@@ -521,7 +515,7 @@ async function saveEditC(cid){
     const res=await fetch('/api/comments/'+cid,{method:'PUT',body:fd});
     const data=await res.json();
     if(!res.ok)throw new Error(data.error||'修改失败');
-    editingCommentId=null;editCommentRemoveImages=[];editCommentNewImages=[];
+    editCommentRemoveImages=[];editCommentNewImages=[];
     await loadComments(state.post.id);toast('已更新');
   }catch(e){toast(e.message);}
 }

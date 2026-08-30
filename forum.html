@@ -192,7 +192,6 @@ tailwind.config = {
   </div>
 </div>
 
-<!-- Post Detail Modal -->
 <!-- Image Lightbox -->
 <div id="lightbox" class="fixed inset-0 z-[55] hidden items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" onclick="closeLightbox()">
   <button onclick="closeLightbox()" class="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
@@ -273,7 +272,7 @@ tailwind.config = {
 const CAT_MAP = { all:'全部话题', tech:'技术', life:'生活', notice:'公告' };
 const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
 
-let state = { user: null, currentCat: 'all', currentPostId: null, posts: [], likedIds: new Set() };
+let state = { user: null, currentCat: 'all', posts: [], likedIds: new Set() };
 
 // ===== 工具 =====
 function toast(msg) {
@@ -595,7 +594,7 @@ async function doRetroactive(date) {
     state.user.points = res.points;
     checkinData = null; // 清除缓存，重新加载
     await loadCheckinHistory();
-    renderCheckin(false); // 刷新侧边栏
+    await loadCheckin(); // 刷新侧边栏签到状态
     toast(`补签成功！${date}，剩余 ${res.points} 积分`);
   } catch(e) { toast(e.message); }
 }

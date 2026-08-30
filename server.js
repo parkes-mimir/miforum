@@ -4,6 +4,7 @@ const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
+const { execSync } = require('child_process');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
@@ -142,6 +143,22 @@ app.get('/api/posts', (req, res) => {
   res.json({ posts: result });
 });
 
+// 获取单个帖子
+app.get('/api/posts/:id', (req, res) => {
+  const db = loadDB();
+  const pid = Number(req.params.id);
+  const post = db.posts.find(p => p.id === pid);
+  if (!post) return res.status(404).json({ error: '帖子不存在' });
+  const author = db.profiles.find(u => u.id === post.author_id);
+  const result = {
+    ...post,
+    author_name: author ? author.username : '未知',
+    likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
+    comments_count: db.comments.filter(c => c.post_id === post.id).length
+  };
+  res.json({ post: result });
+});
+
 // 发帖（支持多图片上传）
 app.post('/api/posts', requireAuth, multerUpload(upload.array('images', 30)), (req, res) => {
   const { title, content, category } = req.body;
@@ -178,7 +195,8 @@ app.put('/api/posts/:id', requireAuth, multerUpload(upload.array('images', 30)),
 
   // 删除指定的图片
   if (removeImages) {
-    const removeList = JSON.parse(removeImages);
+    let removeList;
+    try { removeList = JSON.parse(removeImages); } catch(e) { return res.status(400).json({ error: 'removeImages 格式错误' }); }
     removeList.forEach(url => {
       const imgPath = path.join(__dirname, url);
       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
@@ -215,8 +233,17 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
     });
   }
+  // 删除评论的图片
+  const postComments = db.comments.filter(c => c.post_id === pid);
+  postComments.forEach(c => {
+    if (c.images && c.images.length > 0) {
+      c.images.forEach(url => {
+        const imgPath = path.join(__dirname, url);
+        if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+      });
+    }
+  });
   db.posts.splice(idx, 1);
-  // 同时删除该帖子的所有评论和点赞
   db.comments = db.comments.filter(c => c.post_id !== pid);
   db.post_likes = db.post_likes.filter(l => l.post_id !== pid);
   saveDB(db);
@@ -284,7 +311,8 @@ app.put('/api/comments/:id', requireAuth, multerUpload(upload.array('images', 3)
   
   // 删除指定的图片
   if (removeImages) {
-    const removeList = JSON.parse(removeImages);
+    let removeList;
+    try { removeList = JSON.parse(removeImages); } catch(e) { return res.status(400).json({ error: 'removeImages 格式错误' }); }
     removeList.forEach(url => {
       const imgPath = path.join(__dirname, url);
       if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
@@ -520,8 +548,6 @@ app.delete('/api/like/:postId', requireAuth, (req, res) => {
 // ============================================================
 // 启动
 // ============================================================
-const { execSync } = require('child_process');
-
 function killPort(port) {
   try {
     const pids = execSync(`ss -tlnp | grep :${port} | grep -oP 'pid=\\K\\d+'`, { encoding: 'utf8' }).trim();
