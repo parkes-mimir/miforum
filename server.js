@@ -14,19 +14,26 @@ const UPLOADS_DIR = path.join(__dirname, 'uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ============================================================
-// 文件上传配置（multer）
+// 图片上传配置（multer）
 // ============================================================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
   filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
+    // 使用时间戳+随机数作为文件名，避免中文乱码
+    const ext = path.extname(file.originalname).toLowerCase();
     const name = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
     cb(null, name);
   }
 });
 const upload = multer({
   storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp', '.svg'];
+    const ext = path.extname(file.originalname).toLowerCase();
+    if (allowed.includes(ext)) cb(null, true);
+    else cb(new Error('仅支持 JPG/PNG/GIF/WebP/BMP/SVG 格式图片'));
+  }
 });
 
 // ============================================================
@@ -122,24 +129,19 @@ app.get('/api/posts', (req, res) => {
   res.json({ posts: result });
 });
 
-// 发帖（支持文件上传）
-app.post('/api/posts', requireAuth, upload.array('files', 5), (req, res) => {
+// 发帖（支持图片上传）
+app.post('/api/posts', requireAuth, upload.single('image'), (req, res) => {
   const { title, content, category } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
-  const files = req.files ? req.files.map(f => ({
-    url: '/uploads/' + f.filename,
-    name: f.originalname,
-    size: f.size,
-    type: f.mimetype
-  })) : [];
+  const image = req.file ? '/uploads/' + req.file.filename : null;
   const post = {
     id: db.nextId.posts++,
     title,
     content,
     category: category || 'tech',
     author_id: req.session.userId,
-    files,
+    image,
     created_at: new Date().toISOString(),
     updated_at: null
   };
@@ -151,9 +153,9 @@ app.post('/api/posts', requireAuth, upload.array('files', 5), (req, res) => {
   res.json({ postId: post.id, points: user ? user.points : 0 });
 });
 
-// 编辑帖子（支持新增/删除文件）
-app.put('/api/posts/:id', requireAuth, upload.array('files', 5), (req, res) => {
-  const { title, content, category, removeFiles } = req.body;
+// 编辑帖子（支持更换图片）
+app.put('/api/posts/:id', requireAuth, upload.single('image'), (req, res) => {
+  const { title, content, category, removeImage } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
   const pid = Number(req.params.id);
@@ -161,25 +163,18 @@ app.put('/api/posts/:id', requireAuth, upload.array('files', 5), (req, res) => {
   if (!post) return res.status(404).json({ error: '帖子不存在' });
   if (post.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的帖子' });
 
-  // 删除指定的文件
-  if (removeFiles) {
-    const removeList = JSON.parse(removeFiles);
-    removeList.forEach(url => {
-      const filePath = path.join(__dirname, url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
-    post.files = (post.files || []).filter(f => !removeList.includes(f.url));
+  // 删除旧图片
+  if (removeImage === 'true' || req.file) {
+    if (post.image) {
+      const imgPath = path.join(__dirname, post.image);
+      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    }
+    post.image = null;
   }
 
-  // 添加新上传的文件
-  if (req.files && req.files.length > 0) {
-    const newFiles = req.files.map(f => ({
-      url: '/uploads/' + f.filename,
-      name: f.originalname,
-      size: f.size,
-      type: f.mimetype
-    }));
-    post.files = [...(post.files || []), ...newFiles];
+  // 上传新图片
+  if (req.file) {
+    post.image = '/uploads/' + req.file.filename;
   }
 
   post.title = title;
@@ -197,13 +192,11 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   const idx = db.posts.findIndex(p => p.id === pid);
   if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
   if (db.posts[idx].author_id !== req.session.userId) return res.status(403).json({ error: '只能删除自己的帖子' });
-  // 删除关联的文件
+  // 删除关联的图片
   const post = db.posts[idx];
-  if (post.files && post.files.length > 0) {
-    post.files.forEach(f => {
-      const filePath = path.join(__dirname, f.url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
+  if (post.image) {
+    const imgPath = path.join(__dirname, post.image);
+    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
   }
   db.posts.splice(idx, 1);
   // 同时删除该帖子的所有评论和点赞
