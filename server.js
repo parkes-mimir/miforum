@@ -3,10 +3,35 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
+const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
+const UPLOADS_DIR = path.join(__dirname, 'uploads');
+
+// 确保上传目录存在
+if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+
+// ============================================================
+// 文件上传配置（multer）
+// ============================================================
+const storage = multer.diskStorage({
+  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
+  filename: (req, file, cb) => {
+    const ext = path.extname(file.originalname);
+    const name = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
+    cb(null, name);
+  }
+});
+const upload = multer({
+  storage,
+  limits: { fileSize: 5 * 1024 * 1024 }, // 5MB
+  fileFilter: (req, file, cb) => {
+    if (file.mimetype.startsWith('image/')) cb(null, true);
+    else cb(new Error('只能上传图片文件'));
+  }
+});
 
 // ============================================================
 // JSON 文件数据库
@@ -24,6 +49,7 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 // ============================================================
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
+app.use('/uploads', express.static(UPLOADS_DIR)); // 上传文件静态服务
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
 app.use(session({
   secret: 'miforum-' + Math.random().toString(36).slice(2),
@@ -100,14 +126,66 @@ app.get('/api/posts', (req, res) => {
   res.json({ posts: result });
 });
 
-app.post('/api/posts', requireAuth, (req, res) => {
+// 发帖（支持图片上传）
+app.post('/api/posts', requireAuth, upload.single('image'), (req, res) => {
   const { title, content, category } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
-  const post = { id: db.nextId.posts++, title, content, category: category || 'tech', author_id: req.session.userId, created_at: new Date().toISOString() };
+  const image = req.file ? '/uploads/' + req.file.filename : null;
+  const post = {
+    id: db.nextId.posts++,
+    title,
+    content,
+    category: category || 'tech',
+    author_id: req.session.userId,
+    image,
+    created_at: new Date().toISOString(),
+    updated_at: null
+  };
   db.posts.push(post);
+  // 发帖奖励5积分
+  const user = db.profiles.find(p => p.id === req.session.userId);
+  if (user) user.points = (user.points || 0) + 5;
   saveDB(db);
-  res.json({ postId: post.id });
+  res.json({ postId: post.id, points: user ? user.points : 0 });
+});
+
+// 编辑帖子
+app.put('/api/posts/:id', requireAuth, (req, res) => {
+  const { title, content, category } = req.body;
+  if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+  const db = loadDB();
+  const pid = Number(req.params.id);
+  const post = db.posts.find(p => p.id === pid);
+  if (!post) return res.status(404).json({ error: '帖子不存在' });
+  if (post.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的帖子' });
+  post.title = title;
+  post.content = content;
+  if (category) post.category = category;
+  post.updated_at = new Date().toISOString();
+  saveDB(db);
+  res.json({ ok: true });
+});
+
+// 删除帖子
+app.delete('/api/posts/:id', requireAuth, (req, res) => {
+  const db = loadDB();
+  const pid = Number(req.params.id);
+  const idx = db.posts.findIndex(p => p.id === pid);
+  if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
+  if (db.posts[idx].author_id !== req.session.userId) return res.status(403).json({ error: '只能删除自己的帖子' });
+  // 删除关联的图片文件
+  const post = db.posts[idx];
+  if (post.image) {
+    const imgPath = path.join(__dirname, post.image);
+    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+  }
+  db.posts.splice(idx, 1);
+  // 同时删除该帖子的所有评论和点赞
+  db.comments = db.comments.filter(c => c.post_id !== pid);
+  db.post_likes = db.post_likes.filter(l => l.post_id !== pid);
+  saveDB(db);
+  res.json({ ok: true });
 });
 
 // ============================================================

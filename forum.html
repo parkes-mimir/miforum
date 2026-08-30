@@ -170,13 +170,27 @@ tailwind.config = {
 <div id="newPostModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 fade-in">
     <div class="flex items-center justify-between mb-6">
-      <h2 class="text-lg font-bold">发布新话题</h2>
+      <h2 id="newPostTitle" class="text-lg font-bold">发布新话题</h2>
       <button onclick="hideNewPostModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="space-y-4">
       <div><label class="block text-sm font-medium text-gray-700 mb-1">标题</label><input id="postTitle" type="text" placeholder="请输入话题标题" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
       <div><label class="block text-sm font-medium text-gray-700 mb-1">分类</label><select id="postCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"><option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option></select></div>
       <div><label class="block text-sm font-medium text-gray-700 mb-1">正文</label><textarea id="postContent" rows="5" placeholder="分享你的想法..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea></div>
+      <!-- 图片上传 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">图片（可选）</label>
+        <div id="imageDropZone" class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-primary-300 transition cursor-pointer" onclick="document.getElementById('postImage').click()">
+          <input type="file" id="postImage" accept="image/*" class="hidden" onchange="previewImage(this)">
+          <div id="imagePreview" class="hidden mb-2">
+            <img id="previewImg" class="max-h-32 mx-auto rounded-lg">
+          </div>
+          <div id="imagePlaceholder">
+            <svg class="w-8 h-8 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+            <p class="text-xs text-gray-400">点击或拖拽上传图片（最大5MB）</p>
+          </div>
+        </div>
+      </div>
       <button id="submitPostBtn" onclick="doNewPost()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">发布话题</button>
     </div>
   </div>
@@ -187,11 +201,33 @@ tailwind.config = {
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100">
       <h2 id="detailTitle" class="text-lg font-bold truncate"></h2>
-      <button onclick="hidePostDetail()" class="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-4"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      <div class="flex items-center gap-2 flex-shrink-0 ml-4">
+        <div id="postActions" class="hidden flex items-center gap-1">
+          <button onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button onclick="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+        <button onclick="hidePostDetail()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
     </div>
     <div class="flex-1 overflow-y-auto p-5 space-y-5">
       <div id="detailMeta" class="flex items-center gap-3"></div>
+      <div id="detailImage" class="hidden"></div>
       <div id="detailContent" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <div id="editPostArea" class="hidden space-y-3">
+        <input id="editPostTitle" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标题">
+        <select id="editPostCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+          <option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option>
+        </select>
+        <textarea id="editPostContent" rows="5" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="正文"></textarea>
+        <div class="flex gap-2 justify-end">
+          <button onclick="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
+          <button onclick="saveEditPost()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">保存修改</button>
+        </div>
+      </div>
       <div class="border-t border-gray-100 pt-4">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">评论 <span id="commentCount" class="text-gray-400 font-normal"></span></h3>
         <div id="commentList" class="space-y-3 mb-4"></div>
@@ -600,6 +636,8 @@ async function doRetroactive(date) {
 }
 
 // ===== 帖子 =====
+let editingPostId = null;
+
 async function loadPosts() {
   const params = new URLSearchParams();
   if (state.currentCat!=='all') params.set('category', state.currentCat);
@@ -616,6 +654,7 @@ function renderPosts() {
   empty.classList.add('hidden');
   list.innerHTML = state.posts.map(p => {
     const liked = state.likedIds.has(p.id);
+    const hasImg = p.image && p.image.length > 0;
     return `<div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" onclick="openPost('${p.id}')">
       <div class="flex items-start gap-3">
         <div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">${esc(p.author_name[0].toUpperCase())}</div>
@@ -624,9 +663,11 @@ function renderPosts() {
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
+            ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g,' ')}</p>
+          ${hasImg ? `<img src="${p.image}" class="mt-2 rounded-lg max-h-24 object-cover">` : ''}
           <div class="flex items-center gap-4 mt-3">
             <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked?'text-red-500':'text-gray-400'} hover:text-red-500 transition">
               <svg class="w-4 h-4" fill="${liked?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -644,15 +685,56 @@ function renderPosts() {
   document.getElementById('statPosts').textContent = state.posts.length;
   document.getElementById('statComments').textContent = state.posts.reduce((s,p)=>s+p.comments_count,0);
 }
+
+function previewImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 5 * 1024 * 1024) { toast('图片大小不能超过5MB'); input.value=''; return; }
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('previewImg').src = e.target.result;
+    document.getElementById('imagePreview').classList.remove('hidden');
+    document.getElementById('imagePlaceholder').classList.add('hidden');
+  };
+  reader.readAsDataURL(file);
+}
+
+function resetPostForm() {
+  document.getElementById('postTitle').value = '';
+  document.getElementById('postContent').value = '';
+  document.getElementById('postCategory').value = 'tech';
+  document.getElementById('postImage').value = '';
+  document.getElementById('imagePreview').classList.add('hidden');
+  document.getElementById('imagePlaceholder').classList.remove('hidden');
+  editingPostId = null;
+  document.getElementById('newPostTitle').textContent = '发布新话题';
+}
+
 async function doNewPost() {
-  const title=document.getElementById('postTitle').value.trim(), cat=document.getElementById('postCategory').value, content=document.getElementById('postContent').value.trim();
-  if (!title) { toast('请输入标题'); return; } if (!content) { toast('请输入正文'); return; }
+  const title=document.getElementById('postTitle').value.trim();
+  const cat=document.getElementById('postCategory').value;
+  const content=document.getElementById('postContent').value.trim();
+  const imageFile=document.getElementById('postImage').files[0];
+  if (!title) { toast('请输入标题'); return; }
+  if (!content) { toast('请输入正文'); return; }
   const btn=document.getElementById('submitPostBtn'); btn.disabled=true; btn.textContent='发布中...';
   try {
-    await api('/api/posts',{method:'POST',body:JSON.stringify({title,content,category:cat})});
-    hideNewPostModal(); document.getElementById('postTitle').value=''; document.getElementById('postContent').value='';
+    const formData = new FormData();
+    formData.append('title', title);
+    formData.append('content', content);
+    formData.append('category', cat);
+    if (imageFile) formData.append('image', imageFile);
+
+    const res = await fetch('/api/posts', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '发布失败');
+
+    hideNewPostModal();
+    resetPostForm();
+    if (data.points) state.user.points = data.points;
+    renderCheckin(false);
     if (state.currentCat!=='all'&&state.currentCat!==cat) filterCategory('all'); else await loadPosts();
-    toast('发布成功！');
+    toast('发布成功！积分 +5');
   } catch(e) { toast(e.message); }
   finally { btn.disabled=false; btn.textContent='发布话题'; }
 }
@@ -670,10 +752,78 @@ async function openPost(pid) {
   const p = state.posts.find(x=>x.id==pid); if(!p) return;
   state.currentPostId = pid;
   document.getElementById('detailTitle').textContent = p.title;
-  document.getElementById('detailMeta').innerHTML = `<div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(p.author_name[0].toUpperCase())}</div><div><span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span><span class="text-xs text-gray-400 ml-2">${relTime(p.created_at)}</span><span class="text-xs px-2 py-0.5 rounded-full ml-2 ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span></div>`;
+  document.getElementById('detailMeta').innerHTML = `<div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(p.author_name[0].toUpperCase())}</div><div><span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span><span class="text-xs text-gray-400 ml-2">${relTime(p.created_at)}</span><span class="text-xs px-2 py-0.5 rounded-full ml-2 ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>${p.updated_at ? '<span class="text-xs text-gray-400 ml-2">(已编辑)</span>' : ''}</div>`;
+
+  // 图片
+  const imgEl = document.getElementById('detailImage');
+  if (p.image && p.image.length > 0) {
+    imgEl.innerHTML = `<img src="${p.image}" class="rounded-xl max-h-80 w-full object-cover">`;
+    imgEl.classList.remove('hidden');
+  } else {
+    imgEl.innerHTML = '';
+    imgEl.classList.add('hidden');
+  }
+
   document.getElementById('detailContent').textContent = p.content;
+
+  // 编辑/删除按钮（仅作者可见）
+  const actionsEl = document.getElementById('postActions');
+  if (state.user && p.author_id === state.user.id) {
+    actionsEl.classList.remove('hidden');
+  } else {
+    actionsEl.classList.add('hidden');
+  }
+
+  // 隐藏编辑区域
+  document.getElementById('editPostArea').classList.add('hidden');
+  document.getElementById('detailContent').classList.remove('hidden');
+  document.getElementById('detailImage').classList.remove('hidden');
+
   showPostDetail();
   await loadComments(pid);
+}
+
+function startEditPost() {
+  const p = state.posts.find(x=>x.id==state.currentPostId); if(!p) return;
+  editingPostId = p.id;
+  document.getElementById('editPostTitle').value = p.title;
+  document.getElementById('editPostCategory').value = p.category;
+  document.getElementById('editPostContent').value = p.content;
+  document.getElementById('editPostArea').classList.remove('hidden');
+  document.getElementById('detailContent').classList.add('hidden');
+  document.getElementById('detailImage').classList.add('hidden');
+}
+
+function cancelEditPost() {
+  editingPostId = null;
+  document.getElementById('editPostArea').classList.add('hidden');
+  document.getElementById('detailContent').classList.remove('hidden');
+  document.getElementById('detailImage').classList.remove('hidden');
+}
+
+async function saveEditPost() {
+  const title = document.getElementById('editPostTitle').value.trim();
+  const content = document.getElementById('editPostContent').value.trim();
+  const category = document.getElementById('editPostCategory').value;
+  if (!title) { toast('请输入标题'); return; }
+  if (!content) { toast('请输入正文'); return; }
+  try {
+    await api('/api/posts/' + editingPostId, { method: 'PUT', body: JSON.stringify({ title, content, category }) });
+    toast('修改成功');
+    cancelEditPost();
+    await loadPosts();
+    openPost(editingPostId);
+  } catch(e) { toast(e.message); }
+}
+
+async function deletePost() {
+  if (!confirm('确定要删除这篇帖子吗？\n删除后不可恢复，帖子的所有评论和点赞也会被删除。')) return;
+  try {
+    await api('/api/posts/' + state.currentPostId, { method: 'DELETE' });
+    toast('帖子已删除');
+    hidePostDetail();
+    await loadPosts();
+  } catch(e) { toast(e.message); }
 }
 async function loadComments(pid) {
   const { comments } = await api('/api/posts/'+pid+'/comments');
