@@ -219,17 +219,24 @@ app.get('/api/posts/:id/comments', (req, res) => {
   const db = loadDB();
   const pid = Number(req.params.id);
   const post = db.posts.find(p => p.id === pid);
-  const comments = db.comments.filter(c => c.post_id === pid).sort((a, b) => {
-    // 置顶评论优先
+  const commentsRaw = db.comments.filter(c => c.post_id === pid);
+  
+  // 先按时间排序，计算楼层号
+  const sortedByTime = [...commentsRaw].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const floorMap = {};
+  sortedByTime.forEach((c, i) => { floorMap[c.id] = i + 1; });
+  
+  // 再按置顶优先排序，但楼层号保持不变
+  const comments = [...commentsRaw].sort((a, b) => {
     if (a.pinned && !b.pinned) return -1;
     if (!a.pinned && b.pinned) return 1;
     return new Date(a.created_at) - new Date(b.created_at);
-  }).map((c, i) => {
+  }).map(c => {
     const author = db.profiles.find(u => u.id === c.author_id);
     return {
       ...c,
       author_name: author ? author.username : '未知',
-      floor: i + 1,
+      floor: floorMap[c.id],
       is_post_owner: post ? c.author_id === post.author_id : false
     };
   });
