@@ -378,7 +378,21 @@ app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
   res.json({ ok: true, points: user.points, date });
 });
 
-// 每日签到
+// 自动签到（页面加载时调用，静默签到）
+app.post('/api/checkin/auto', requireAuth, (req, res) => {
+  const db = loadDB();
+  const today = todayStr();
+  const user = db.profiles.find(p => p.id === req.session.userId);
+  if (!user) return res.json({ checkedIn: false, points: 0 });
+  const already = db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today);
+  if (already) return res.json({ checkedIn: true, points: user.points, newCheckin: false });
+  db.check_ins.push({ id: db.nextId.check_ins++, user_id: req.session.userId, check_in_date: today, created_at: new Date().toISOString() });
+  user.points = (user.points || 0) + 10;
+  saveDB(db);
+  res.json({ checkedIn: true, points: user.points, newCheckin: true });
+});
+
+// 每日签到（保留兼容）
 app.post('/api/checkin', requireAuth, (req, res) => {
   const db = loadDB();
   const today = todayStr();

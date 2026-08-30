@@ -100,8 +100,8 @@ tailwind.config = {
           <div class="flex-1"><div class="streak-num" id="streakCurrent">0</div><div class="text-xs text-white/60">连续签到</div></div>
           <div class="flex-1"><div class="streak-num" id="streakTotal">0</div><div class="text-xs text-white/60">累计签到</div></div>
         </div>
-        <button id="checkinBtn" onclick="doCheckin()" class="w-full py-2 bg-white/20 hover:bg-white/30 backdrop-blur text-white text-sm font-medium rounded-xl transition disabled:opacity-50">立即签到</button>
-        <button onclick="showCheckinHistory()" class="w-full mt-2 py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl transition">查看签到日历</button>
+        <div id="checkinStatusText" class="hidden text-center text-sm text-white/80 mb-2"></div>
+        <button onclick="showCheckinHistory()" class="w-full py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl transition">查看签到日历</button>
       </div>
     </div>
 
@@ -397,53 +397,47 @@ let checkinData = null;
 async function loadCheckin() {
   if (!state.user) { renderCheckin(false); return; }
   const { checkedIn } = await api('/api/checkin/today');
-  const me = await api('/api/me');
-  if (me.user) state.user.points = me.user.points;
+async function loadCheckin() {
+  if (!state.user) { renderCheckin(false); return; }
+  // 自动签到
+  try {
+    const res = await api('/api/checkin/auto', { method: 'POST' });
+    state.user.points = res.points;
+    if (res.newCheckin) toast('每日签到成功！积分 +10');
+    renderCheckin(res.checkedIn);
+  } catch(e) {
+    renderCheckin(false);
+  }
   // 加载签到统计
   try {
     checkinData = await api('/api/checkin/history');
+    if (checkinData) {
+      document.getElementById('streakCurrent').textContent = checkinData.currentStreak;
+      document.getElementById('streakTotal').textContent = checkinData.totalDays;
+      document.getElementById('streakInfo').classList.remove('hidden');
+    }
   } catch(e) { checkinData = null; }
-  renderCheckin(checkedIn);
 }
 
 function renderCheckin(checked) {
-  const btn = document.getElementById('checkinBtn');
   const badge = document.getElementById('pointsBadge');
-  const streakInfo = document.getElementById('streakInfo');
+  const statusText = document.getElementById('checkinStatusText');
 
   if (!state.user) {
-    btn.disabled = false; btn.textContent = '请先登录';
-    btn.onclick = () => { toast('请先登录'); showAuthModal(); };
-    badge.classList.add('hidden'); streakInfo.classList.add('hidden');
+    badge.classList.add('hidden');
+    statusText.classList.add('hidden');
     return;
   }
 
   badge.textContent = state.user.points + ' 积分';
   badge.classList.remove('hidden');
 
-  if (checkinData) {
-    document.getElementById('streakCurrent').textContent = checkinData.currentStreak;
-    document.getElementById('streakTotal').textContent = checkinData.totalDays;
-    streakInfo.classList.remove('hidden');
-  }
-
   if (checked) {
-    btn.disabled = true; btn.textContent = '✓ 已签到';
+    statusText.textContent = '✓ 今日已签到';
+    statusText.classList.remove('hidden');
   } else {
-    btn.disabled = false; btn.textContent = '立即签到';
-    btn.onclick = doCheckin;
+    statusText.classList.add('hidden');
   }
-}
-
-async function doCheckin() {
-  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
-  try {
-    const res = await api('/api/checkin', { method: 'POST' });
-    state.user.points = res.points;
-    checkinData = await api('/api/checkin/history');
-    renderCheckin(true);
-    toast('签到成功！积分 +10');
-  } catch(e) { toast(e.message); }
 }
 
 function showCheckinHistory() {
