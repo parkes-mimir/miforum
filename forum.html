@@ -238,7 +238,20 @@ tailwind.config = {
         <div id="commentList" class="space-y-3 mb-4"></div>
         <div id="commentForm" class="hidden">
           <textarea id="commentInput" rows="3" placeholder="写下你的评论..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
-          <div class="flex justify-end mt-2"><button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button></div>
+          <div id="commentImagePreview" class="hidden mt-2 relative w-16 h-16 rounded-lg overflow-hidden">
+            <img id="commentPreviewImg" class="w-full h-full object-cover">
+            <button onclick="removeCommentImage()" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center">
+              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+            </button>
+          </div>
+          <div class="flex items-center justify-between mt-2">
+            <button onclick="document.getElementById('commentImage').click()" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              图片
+            </button>
+            <input type="file" id="commentImage" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" onchange="previewCommentImage(this)">
+            <button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button>
+          </div>
         </div>
         <p id="commentLoginHint" class="text-sm text-gray-400 text-center py-4 hidden">请先<a href="#" onclick="hidePostDetail();showAuthModal()" class="text-primary-600 font-medium">登录</a>后评论</p>
       </div>
@@ -920,25 +933,39 @@ async function deletePost() {
     await loadPosts();
   } catch(e) { toast(e.message); }
 }
+let commentImageData = null;
+
 async function loadComments(pid) {
-  const { comments } = await api('/api/posts/'+pid+'/comments');
-  renderComments(comments);
+  const { comments, postOwnerId } = await api('/api/posts/'+pid+'/comments');
+  renderComments(comments, postOwnerId);
 }
-function renderComments(cl) {
+function renderComments(cl, postOwnerId) {
   document.getElementById('commentCount').textContent = '('+cl.length+')';
   if (!cl.length) { document.getElementById('commentList').innerHTML='<p class="text-sm text-gray-400 text-center py-4">暂无评论，快来抢沙发吧</p>'; }
   else {
     document.getElementById('commentList').innerHTML = cl.map(c => {
       const own = state.user && c.author_id === state.user.id;
-      return `<div class="flex gap-3" id="comment-${c.id}">
+      const isPostOwner = state.user && postOwnerId === state.user.id;
+      const canDelete = own || isPostOwner;
+      return `<div class="flex gap-3 ${c.pinned ? 'bg-amber-50 rounded-xl p-2 -mx-2' : ''}" id="comment-${c.id}">
         <div class="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
         <div class="flex-1 bg-gray-50 rounded-xl px-3 py-2">
-          <div class="flex items-center gap-2 mb-1">
+          <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-xs font-semibold text-gray-900">${esc(c.author_name)}</span>
+            ${c.is_post_owner ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>' : ''}
+            ${c.pinned ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>' : ''}
+            <span class="text-xs text-gray-400">#${c.floor}</span>
             <span class="text-xs text-gray-400">${relTime(c.created_at)}</span>
-            ${own?`<button onclick="startEdit(${c.id})" class="ml-auto text-gray-400 hover:text-primary-600" title="编辑"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button><button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600" title="删除"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>`:''}
+            <div class="ml-auto flex items-center gap-1">
+              ${isPostOwner ? `<button onclick="togglePinComment(${c.id})" class="text-gray-400 hover:text-amber-500 transition" title="${c.pinned ? '取消置顶' : '置顶'}">
+                <svg class="w-3.5 h-3.5" fill="${c.pinned ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              </button>` : ''}
+              ${own ? `<button onclick="startEdit(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>` : ''}
+              ${canDelete ? `<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>` : ''}
+            </div>
           </div>
-          <p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>
+          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : ''}
+          ${c.image ? `<img src="${c.image}" class="mt-2 rounded-lg max-h-48 object-cover cursor-pointer" onclick="window.open('${c.image}','_blank')">` : ''}
         </div>
       </div>`;
     }).join('');
@@ -946,11 +973,51 @@ function renderComments(cl) {
   if (state.user) { document.getElementById('commentForm').classList.remove('hidden'); document.getElementById('commentLoginHint').classList.add('hidden'); }
   else { document.getElementById('commentForm').classList.add('hidden'); document.getElementById('commentLoginHint').classList.remove('hidden'); }
 }
+
+function previewCommentImage(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10 * 1024 * 1024) { toast('图片大小不能超过10MB'); input.value=''; return; }
+  commentImageData = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('commentPreviewImg').src = e.target.result;
+    document.getElementById('commentImagePreview').classList.remove('hidden');
+  };
+  reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function removeCommentImage() {
+  commentImageData = null;
+  document.getElementById('commentImagePreview').classList.add('hidden');
+}
+
 async function doComment() {
   const input=document.getElementById('commentInput'), text=input.value.trim();
-  if (!text) { toast('请输入评论'); return; }
-  try { await api('/api/posts/'+state.currentPostId+'/comments',{method:'POST',body:JSON.stringify({content:text})}); input.value=''; await loadComments(state.currentPostId); await loadPosts(); toast('评论成功！'); }
-  catch(e) { toast(e.message); }
+  if (!text && !commentImageData) { toast('请输入评论或上传图片'); return; }
+  try {
+    const formData = new FormData();
+    if (text) formData.append('content', text);
+    if (commentImageData) formData.append('image', commentImageData);
+    const res = await fetch('/api/posts/'+state.currentPostId+'/comments', { method: 'POST', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '评论失败');
+    input.value = '';
+    commentImageData = null;
+    document.getElementById('commentImagePreview').classList.add('hidden');
+    await loadComments(state.currentPostId);
+    await loadPosts();
+    toast('评论成功！');
+  } catch(e) { toast(e.message); }
+}
+
+async function togglePinComment(cid) {
+  try {
+    const res = await api('/api/comments/'+cid+'/pin', { method: 'PUT' });
+    toast(res.pinned ? '已置顶' : '已取消置顶');
+    await loadComments(state.currentPostId);
+  } catch(e) { toast(e.message); }
 }
 function startEdit(cid) {
   const el=document.getElementById('comment-'+cid); if(!el) return;

@@ -218,18 +218,38 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 app.get('/api/posts/:id/comments', (req, res) => {
   const db = loadDB();
   const pid = Number(req.params.id);
-  const comments = db.comments.filter(c => c.post_id === pid).sort((a, b) => new Date(a.created_at) - new Date(b.created_at)).map(c => {
+  const post = db.posts.find(p => p.id === pid);
+  const comments = db.comments.filter(c => c.post_id === pid).sort((a, b) => {
+    // 置顶评论优先
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    return new Date(a.created_at) - new Date(b.created_at);
+  }).map((c, i) => {
     const author = db.profiles.find(u => u.id === c.author_id);
-    return { ...c, author_name: author ? author.username : '未知' };
+    return {
+      ...c,
+      author_name: author ? author.username : '未知',
+      floor: i + 1,
+      is_post_owner: post ? c.author_id === post.author_id : false
+    };
   });
-  res.json({ comments });
+  res.json({ comments, postOwnerId: post ? post.author_id : null });
 });
 
-app.post('/api/posts/:id/comments', requireAuth, (req, res) => {
+app.post('/api/posts/:id/comments', requireAuth, upload.single('image'), (req, res) => {
   const { content } = req.body;
-  if (!content) return res.status(400).json({ error: '请输入评论内容' });
+  if (!content && !req.file) return res.status(400).json({ error: '请输入评论内容或上传图片' });
   const db = loadDB();
-  const comment = { id: db.nextId.comments++, post_id: Number(req.params.id), author_id: req.session.userId, content, created_at: new Date().toISOString() };
+  const image = req.file ? '/uploads/' + req.file.filename : null;
+  const comment = {
+    id: db.nextId.comments++,
+    post_id: Number(req.params.id),
+    author_id: req.session.userId,
+    content: content || '',
+    image,
+    pinned: false,
+    created_at: new Date().toISOString()
+  };
   db.comments.push(comment);
   saveDB(db);
   res.json({ commentId: comment.id });
@@ -253,10 +273,36 @@ app.delete('/api/comments/:id', requireAuth, (req, res) => {
   const cid = Number(req.params.id);
   const idx = db.comments.findIndex(x => x.id === cid);
   if (idx === -1) return res.status(404).json({ error: '评论不存在' });
-  if (db.comments[idx].author_id !== req.session.userId) return res.status(403).json({ error: '只能删除自己的评论' });
+  const c = db.comments[idx];
+  // 评论作者或帖主可删除
+  const post = db.posts.find(p => p.id === c.post_id);
+  const isPostOwner = post && post.author_id === req.session.userId;
+  if (c.author_id !== req.session.userId && !isPostOwner) {
+    return res.status(403).json({ error: '只能删除自己的评论或自己帖子下的评论' });
+  }
+  // 删除评论图片
+  if (c.image) {
+    const imgPath = path.join(__dirname, c.image);
+    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+  }
   db.comments.splice(idx, 1);
   saveDB(db);
   res.json({ ok: true });
+});
+
+// 帖主置顶/取消置顶评论
+app.put('/api/comments/:id/pin', requireAuth, (req, res) => {
+  const db = loadDB();
+  const cid = Number(req.params.id);
+  const c = db.comments.find(x => x.id === cid);
+  if (!c) return res.status(404).json({ error: '评论不存在' });
+  const post = db.posts.find(p => p.id === c.post_id);
+  if (!post || post.author_id !== req.session.userId) {
+    return res.status(403).json({ error: '只有帖主可以置顶评论' });
+  }
+  c.pinned = !c.pinned;
+  saveDB(db);
+  res.json({ ok: true, pinned: c.pinned });
 });
 
 // ============================================================
