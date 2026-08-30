@@ -40,7 +40,7 @@ npm start
 ## 技术栈
 
 - **前端**: HTML + Tailwind CSS (CDN) + 原生 JavaScript
-- **后端**: Express.js + bcryptjs + express-session + multer
+- **后端**: Node.js + Express.js + bcryptjs + express-session + multer
 - **数据库**: JSON 文件存储（`db.json`，零配置）
 
 ## 项目结构
