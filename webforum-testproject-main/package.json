@@ -1,6 +1,6 @@
 {
   "name": "miforum",
-  "version": "0.3.0",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "start": "node server.js"
@@ -8,7 +8,6 @@
   "dependencies": {
     "express": "^4.21.2",
     "bcryptjs": "^2.4.3",
-    "express-session": "^1.18.1",
-    "multer": "^1.4.5-lts.1"
+    "express-session": "^1.18.1"
   }
 }

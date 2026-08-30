@@ -3,31 +3,10 @@ const bcrypt = require('bcryptjs');
 const session = require('express-session');
 const path = require('path');
 const fs = require('fs');
-const multer = require('multer');
 
 const app = express();
 const PORT = process.env.PORT || 3000;
 const DB_FILE = path.join(__dirname, 'db.json');
-const UPLOADS_DIR = path.join(__dirname, 'uploads');
-
-// 确保上传目录存在
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-// ============================================================
-// 文件上传配置（multer）
-// ============================================================
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname);
-    const name = Date.now() + '-' + Math.random().toString(36).slice(2, 8) + ext;
-    cb(null, name);
-  }
-});
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 } // 10MB
-});
 
 // ============================================================
 // JSON 文件数据库
@@ -45,7 +24,6 @@ function saveDB(db) { fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2)); }
 // ============================================================
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
-app.use('/uploads', express.static(UPLOADS_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
 app.use(session({
   secret: 'miforum-' + Math.random().toString(36).slice(2),
@@ -122,95 +100,14 @@ app.get('/api/posts', (req, res) => {
   res.json({ posts: result });
 });
 
-// 发帖（支持文件上传）
-app.post('/api/posts', requireAuth, upload.array('files', 5), (req, res) => {
+app.post('/api/posts', requireAuth, (req, res) => {
   const { title, content, category } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
   const db = loadDB();
-  const files = req.files ? req.files.map(f => ({
-    url: '/uploads/' + f.filename,
-    name: f.originalname,
-    size: f.size,
-    type: f.mimetype
-  })) : [];
-  const post = {
-    id: db.nextId.posts++,
-    title,
-    content,
-    category: category || 'tech',
-    author_id: req.session.userId,
-    files,
-    created_at: new Date().toISOString(),
-    updated_at: null
-  };
+  const post = { id: db.nextId.posts++, title, content, category: category || 'tech', author_id: req.session.userId, created_at: new Date().toISOString() };
   db.posts.push(post);
-  // 发帖奖励5积分
-  const user = db.profiles.find(p => p.id === req.session.userId);
-  if (user) user.points = (user.points || 0) + 5;
   saveDB(db);
-  res.json({ postId: post.id, points: user ? user.points : 0 });
-});
-
-// 编辑帖子（支持新增/删除文件）
-app.put('/api/posts/:id', requireAuth, upload.array('files', 5), (req, res) => {
-  const { title, content, category, removeFiles } = req.body;
-  if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
-  const db = loadDB();
-  const pid = Number(req.params.id);
-  const post = db.posts.find(p => p.id === pid);
-  if (!post) return res.status(404).json({ error: '帖子不存在' });
-  if (post.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的帖子' });
-
-  // 删除指定的文件
-  if (removeFiles) {
-    const removeList = JSON.parse(removeFiles);
-    removeList.forEach(url => {
-      const filePath = path.join(__dirname, url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
-    post.files = (post.files || []).filter(f => !removeList.includes(f.url));
-  }
-
-  // 添加新上传的文件
-  if (req.files && req.files.length > 0) {
-    const newFiles = req.files.map(f => ({
-      url: '/uploads/' + f.filename,
-      name: f.originalname,
-      size: f.size,
-      type: f.mimetype
-    }));
-    post.files = [...(post.files || []), ...newFiles];
-  }
-
-  post.title = title;
-  post.content = content;
-  if (category) post.category = category;
-  post.updated_at = new Date().toISOString();
-  saveDB(db);
-  res.json({ ok: true });
-});
-
-// 删除帖子
-app.delete('/api/posts/:id', requireAuth, (req, res) => {
-  const db = loadDB();
-  const pid = Number(req.params.id);
-  const idx = db.posts.findIndex(p => p.id === pid);
-  if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
-  if (db.posts[idx].author_id !== req.session.userId) return res.status(403).json({ error: '只能删除自己的帖子' });
-  // 删除关联的文件
-  const post = db.posts[idx];
-  if (post.files && post.files.length > 0) {
-    post.files.forEach(f => {
-      const filePath = path.join(__dirname, f.url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    });
-  }
-  db.posts.splice(idx, 1);
-  // 同时删除该帖子的所有评论和点赞
-  db.comments = db.comments.filter(c => c.post_id !== pid);
-  db.post_likes = db.post_likes.filter(l => l.post_id !== pid);
-  saveDB(db);
-  res.json({ ok: true });
+  res.json({ postId: post.id });
 });
 
 // ============================================================
@@ -261,7 +158,7 @@ app.delete('/api/comments/:id', requireAuth, (req, res) => {
 });
 
 // ============================================================
-// 签到（基于 phppi561 的时区安全实现）
+// 签到
 // ============================================================
 
 // 辅助函数：日期工具（'YYYY-MM-DD' 纯字符串运算，避免时区/DST 偏差）
@@ -309,7 +206,7 @@ app.get('/api/checkin/history', (req, res) => {
   if (!user) return res.json({ checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 });
 
   const today = todayStr();
-  const regDate = dateStr(user.created_at).slice(0, 10);
+  const regDate = dateStr(user.created_at);
   // 取最近365天
   const yearAgo = addDays(today, -364);
   const startDate = regDate > yearAgo ? regDate : yearAgo;
@@ -320,11 +217,10 @@ app.get('/api/checkin/history', (req, res) => {
   // 365天内已签到日期
   const checkinDates = userCheckins.filter(d => d >= yearAgo);
 
-  // 计算可补签的日期（注册日到昨天之间，未签到的日期）
-  const yesterday = addDays(today, -1);
+  // 计算可补签的日期（注册到今天之间，未签到的日期）
   const missedDays = [];
   let d = startDate;
-  while (d <= yesterday) {
+  while (d < today) {
     if (!checkinSet.has(d)) {
       missedDays.push(d);
     }
@@ -354,8 +250,9 @@ app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
   const user = db.profiles.find(p => p.id === req.session.userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(date)) return res.status(400).json({ error: '日期格式不正确' });
   const today = todayStr();
-  const regDate = dateStr(user.created_at).slice(0, 10);
+  const regDate = dateStr(user.created_at);
 
   // 校验：只能是注册日到昨天之间的日期（今天请走正常签到）
   if (date < regDate || date >= today) {

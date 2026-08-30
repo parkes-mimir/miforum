@@ -170,25 +170,13 @@ tailwind.config = {
 <div id="newPostModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 p-6 fade-in">
     <div class="flex items-center justify-between mb-6">
-      <h2 id="newPostTitle" class="text-lg font-bold">发布新话题</h2>
+      <h2 class="text-lg font-bold">发布新话题</h2>
       <button onclick="hideNewPostModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="space-y-4">
       <div><label class="block text-sm font-medium text-gray-700 mb-1">标题</label><input id="postTitle" type="text" placeholder="请输入话题标题" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
       <div><label class="block text-sm font-medium text-gray-700 mb-1">分类</label><select id="postCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white"><option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option></select></div>
       <div><label class="block text-sm font-medium text-gray-700 mb-1">正文</label><textarea id="postContent" rows="5" placeholder="分享你的想法..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea></div>
-      <!-- 文件上传 -->
-      <div>
-        <label class="block text-sm font-medium text-gray-700 mb-1">附件（可选，最多5个，每个10MB）</label>
-        <div id="fileDropZone" class="border-2 border-dashed border-gray-200 rounded-xl p-4 text-center hover:border-primary-300 transition cursor-pointer" onclick="document.getElementById('postFiles').click()">
-          <input type="file" id="postFiles" multiple class="hidden" onchange="handleFileSelect(this)">
-          <div id="fileList" class="hidden mb-2 space-y-1"></div>
-          <div id="filePlaceholder">
-            <svg class="w-8 h-8 mx-auto text-gray-300 mb-1" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.172 7l-6.586 6.586a2 2 0 102.828 2.828l6.414-6.586a4 4 0 00-5.656-5.656l-6.415 6.585a6 6 0 108.486 8.486L20.5 13"/></svg>
-            <p class="text-xs text-gray-400">点击上传文件（图片、文档、压缩包等）</p>
-          </div>
-        </div>
-      </div>
       <button id="submitPostBtn" onclick="doNewPost()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">发布话题</button>
     </div>
   </div>
@@ -199,44 +187,11 @@ tailwind.config = {
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100">
       <h2 id="detailTitle" class="text-lg font-bold truncate"></h2>
-      <div class="flex items-center gap-2 flex-shrink-0 ml-4">
-        <div id="postActions" class="hidden flex items-center gap-1">
-          <button onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
-          </button>
-          <button onclick="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
-          </button>
-        </div>
-        <button onclick="hidePostDetail()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-      </div>
+      <button onclick="hidePostDetail()" class="p-1 rounded-lg hover:bg-gray-100 flex-shrink-0 ml-4"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="flex-1 overflow-y-auto p-5 space-y-5">
       <div id="detailMeta" class="flex items-center gap-3"></div>
-      <div id="detailFiles" class="hidden"></div>
       <div id="detailContent" class="text-sm text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
-      <div id="editPostArea" class="hidden space-y-3">
-        <input id="editPostTitle" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标题">
-        <select id="editPostCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
-          <option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option>
-        </select>
-        <textarea id="editPostContent" rows="5" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="正文"></textarea>
-        <!-- 编辑时的文件管理 -->
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-1">附件管理</label>
-          <div id="editExistingFiles" class="space-y-1 mb-2"></div>
-          <div class="flex items-center gap-2">
-            <button onclick="document.getElementById('editNewFiles').click()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition">添加文件</button>
-            <input type="file" id="editNewFiles" multiple class="hidden" onchange="handleEditFileSelect(this)">
-            <span id="editNewFileCount" class="text-xs text-gray-400"></span>
-          </div>
-          <div id="editNewFileList" class="mt-2 space-y-1"></div>
-        </div>
-        <div class="flex gap-2 justify-end">
-          <button onclick="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
-          <button onclick="saveEditPost()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">保存修改</button>
-        </div>
-      </div>
       <div class="border-t border-gray-100 pt-4">
         <h3 class="text-sm font-semibold text-gray-900 mb-3">评论 <span id="commentCount" class="text-gray-400 font-normal"></span></h3>
         <div id="commentList" class="space-y-3 mb-4"></div>
@@ -645,11 +600,6 @@ async function doRetroactive(date) {
 }
 
 // ===== 帖子 =====
-let editingPostId = null;
-let selectedFiles = []; // 新帖选中的文件
-let editRemoveFiles = []; // 编辑时要删除的文件URL
-let editNewFiles = []; // 编辑时新增的文件
-
 async function loadPosts() {
   const params = new URLSearchParams();
   if (state.currentCat!=='all') params.set('category', state.currentCat);
@@ -666,8 +616,6 @@ function renderPosts() {
   empty.classList.add('hidden');
   list.innerHTML = state.posts.map(p => {
     const liked = state.likedIds.has(p.id);
-    const hasFiles = p.files && p.files.length > 0;
-    const firstImg = hasFiles ? p.files.find(f => f.type && f.type.startsWith('image/')) : null;
     return `<div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" onclick="openPost('${p.id}')">
       <div class="flex items-start gap-3">
         <div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">${esc(p.author_name[0].toUpperCase())}</div>
@@ -676,12 +624,9 @@ function renderPosts() {
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
-            ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
-            ${hasFiles ? `<span class="text-xs text-gray-400">📎${p.files.length}</span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g,' ')}</p>
-          ${firstImg ? `<img src="${firstImg.url}" class="mt-2 rounded-lg max-h-24 object-cover">` : ''}
           <div class="flex items-center gap-4 mt-3">
             <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked?'text-red-500':'text-gray-400'} hover:text-red-500 transition">
               <svg class="w-4 h-4" fill="${liked?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -699,78 +644,15 @@ function renderPosts() {
   document.getElementById('statPosts').textContent = state.posts.length;
   document.getElementById('statComments').textContent = state.posts.reduce((s,p)=>s+p.comments_count,0);
 }
-
-function formatSize(bytes) {
-  if (bytes < 1024) return bytes + ' B';
-  if (bytes < 1024*1024) return (bytes/1024).toFixed(1) + ' KB';
-  return (bytes/1024/1024).toFixed(1) + ' MB';
-}
-
-function handleFileSelect(input) {
-  const files = Array.from(input.files);
-  if (selectedFiles.length + files.length > 5) { toast('最多上传5个文件'); input.value=''; return; }
-  selectedFiles = [...selectedFiles, ...files];
-  renderFileList();
-  input.value = '';
-}
-
-function renderFileList() {
-  const listEl = document.getElementById('fileList');
-  const phEl = document.getElementById('filePlaceholder');
-  if (selectedFiles.length === 0) {
-    listEl.classList.add('hidden'); phEl.classList.remove('hidden'); return;
-  }
-  phEl.classList.add('hidden'); listEl.classList.remove('hidden');
-  listEl.innerHTML = selectedFiles.map((f, i) => {
-    const isImg = f.type && f.type.startsWith('image/');
-    return `<div class="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-3 py-1.5">
-      ${isImg ? '<span class="text-green-500">🖼️</span>' : '<span class="text-blue-500">📎</span>'}
-      <span class="flex-1 truncate">${esc(f.name)}</span>
-      <span class="text-gray-400">${formatSize(f.size)}</span>
-      <button onclick="removeSelectedFile(${i})" class="text-gray-400 hover:text-red-500">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function removeSelectedFile(i) {
-  selectedFiles.splice(i, 1);
-  renderFileList();
-}
-
-function resetPostForm() {
-  document.getElementById('postTitle').value = '';
-  document.getElementById('postContent').value = '';
-  document.getElementById('postCategory').value = 'tech';
-  selectedFiles = [];
-  renderFileList();
-  editingPostId = null;
-  document.getElementById('newPostTitle').textContent = '发布新话题';
-}
-
 async function doNewPost() {
-  const title=document.getElementById('postTitle').value.trim();
-  const cat=document.getElementById('postCategory').value;
-  const content=document.getElementById('postContent').value.trim();
-  if (!title) { toast('请输入标题'); return; }
-  if (!content) { toast('请输入正文'); return; }
+  const title=document.getElementById('postTitle').value.trim(), cat=document.getElementById('postCategory').value, content=document.getElementById('postContent').value.trim();
+  if (!title) { toast('请输入标题'); return; } if (!content) { toast('请输入正文'); return; }
   const btn=document.getElementById('submitPostBtn'); btn.disabled=true; btn.textContent='发布中...';
   try {
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('content', content);
-    formData.append('category', cat);
-    selectedFiles.forEach(f => formData.append('files', f));
-
-    const res = await fetch('/api/posts', { method: 'POST', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '发布失败');
-
-    hideNewPostModal();
-    resetPostForm();
-    if (data.points) state.user.points = data.points;
-    renderCheckin(false);
+    await api('/api/posts',{method:'POST',body:JSON.stringify({title,content,category:cat})});
+    hideNewPostModal(); document.getElementById('postTitle').value=''; document.getElementById('postContent').value='';
     if (state.currentCat!=='all'&&state.currentCat!==cat) filterCategory('all'); else await loadPosts();
-    toast('发布成功！积分 +5');
+    toast('发布成功！');
   } catch(e) { toast(e.message); }
   finally { btn.disabled=false; btn.textContent='发布话题'; }
 }
@@ -788,159 +670,10 @@ async function openPost(pid) {
   const p = state.posts.find(x=>x.id==pid); if(!p) return;
   state.currentPostId = pid;
   document.getElementById('detailTitle').textContent = p.title;
-  document.getElementById('detailMeta').innerHTML = `<div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(p.author_name[0].toUpperCase())}</div><div><span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span><span class="text-xs text-gray-400 ml-2">${relTime(p.created_at)}</span><span class="text-xs px-2 py-0.5 rounded-full ml-2 ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>${p.updated_at ? '<span class="text-xs text-gray-400 ml-2">(已编辑)</span>' : ''}</div>`;
-
-  // 文件展示
-  const filesEl = document.getElementById('detailFiles');
-  if (p.files && p.files.length > 0) {
-    filesEl.innerHTML = p.files.map(f => {
-      const isImg = f.type && f.type.startsWith('image/');
-      if (isImg) {
-        return `<img src="${f.url}" class="rounded-xl max-h-80 w-full object-cover mb-2">`;
-      }
-      return `<a href="${f.url}" target="_blank" class="flex items-center gap-2 text-sm text-primary-600 hover:underline mb-1">📎 ${esc(f.name)} <span class="text-gray-400 text-xs">(${formatSize(f.size)})</span></a>`;
-    }).join('');
-    filesEl.classList.remove('hidden');
-  } else {
-    filesEl.innerHTML = '';
-    filesEl.classList.add('hidden');
-  }
-
+  document.getElementById('detailMeta').innerHTML = `<div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(p.author_name[0].toUpperCase())}</div><div><span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span><span class="text-xs text-gray-400 ml-2">${relTime(p.created_at)}</span><span class="text-xs px-2 py-0.5 rounded-full ml-2 ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span></div>`;
   document.getElementById('detailContent').textContent = p.content;
-
-  // 编辑/删除按钮（仅作者可见）
-  const actionsEl = document.getElementById('postActions');
-  if (state.user && p.author_id === state.user.id) {
-    actionsEl.classList.remove('hidden');
-  } else {
-    actionsEl.classList.add('hidden');
-  }
-
-  // 隐藏编辑区域
-  document.getElementById('editPostArea').classList.add('hidden');
-  document.getElementById('detailContent').classList.remove('hidden');
-  document.getElementById('detailFiles').classList.remove('hidden');
-
   showPostDetail();
   await loadComments(pid);
-}
-
-function startEditPost() {
-  const p = state.posts.find(x=>x.id==state.currentPostId); if(!p) return;
-  editingPostId = p.id;
-  editRemoveFiles = [];
-  editNewFiles = [];
-  document.getElementById('editPostTitle').value = p.title;
-  document.getElementById('editPostCategory').value = p.category;
-  document.getElementById('editPostContent').value = p.content;
-  renderEditExistingFiles(p.files || []);
-  document.getElementById('editNewFileList').innerHTML = '';
-  document.getElementById('editNewFileCount').textContent = '';
-  document.getElementById('editPostArea').classList.remove('hidden');
-  document.getElementById('detailContent').classList.add('hidden');
-  document.getElementById('detailFiles').classList.add('hidden');
-}
-
-function renderEditExistingFiles(files) {
-  const el = document.getElementById('editExistingFiles');
-  if (!files.length) { el.innerHTML = '<p class="text-xs text-gray-400">无附件</p>'; return; }
-  el.innerHTML = files.map(f => {
-    const isImg = f.type && f.type.startsWith('image/');
-    const removed = editRemoveFiles.includes(f.url);
-    return `<div class="flex items-center gap-2 text-xs bg-gray-50 rounded-lg px-3 py-1.5 ${removed ? 'opacity-50 line-through' : ''}">
-      ${isImg ? '<span>🖼️</span>' : '<span>📎</span>'}
-      <span class="flex-1 truncate">${esc(f.name)}</span>
-      <span class="text-gray-400">${formatSize(f.size)}</span>
-      ${removed
-        ? `<button onclick="undoRemoveFile('${f.url}')" class="text-blue-500 hover:text-blue-700">撤销</button>`
-        : `<button onclick="markRemoveFile('${f.url}')" class="text-red-400 hover:text-red-600">删除</button>`
-      }
-    </div>`;
-  }).join('');
-}
-
-function markRemoveFile(url) {
-  editRemoveFiles.push(url);
-  const p = state.posts.find(x=>x.id==state.currentPostId);
-  renderEditExistingFiles(p.files || []);
-}
-
-function undoRemoveFile(url) {
-  editRemoveFiles = editRemoveFiles.filter(u => u !== url);
-  const p = state.posts.find(x=>x.id==state.currentPostId);
-  renderEditExistingFiles(p.files || []);
-}
-
-function handleEditFileSelect(input) {
-  const files = Array.from(input.files);
-  editNewFiles = [...editNewFiles, ...files];
-  renderEditNewFiles();
-  input.value = '';
-}
-
-function renderEditNewFiles() {
-  const el = document.getElementById('editNewFileList');
-  const countEl = document.getElementById('editNewFileCount');
-  if (editNewFiles.length === 0) { el.innerHTML = ''; countEl.textContent = ''; return; }
-  countEl.textContent = `已选 ${editNewFiles.length} 个新文件`;
-  el.innerHTML = editNewFiles.map((f, i) => {
-    const isImg = f.type && f.type.startsWith('image/');
-    return `<div class="flex items-center gap-2 text-xs bg-green-50 rounded-lg px-3 py-1.5">
-      ${isImg ? '<span class="text-green-500">🖼️</span>' : '<span class="text-blue-500">📎</span>'}
-      <span class="flex-1 truncate">${esc(f.name)}</span>
-      <span class="text-gray-400">${formatSize(f.size)}</span>
-      <button onclick="removeEditNewFile(${i})" class="text-gray-400 hover:text-red-500">✕</button>
-    </div>`;
-  }).join('');
-}
-
-function removeEditNewFile(i) {
-  editNewFiles.splice(i, 1);
-  renderEditNewFiles();
-}
-
-function cancelEditPost() {
-  editingPostId = null;
-  editRemoveFiles = [];
-  editNewFiles = [];
-  document.getElementById('editPostArea').classList.add('hidden');
-  document.getElementById('detailContent').classList.remove('hidden');
-  document.getElementById('detailFiles').classList.remove('hidden');
-}
-
-async function saveEditPost() {
-  const title = document.getElementById('editPostTitle').value.trim();
-  const content = document.getElementById('editPostContent').value.trim();
-  const category = document.getElementById('editPostCategory').value;
-  if (!title) { toast('请输入标题'); return; }
-  if (!content) { toast('请输入正文'); return; }
-  try {
-    const formData = new FormData();
-    formData.append('title', title);
-    formData.append('content', content);
-    formData.append('category', category);
-    if (editRemoveFiles.length > 0) formData.append('removeFiles', JSON.stringify(editRemoveFiles));
-    editNewFiles.forEach(f => formData.append('files', f));
-
-    const res = await fetch('/api/posts/' + editingPostId, { method: 'PUT', body: formData });
-    const data = await res.json();
-    if (!res.ok) throw new Error(data.error || '修改失败');
-
-    toast('修改成功');
-    cancelEditPost();
-    await loadPosts();
-    openPost(editingPostId);
-  } catch(e) { toast(e.message); }
-}
-
-async function deletePost() {
-  if (!confirm('确定要删除这篇帖子吗？\n删除后不可恢复，帖子的所有评论和点赞也会被删除。')) return;
-  try {
-    await api('/api/posts/' + state.currentPostId, { method: 'DELETE' });
-    toast('帖子已删除');
-    hidePostDetail();
-    await loadPosts();
-  } catch(e) { toast(e.message); }
 }
 async function loadComments(pid) {
   const { comments } = await api('/api/posts/'+pid+'/comments');
