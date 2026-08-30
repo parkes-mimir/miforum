@@ -243,17 +243,17 @@ app.get('/api/posts/:id/comments', (req, res) => {
   res.json({ comments, postOwnerId: post ? post.author_id : null });
 });
 
-app.post('/api/posts/:id/comments', requireAuth, upload.single('image'), (req, res) => {
+app.post('/api/posts/:id/comments', requireAuth, upload.array('images', 3), (req, res) => {
   const { content } = req.body;
-  if (!content && !req.file) return res.status(400).json({ error: '请输入评论内容或上传图片' });
+  if (!content && (!req.files || req.files.length === 0)) return res.status(400).json({ error: '请输入评论内容或上传图片' });
   const db = loadDB();
-  const image = req.file ? '/uploads/' + req.file.filename : null;
+  const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
   const comment = {
     id: db.nextId.comments++,
     post_id: Number(req.params.id),
     author_id: req.session.userId,
     content: content || '',
-    image,
+    images,
     pinned: false,
     created_at: new Date().toISOString()
   };
@@ -262,15 +262,32 @@ app.post('/api/posts/:id/comments', requireAuth, upload.single('image'), (req, r
   res.json({ commentId: comment.id });
 });
 
-app.put('/api/comments/:id', requireAuth, (req, res) => {
-  const { content } = req.body;
-  if (!content) return res.status(400).json({ error: '评论不能为空' });
+app.put('/api/comments/:id', requireAuth, upload.array('images', 3), (req, res) => {
+  const { content, removeImages } = req.body;
+  if (!content && (!req.files || req.files.length === 0)) return res.status(400).json({ error: '评论不能为空' });
   const db = loadDB();
   const cid = Number(req.params.id);
   const c = db.comments.find(x => x.id === cid);
   if (!c) return res.status(404).json({ error: '评论不存在' });
   if (c.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的评论' });
-  c.content = content;
+  
+  // 删除指定的图片
+  if (removeImages) {
+    const removeList = JSON.parse(removeImages);
+    removeList.forEach(url => {
+      const imgPath = path.join(__dirname, url);
+      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    });
+    c.images = (c.images || []).filter(u => !removeList.includes(u));
+  }
+  
+  // 添加新上传的图片
+  if (req.files && req.files.length > 0) {
+    const newImages = req.files.map(f => '/uploads/' + f.filename);
+    c.images = [...(c.images || []), ...newImages];
+  }
+  
+  if (content) c.content = content;
   saveDB(db);
   res.json({ ok: true });
 });
@@ -288,9 +305,11 @@ app.delete('/api/comments/:id', requireAuth, (req, res) => {
     return res.status(403).json({ error: '只能删除自己的评论或自己帖子下的评论' });
   }
   // 删除评论图片
-  if (c.image) {
-    const imgPath = path.join(__dirname, c.image);
-    if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+  if (c.images && c.images.length > 0) {
+    c.images.forEach(url => {
+      const imgPath = path.join(__dirname, url);
+      if (fs.existsSync(imgPath)) fs.unlinkSync(imgPath);
+    });
   }
   db.comments.splice(idx, 1);
   saveDB(db);

@@ -238,18 +238,15 @@ tailwind.config = {
         <div id="commentList" class="space-y-3 mb-4"></div>
         <div id="commentForm" class="hidden">
           <textarea id="commentInput" rows="3" placeholder="写下你的评论..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
-          <div id="commentImagePreview" class="hidden mt-2 relative w-16 h-16 rounded-lg overflow-hidden">
-            <img id="commentPreviewImg" class="w-full h-full object-cover">
-            <button onclick="removeCommentImage()" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center">
-              <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-            </button>
-          </div>
+          <div id="commentImageGrid" class="flex flex-wrap gap-2 mt-2"></div>
           <div class="flex items-center justify-between mt-2">
-            <button onclick="document.getElementById('commentImage').click()" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
-              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
-              图片
-            </button>
-            <input type="file" id="commentImage" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" onchange="previewCommentImage(this)">
+            <div class="flex items-center gap-2">
+              <button onclick="document.getElementById('commentImages').click()" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                图片 <span id="commentImageCount" class="text-gray-400"></span>
+              </button>
+              <input type="file" id="commentImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleCommentImageSelect(this)">
+            </div>
             <button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button>
           </div>
         </div>
@@ -938,10 +935,12 @@ async function deletePost() {
     await loadPosts();
   } catch(e) { toast(e.message); }
 }
-let commentImageData = null;
+let commentImages = []; // 评论选中的图片
+let commentsDataCache = []; // 评论数据缓存
 
 async function loadComments(pid) {
   const { comments, postOwnerId } = await api('/api/posts/'+pid+'/comments');
+  commentsDataCache = comments;
   renderComments(comments, postOwnerId);
 }
 function renderComments(cl, postOwnerId) {
@@ -952,6 +951,7 @@ function renderComments(cl, postOwnerId) {
       const own = state.user && c.author_id === state.user.id;
       const isPostOwner = state.user && postOwnerId === state.user.id;
       const canDelete = own || isPostOwner;
+      const hasImgs = c.images && c.images.length > 0;
       return `<div class="flex gap-3 ${c.pinned ? 'bg-amber-50 rounded-xl p-2 -mx-2' : ''}" id="comment-${c.id}">
         <div class="w-7 h-7 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
         <div class="flex-1 bg-gray-50 rounded-xl px-3 py-2">
@@ -965,12 +965,12 @@ function renderComments(cl, postOwnerId) {
               ${isPostOwner ? `<button onclick="togglePinComment(${c.id})" class="text-gray-400 hover:text-amber-500 transition" title="${c.pinned ? '取消置顶' : '置顶'}">
                 <svg class="w-3.5 h-3.5" fill="${c.pinned ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
               </button>` : ''}
-              ${own ? `<button onclick="startEdit(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>` : ''}
+              ${own ? `<button onclick="startEditComment(${c.id})" class="text-gray-400 hover:text-primary-600 transition" title="编辑"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg></button>` : ''}
               ${canDelete ? `<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>` : ''}
             </div>
           </div>
           ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : ''}
-          ${c.image ? `<img src="${c.image}" class="mt-2 rounded-lg max-h-48 object-cover cursor-pointer" onclick="window.open('${c.image}','_blank')">` : ''}
+          ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="window.open('${url}','_blank')">`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -979,38 +979,57 @@ function renderComments(cl, postOwnerId) {
   else { document.getElementById('commentForm').classList.add('hidden'); document.getElementById('commentLoginHint').classList.remove('hidden'); }
 }
 
-function previewCommentImage(input) {
-  const file = input.files[0];
-  if (!file) return;
-  if (file.size > 10 * 1024 * 1024) { toast('图片大小不能超过10MB'); input.value=''; return; }
-  commentImageData = file;
-  const reader = new FileReader();
-  reader.onload = (e) => {
-    document.getElementById('commentPreviewImg').src = e.target.result;
-    document.getElementById('commentImagePreview').classList.remove('hidden');
-  };
-  reader.readAsDataURL(file);
+function handleCommentImageSelect(input) {
+  const files = Array.from(input.files);
+  if (commentImages.length + files.length > 3) { toast('评论最多上传3张图片'); input.value=''; return; }
+  for (const f of files) {
+    if (f.size > 10 * 1024 * 1024) { toast(`"${f.name}" 超过10MB`); continue; }
+    commentImages.push(f);
+  }
+  renderCommentImages();
   input.value = '';
 }
 
-function removeCommentImage() {
-  commentImageData = null;
-  document.getElementById('commentImagePreview').classList.add('hidden');
+function renderCommentImages() {
+  const grid = document.getElementById('commentImageGrid');
+  const countEl = document.getElementById('commentImageCount');
+  if (commentImages.length === 0) {
+    grid.innerHTML = ''; countEl.textContent = ''; return;
+  }
+  countEl.textContent = `${commentImages.length}/3`;
+  grid.innerHTML = commentImages.map((f, i) => {
+    const url = URL.createObjectURL(f);
+    return `<div class="relative w-16 h-16 rounded-lg overflow-hidden group">
+      <img src="${url}" class="w-full h-full object-cover">
+      <button onclick="removeCommentImage(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  }).join('');
+}
+
+function removeCommentImage(i) {
+  commentImages.splice(i, 1);
+  renderCommentImages();
+}
+
+function resetCommentForm() {
+  document.getElementById('commentInput').value = '';
+  commentImages = [];
+  renderCommentImages();
 }
 
 async function doComment() {
   const input=document.getElementById('commentInput'), text=input.value.trim();
-  if (!text && !commentImageData) { toast('请输入评论或上传图片'); return; }
+  if (!text && commentImages.length === 0) { toast('请输入评论或上传图片'); return; }
   try {
     const formData = new FormData();
     if (text) formData.append('content', text);
-    if (commentImageData) formData.append('image', commentImageData);
+    commentImages.forEach(f => formData.append('images', f));
     const res = await fetch('/api/posts/'+state.currentPostId+'/comments', { method: 'POST', body: formData });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '评论失败');
-    input.value = '';
-    commentImageData = null;
-    document.getElementById('commentImagePreview').classList.add('hidden');
+    resetCommentForm();
     await loadComments(state.currentPostId);
     await loadPosts();
     toast('评论成功！');
@@ -1024,24 +1043,150 @@ async function togglePinComment(cid) {
     await loadComments(state.currentPostId);
   } catch(e) { toast(e.message); }
 }
-function startEdit(cid) {
-  const el=document.getElementById('comment-'+cid); if(!el) return;
-  const p=el.querySelector('.comment-content'), old=p.textContent;
-  p.outerHTML=`<div class="edit-area mt-1"><textarea class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" rows="2">${esc(old)}</textarea><div class="flex gap-2 mt-1.5 justify-end"><button onclick="cancelEdit(${cid})" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button><button onclick="saveEdit(${cid})" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button></div></div>`;
+// 评论编辑状态
+let editingCommentId = null;
+let editCommentRemoveImages = [];
+let editCommentNewImages = [];
+
+function startEditComment(cid) {
+  const el = document.getElementById('comment-'+cid);
+  if (!el) return;
+  const c = state.commentsCache ? state.commentsCache.find(x => x.id === cid) : null;
+  if (!c) return;
+  
+  editingCommentId = cid;
+  editCommentRemoveImages = [];
+  editCommentNewImages = [];
+  
+  const contentEl = el.querySelector('.comment-content');
+  const oldContent = contentEl ? contentEl.textContent : '';
+  const hasImgs = c.images && c.images.length > 0;
+  
+  // 替换内容区域为编辑表单
+  const editArea = document.createElement('div');
+  editArea.className = 'edit-area mt-1 space-y-2';
+  editArea.innerHTML = `
+    <textarea class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none" rows="2">${esc(oldContent)}</textarea>
+    <div id="editCommentImageGrid-${cid}" class="flex flex-wrap gap-1.5"></div>
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-1">
+        <button onclick="document.getElementById('editCommentImages-${cid}').click()" class="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-primary-600 rounded transition">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+          图片
+        </button>
+        <input type="file" id="editCommentImages-${cid}" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleEditCommentImageSelect(this, ${cid})">
+      </div>
+      <div class="flex gap-2">
+        <button onclick="cancelEditComment(${cid})" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button>
+        <button onclick="saveEditComment(${cid})" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button>
+      </div>
+    </div>
+  `;
+  
+  if (contentEl) contentEl.replaceWith(editArea);
+  
+  // 渲染已有图片
+  renderEditCommentImages(cid, c.images || []);
   el.querySelector('textarea').focus();
 }
-function cancelEdit(cid) {
-  const el=document.getElementById('comment-'+cid); if(!el) return;
-  const area=el.querySelector('.edit-area');
-  const ta=area.querySelector('textarea');
-  area.outerHTML=`<p class="text-sm text-gray-700 comment-content">${esc(ta.value)}</p>`;
+
+function renderEditCommentImages(cid, existingImages) {
+  const grid = document.getElementById(`editCommentImageGrid-${cid}`);
+  if (!grid) return;
+  
+  let html = '';
+  // 已有图片
+  existingImages.forEach(url => {
+    const removed = editCommentRemoveImages.includes(url);
+    html += `<div class="relative w-14 h-14 rounded overflow-hidden ${removed ? 'opacity-40' : ''}">
+      <img src="${url}" class="w-full h-full object-cover">
+      ${removed
+        ? `<button onclick="undoRemoveCommentImage('${url}', ${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`
+        : `<button onclick="markRemoveCommentImage('${url}', ${cid}, '${existingImages.join(',')}')" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition">
+            <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+          </button>`
+      }
+    </div>`;
+  });
+  // 新增图片
+  editCommentNewImages.forEach((f, i) => {
+    const url = URL.createObjectURL(f);
+    html += `<div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400">
+      <img src="${url}" class="w-full h-full object-cover">
+      <button onclick="removeEditCommentNewImage(${i}, ${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition">
+        <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+      </button>
+    </div>`;
+  });
+  grid.innerHTML = html;
 }
-async function saveEdit(cid) {
-  const el=document.getElementById('comment-'+cid); if(!el) return;
-  const text=el.querySelector('textarea').value.trim();
-  if (!text) { toast('评论不能为空'); return; }
-  try { await api('/api/comments/'+cid,{method:'PUT',body:JSON.stringify({content:text})}); await loadComments(state.currentPostId); toast('已更新'); }
-  catch(e) { toast(e.message); }
+
+function markRemoveCommentImage(url, cid, existingStr) {
+  editCommentRemoveImages.push(url);
+  const existing = existingStr.split(',');
+  renderEditCommentImages(cid, existing);
+}
+
+function undoRemoveCommentImage(url, cid) {
+  editCommentRemoveImages = editCommentRemoveImages.filter(u => u !== url);
+  const c = findComment(cid);
+  renderEditCommentImages(cid, c ? c.images || [] : []);
+}
+
+function handleEditCommentImageSelect(input, cid) {
+  const files = Array.from(input.files);
+  const c = findComment(cid);
+  const existingCount = (c ? (c.images || []).length : 0) - editCommentRemoveImages.length;
+  if (existingCount + editCommentNewImages.length + files.length > 3) {
+    toast('评论最多3张图片'); input.value = ''; return;
+  }
+  for (const f of files) {
+    if (f.size > 10 * 1024 * 1024) { toast(`"${f.name}" 超过10MB`); continue; }
+    editCommentNewImages.push(f);
+  }
+  renderEditCommentImages(cid, c ? c.images || [] : []);
+  input.value = '';
+}
+
+function removeEditCommentNewImage(i, cid) {
+  editCommentNewImages.splice(i, 1);
+  const c = findComment(cid);
+  renderEditCommentImages(cid, c ? c.images || [] : []);
+}
+
+function findComment(cid) {
+  return commentsDataCache.find(c => c.id === cid) || null;
+}
+
+function cancelEditComment(cid) {
+  editingCommentId = null;
+  editCommentRemoveImages = [];
+  editCommentNewImages = [];
+  loadComments(state.currentPostId);
+}
+
+async function saveEditComment(cid) {
+  const el = document.getElementById('comment-'+cid);
+  if (!el) return;
+  const textarea = el.querySelector('textarea');
+  const text = textarea ? textarea.value.trim() : '';
+  if (!text && editCommentNewImages.length === 0) { toast('评论不能为空'); return; }
+  try {
+    const formData = new FormData();
+    if (text) formData.append('content', text);
+    if (editCommentRemoveImages.length > 0) formData.append('removeImages', JSON.stringify(editCommentRemoveImages));
+    editCommentNewImages.forEach(f => formData.append('images', f));
+    
+    const res = await fetch('/api/comments/' + cid, { method: 'PUT', body: formData });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '修改失败');
+    
+    editingCommentId = null;
+    editCommentRemoveImages = [];
+    editCommentNewImages = [];
+    await loadComments(state.currentPostId);
+    toast('已更新');
+  } catch(e) { toast(e.message); }
 }
 async function deleteComment(cid) {
   if (!confirm('确定删除这条评论？')) return;
