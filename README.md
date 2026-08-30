@@ -1,6 +1,6 @@
 # MiForum
 
-Flarum 风格的轻量论坛，Express + JSON 文件数据库，开箱即用。
+Flarum 风格的轻量论坛，单文件前端 + Node.js 后端，JSON 文件数据库，开箱即用。
 
 ## 灵感来源
 
