@@ -269,32 +269,44 @@ tailwind.config = {
 </div>
 
 <script>
-const CAT_MAP = { all:'全部话题', tech:'技术', life:'生活', notice:'公告' };
-const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
+// ============================================================
+// 配置常量
+// ============================================================
+const CAT_MAP = { all: '全部话题', tech: '技术', life: '生活', notice: '公告' };
+const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
 
+// 全局状态
 let state = { user: null, currentCat: 'all', posts: [], likedIds: new Set() };
 
-// ===== 工具 =====
+// ============================================================
+// 工具函数
+// ============================================================
+
+/** 显示 toast 提示（自动消失） */
 function toast(msg) {
   const el = document.createElement('div');
   el.className = 'toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg';
   el.textContent = msg;
   document.getElementById('toastContainer').appendChild(el);
-  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2500);
+  setTimeout(() => { el.style.opacity = '0'; el.style.transition = 'opacity .3s'; setTimeout(() => el.remove(), 300); }, 2500);
 }
+
+/** ISO 时间 → 相对时间（X分钟前 / X小时前 / YYYY年M月D日） */
 function relTime(iso) {
-  const d = Date.now() - new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z')).getTime();
-  const m = Math.floor(d/60000);
+  const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
+  const m = Math.floor(d / 60000);
   if (m < 1) return '刚刚';
   if (m < 60) return m + '分钟前';
-  const h = Math.floor(m/60);
+  const h = Math.floor(m / 60);
   if (h < 24) return h + '小时前';
-  const date = new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z'));
-  return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
+  const date = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
+  return date.getFullYear() + '年' + (date.getMonth() + 1) + '月' + date.getDate() + '日';
 }
-function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
 
-// Lightbox
+/** HTML 转义（防 XSS） */
+function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/** 图片 Lightbox 弹窗 */
 function openLightbox(url) {
   document.getElementById('lightboxImg').src = url;
   document.getElementById('lightbox').classList.remove('hidden');
@@ -306,62 +318,99 @@ function closeLightbox() {
   document.getElementById('lightbox').classList.remove('flex');
   document.body.style.overflow = '';
 }
+
+/** 通用 API 请求封装（JSON 格式） */
 async function api(url, opts) {
-  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error || '请求失败');
   return data;
 }
 
-// ===== Modal =====
+// ============================================================
+// Modal 控制
+// ============================================================
 function showAuthModal() { document.getElementById('authModal').classList.remove('hidden'); document.getElementById('authModal').classList.add('flex'); }
 function hideAuthModal() { document.getElementById('authModal').classList.add('hidden'); document.getElementById('authModal').classList.remove('flex'); }
-function showNewPostModal() { if(!state.user){toast('请先登录');showAuthModal();return;} document.getElementById('newPostModal').classList.remove('hidden');document.getElementById('newPostModal').classList.add('flex');document.getElementById('postTitle').focus(); }
-function hideNewPostModal() { document.getElementById('newPostModal').classList.add('hidden');document.getElementById('newPostModal').classList.remove('flex'); }
+function showNewPostModal() { if (!state.user) { toast('请先登录'); showAuthModal(); return; } document.getElementById('newPostModal').classList.remove('hidden'); document.getElementById('newPostModal').classList.add('flex'); document.getElementById('postTitle').focus(); }
+function hideNewPostModal() { document.getElementById('newPostModal').classList.add('hidden'); document.getElementById('newPostModal').classList.remove('flex'); }
+
+/** 切换登录/注册 Tab */
 function switchAuthTab(t) {
-  document.getElementById('tabLogin').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='login'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
-  document.getElementById('tabRegister').className=`flex-1 py-2 text-sm font-medium rounded-lg transition ${t==='register'?'bg-white text-gray-900 shadow-sm':'text-gray-500'}`;
-  document.getElementById('loginForm').classList.toggle('hidden',t!=='login');
-  document.getElementById('registerForm').classList.toggle('hidden',t!=='register');
+  document.getElementById('tabLogin').className = `flex-1 py-2 text-sm font-medium rounded-lg transition ${t === 'login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
+  document.getElementById('tabRegister').className = `flex-1 py-2 text-sm font-medium rounded-lg transition ${t === 'register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'}`;
+  document.getElementById('loginForm').classList.toggle('hidden', t !== 'login');
+  document.getElementById('registerForm').classList.toggle('hidden', t !== 'register');
 }
 
-// ===== Auth =====
+// ============================================================
+// 用户认证
+// ============================================================
+
+/** 登录 */
 async function doLogin() {
   const email = document.getElementById('loginEmail').value.trim();
   const password = document.getElementById('loginPassword').value;
-  if (!email||!password) { toast('请填写邮箱和密码'); return; }
+  if (!email || !password) { toast('请填写邮箱和密码'); return; }
   try {
-    const { user } = await api('/api/login', { method:'POST', body:JSON.stringify({email,password}) });
-    state.user = user; hideAuthModal(); renderAuth(); await loadCheckin(); await loadPosts(); toast('登录成功！');
-  } catch(e) { toast(e.message); }
+    const { user } = await api('/api/login', { method: 'POST', body: JSON.stringify({ email, password }) });
+    state.user = user;
+    hideAuthModal();
+    renderAuth();
+    await loadCheckin();
+    await loadPosts();
+    toast('登录成功！');
+  } catch (e) { toast(e.message); }
 }
+
+/** 注册 */
 async function doRegister() {
   const username = document.getElementById('regUsername').value.trim();
   const email = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
-  if (!username||!email||!password) { toast('请填写所有字段'); return; }
-  if (password.length<6) { toast('密码至少6位'); return; }
+  if (!username || !email || !password) { toast('请填写所有字段'); return; }
+  if (password.length < 6) { toast('密码至少6位'); return; }
   try {
-    const { user } = await api('/api/register', { method:'POST', body:JSON.stringify({username,email,password}) });
-    state.user = user; hideAuthModal(); renderAuth(); await loadCheckin(); await loadPosts(); toast('注册成功！');
-  } catch(e) { toast(e.message); }
+    const { user } = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, email, password }) });
+    state.user = user;
+    hideAuthModal();
+    renderAuth();
+    await loadCheckin();
+    await loadPosts();
+    toast('注册成功！');
+  } catch (e) { toast(e.message); }
 }
+
+/** 退出登录 */
 async function doLogout() {
-  await api('/api/logout', { method:'POST' });
-  state.user=null; state.likedIds.clear(); renderAuth(); renderCheckin(false); toast('已退出');
+  await api('/api/logout', { method: 'POST' });
+  state.user = null;
+  state.likedIds.clear();
+  renderAuth();
+  renderCheckin(false);
+  toast('已退出');
 }
+
+/** 渲染右上角登录状态 */
 function renderAuth() {
   const a = document.getElementById('authArea');
   if (state.user) {
-    a.innerHTML = `<div class="flex items-center gap-2"><div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div><span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span><button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button></div>`;
+    a.innerHTML = `<div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
+      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
+    </div>`;
   } else {
     a.innerHTML = '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
   }
 }
 
-// ===== 签到 =====
-let checkinData = null;
+// ============================================================
+// 签到系统
+// ============================================================
+let checkinData = null; // 缓存签到历史数据
 
+/** 加载签到状态（自动签到 + 获取统计） */
 async function loadCheckin() {
   if (!state.user) { renderCheckin(false); return; }
   // 自动签到
@@ -370,10 +419,8 @@ async function loadCheckin() {
     state.user.points = res.points;
     if (res.newCheckin) toast('每日签到成功！积分 +10');
     renderCheckin(res.checkedIn);
-  } catch(e) {
-    renderCheckin(false);
-  }
-  // 加载签到统计
+  } catch (e) { renderCheckin(false); }
+  // 加载签到统计（连续天数、累计天数）
   try {
     checkinData = await api('/api/checkin/history');
     if (checkinData) {
@@ -381,30 +428,25 @@ async function loadCheckin() {
       document.getElementById('streakTotal').textContent = checkinData.totalDays;
       document.getElementById('streakInfo').classList.remove('hidden');
     }
-  } catch(e) { checkinData = null; }
+  } catch (e) { checkinData = null; }
 }
 
+/** 渲染侧边栏签到状态 */
 function renderCheckin(checked) {
   const badge = document.getElementById('pointsBadge');
   const statusText = document.getElementById('checkinStatusText');
-
-  if (!state.user) {
-    badge.classList.add('hidden');
-    statusText.classList.add('hidden');
-    return;
-  }
-
+  if (!state.user) { badge.classList.add('hidden'); statusText.classList.add('hidden'); return; }
   badge.textContent = state.user.points + ' 积分';
   badge.classList.remove('hidden');
-
-  if (checked) {
-    statusText.textContent = '✓ 今日已签到';
-    statusText.classList.remove('hidden');
-  } else {
-    statusText.classList.add('hidden');
-  }
+  if (checked) { statusText.textContent = '✓ 今日已签到'; statusText.classList.remove('hidden'); }
+  else { statusText.classList.add('hidden'); }
 }
 
+// ============================================================
+// 签到日历弹窗
+// ============================================================
+
+/** 打开签到历史弹窗 */
 function showCheckinHistory() {
   if (!state.user) { toast('请先登录'); showAuthModal(); return; }
   loadCheckinHistory();
@@ -416,9 +458,10 @@ function hideCheckinHistory() {
   document.getElementById('checkinHistoryModal').classList.remove('flex');
 }
 
+/** 加载签到历史数据并渲染日历 */
 async function loadCheckinHistory() {
   if (!checkinData) {
-    try { checkinData = await api('/api/checkin/history'); } catch(e) { toast('加载失败'); return; }
+    try { checkinData = await api('/api/checkin/history'); } catch (e) { toast('加载失败'); return; }
   }
   const d = checkinData;
   // 统计卡片
@@ -426,62 +469,56 @@ async function loadCheckinHistory() {
   document.getElementById('histLongest').textContent = d.longestStreak;
   document.getElementById('histTotal').textContent = d.totalDays;
   document.getElementById('histMissed').textContent = d.missedDays.length;
-
   // 补签区域
   const retroSection = document.getElementById('retroSection');
   if (d.missedDays.length > 0) {
     retroSection.classList.remove('hidden');
     document.getElementById('retroPoints').textContent = d.points;
     document.getElementById('retroCanCount').textContent = Math.min(d.missedDays.length, Math.floor(d.points / 10));
-  } else {
-    retroSection.classList.add('hidden');
-  }
-
+  } else { retroSection.classList.add('hidden'); }
   renderCalendar(d);
 }
 
-// ===== 日历状态 =====
+// ===== 日历渲染 =====
 let calYear, calMonth; // 当前显示的年月
 let calCheckinSet, calMissedSet, calTodayStr;
 
+/** 初始化日历数据 */
 function renderCalendar(data) {
   calCheckinSet = new Set(data.checkinDates);
   calMissedSet = new Set(data.missedDays);
   calTodayStr = new Date().toLocaleDateString('sv-SE');
-
-  // 默认显示当前月
   const now = new Date();
   calYear = now.getFullYear();
   calMonth = now.getMonth();
   drawMonth();
 }
 
+/**
+ * 绘制月历（带滑动动画）
+ * @param {string|null} direction - 'left'/'right' 表示滑动方向，null 表示无动画
+ */
 function drawMonth(direction) {
   const grid = document.getElementById('calGrid');
   const title = document.getElementById('calTitle');
   title.innerHTML = `${calYear}年${calMonth + 1}月 <svg class="w-3.5 h-3.5 inline-block text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>`;
 
-  // 动画
   if (direction) {
     grid.style.opacity = '0';
     grid.style.transform = direction === 'left' ? 'translateX(20px)' : 'translateX(-20px)';
     setTimeout(() => {
       renderGridCells(grid);
       grid.style.transform = direction === 'left' ? 'translateX(-20px)' : 'translateX(20px)';
-      requestAnimationFrame(() => {
-        grid.style.opacity = '1';
-        grid.style.transform = 'translateX(0)';
-      });
+      requestAnimationFrame(() => { grid.style.opacity = '1'; grid.style.transform = 'translateX(0)'; });
     }, 150);
-  } else {
-    renderGridCells(grid);
-  }
+  } else { renderGridCells(grid); }
 }
 
+/** 渲染 6×7 = 42 个日历格子（含上下月填充） */
 function renderGridCells(grid) {
   const firstDay = new Date(calYear, calMonth, 1);
   const lastDay = new Date(calYear, calMonth + 1, 0);
-  const startPad = firstDay.getDay();
+  const startPad = firstDay.getDay(); // 本月1号是周几
   const totalDays = lastDay.getDate();
   const prevLast = new Date(calYear, calMonth, 0);
   const prevDays = prevLast.getDate();
@@ -490,17 +527,22 @@ function renderGridCells(grid) {
   for (let i = 0; i < 42; i++) {
     let d, y, m, isCurrent = true;
 
+    // 上月填充
     if (i < startPad) {
       d = prevDays - startPad + 1 + i;
       y = calMonth === 0 ? calYear - 1 : calYear;
       m = calMonth === 0 ? 12 : calMonth;
       isCurrent = false;
-    } else if (i >= startPad + totalDays) {
+    }
+    // 下月填充
+    else if (i >= startPad + totalDays) {
       d = i - startPad - totalDays + 1;
       y = calMonth === 11 ? calYear + 1 : calYear;
       m = calMonth === 11 ? 1 : calMonth + 2;
       isCurrent = false;
-    } else {
+    }
+    // 本月日期
+    else {
       d = i - startPad + 1;
       y = calYear;
       m = calMonth + 1;
@@ -508,114 +550,85 @@ function renderGridCells(grid) {
 
     const ds = `${y}-${String(m).padStart(2, '0')}-${String(d).padStart(2, '0')}`;
 
-    if (!isCurrent) {
-      html += `<div class="cal-cell" style="color:#d1d5db">${d}</div>`;
-      continue;
-    }
+    // 非本月：浅灰色
+    if (!isCurrent) { html += `<div class="cal-cell" style="color:#d1d5db">${d}</div>`; continue; }
 
     let cls = 'cal-cell';
     let clickable = '';
 
-    if (ds > calTodayStr) {
-      // 未来
-    } else if (calCheckinSet.has(ds)) {
-      cls += ' checked';
-    } else if (calMissedSet.has(ds)) {
-      cls += ' missed';
-      clickable = ` onclick="doRetroactive('${ds}')" title="点击补签"`;
-    }
-    if (ds === calTodayStr) cls += ' today';
+    if (ds > calTodayStr) { /* 未来日期：默认样式 */ }
+    else if (calCheckinSet.has(ds)) { cls += ' checked'; } // 已签到：绿色三角✓
+    else if (calMissedSet.has(ds)) { cls += ' missed'; clickable = ` onclick="doRetroactive('${ds}')" title="点击补签"`; } // 可补签：红色「补」字
+    if (ds === calTodayStr) cls += ' today'; // 今天：紫色边框
 
-    // missed 的数字用 span 包裹，保证在 "补" 字上层
+    // missed 的数字用 span 包裹，保证在「补」字上层
     const content = cls.includes('missed') ? `<span>${d}</span>` : d;
     html += `<div class="${cls}"${clickable}>${content}</div>`;
   }
   grid.innerHTML = html;
 }
 
-function calPrev() {
-  closeMonthPicker();
-  calMonth--;
-  if (calMonth < 0) { calMonth = 11; calYear--; }
-  drawMonth('right');
-}
-function calNext() {
-  closeMonthPicker();
-  calMonth++;
-  if (calMonth > 11) { calMonth = 0; calYear++; }
-  drawMonth('left');
-}
-function calToday() {
-  closeMonthPicker();
-  const now = new Date();
-  const oldMonth = calMonth;
-  calYear = now.getFullYear();
-  calMonth = now.getMonth();
-  drawMonth(calMonth > oldMonth ? 'left' : calMonth < oldMonth ? 'right' : null);
-}
+// 月份翻页
+function calPrev() { closeMonthPicker(); calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; } drawMonth('right'); }
+function calNext() { closeMonthPicker(); calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; } drawMonth('left'); }
+function calToday() { closeMonthPicker(); const now = new Date(); const old = calMonth; calYear = now.getFullYear(); calMonth = now.getMonth(); drawMonth(calMonth > old ? 'left' : calMonth < old ? 'right' : null); }
 
+// 月份选择器弹窗
 function toggleMonthPicker() {
   const picker = document.getElementById('monthPicker');
-  const isOpen = !picker.classList.contains('hidden');
-  if (isOpen) { closeMonthPicker(); return; }
-
+  if (!picker.classList.contains('hidden')) { closeMonthPicker(); return; }
   const grid = document.getElementById('monthPickerGrid');
   const names = ['1月','2月','3月','4月','5月','6月','7月','8月','9月','10月','11月','12月'];
-  grid.innerHTML = names.map((n, i) =>
-    `<button onclick="selectMonth(${i})" class="py-2 text-sm rounded-lg transition ${i === calMonth ? 'bg-primary-600 text-white font-semibold' : 'text-gray-600 hover:bg-gray-100'}">${n}</button>`
-  ).join('');
+  grid.innerHTML = names.map((n, i) => `<button onclick="selectMonth(${i})" class="py-2 text-sm rounded-lg transition ${i === calMonth ? 'bg-primary-600 text-white font-semibold' : 'text-gray-600 hover:bg-gray-100'}">${n}</button>`).join('');
   picker.classList.remove('hidden');
 }
-
-function selectMonth(m) {
-  const oldMonth = calMonth;
-  calMonth = m;
-  closeMonthPicker();
-  drawMonth(m > oldMonth ? 'left' : m < oldMonth ? 'right' : null);
-}
-
-function closeMonthPicker() {
-  document.getElementById('monthPicker').classList.add('hidden');
-}
+function selectMonth(m) { const old = calMonth; calMonth = m; closeMonthPicker(); drawMonth(m > old ? 'left' : m < old ? 'right' : null); }
+function closeMonthPicker() { document.getElementById('monthPicker').classList.add('hidden'); }
 
 // 点击外部关闭月份选择器
 document.addEventListener('click', (e) => {
   const picker = document.getElementById('monthPicker');
   const title = document.getElementById('calTitle');
-  if (picker && !picker.contains(e.target) && !title.contains(e.target)) {
-    closeMonthPicker();
-  }
+  if (picker && !picker.contains(e.target) && !title.contains(e.target)) closeMonthPicker();
 });
 
+/** 补签操作 */
 async function doRetroactive(date) {
   if (!confirm(`确认补签 ${date}？\n消耗 10 积分`)) return;
   try {
     const res = await api('/api/checkin/retroactive', { method: 'POST', body: JSON.stringify({ date }) });
     state.user.points = res.points;
-    checkinData = null; // 清除缓存，重新加载
+    checkinData = null; // 清除缓存
     await loadCheckinHistory();
-    await loadCheckin(); // 刷新侧边栏签到状态
+    await loadCheckin();
     toast(`补签成功！${date}，剩余 ${res.points} 积分`);
-  } catch(e) { toast(e.message); }
+  } catch (e) { toast(e.message); }
 }
 
-// ===== 帖子 =====
-let selectedImages = []; // 新帖选中的图片
+// ============================================================
+// 帖子列表
+// ============================================================
+let selectedImages = []; // 新帖选中的图片文件
 
+/** 加载帖子列表 */
 async function loadPosts() {
   const params = new URLSearchParams();
-  if (state.currentCat!=='all') params.set('category', state.currentCat);
-  const { posts } = await api('/api/posts?'+params);
+  if (state.currentCat !== 'all') params.set('category', state.currentCat);
+  const { posts } = await api('/api/posts?' + params);
   state.posts = posts;
+  // 加载当前用户的点赞状态
   if (state.user) { const { ids } = await api('/api/likes'); state.likedIds = new Set(ids); }
   else state.likedIds = new Set();
   document.getElementById('postSkeleton').classList.add('hidden');
   renderPosts();
 }
+
+/** 渲染帖子列表 */
 function renderPosts() {
-  const list=document.getElementById('postList'), empty=document.getElementById('emptyState');
-  if (!state.posts.length) { list.innerHTML=''; empty.classList.remove('hidden'); return; }
+  const list = document.getElementById('postList'), empty = document.getElementById('emptyState');
+  if (!state.posts.length) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
+
   list.innerHTML = state.posts.map(p => {
     const liked = state.likedIds.has(p.id);
     const hasImgs = p.images && p.images.length > 0;
@@ -627,16 +640,16 @@ function renderPosts() {
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
-          <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g,' ')}</p>
+          <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
           ${firstImg ? `<img src="${firstImg}" class="mt-2 rounded-lg max-h-24 object-cover" onclick="event.stopPropagation();openLightbox('${firstImg}')">` : ''}
           <div class="flex items-center gap-4 mt-3">
-            <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked?'text-red-500':'text-gray-400'} hover:text-red-500 transition">
-              <svg class="w-4 h-4" fill="${liked?'currentColor':'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+            <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked ? 'text-red-500' : 'text-gray-400'} hover:text-red-500 transition">
+              <svg class="w-4 h-4" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
               ${p.likes_count}
             </button>
             <span class="flex items-center gap-1 text-xs text-gray-400">
@@ -648,14 +661,16 @@ function renderPosts() {
       </div>
     </div>`;
   }).join('');
+
+  // 更新侧边栏统计
   document.getElementById('statPosts').textContent = state.posts.length;
-  document.getElementById('statComments').textContent = state.posts.reduce((s,p)=>s+p.comments_count,0);
+  document.getElementById('statComments').textContent = state.posts.reduce((s, p) => s + p.comments_count, 0);
 }
 
-// 图片选择（新帖）
+/** 选择图片文件（新帖） */
 function handleImageSelect(input) {
   const files = Array.from(input.files);
-  if (selectedImages.length + files.length > 30) { toast('最多上传30张图片'); input.value=''; return; }
+  if (selectedImages.length + files.length > 30) { toast('最多上传30张图片'); input.value = ''; return; }
   for (const f of files) {
     if (f.size > 10 * 1024 * 1024) { toast(`"${f.name}" 超过10MB`); continue; }
     selectedImages.push(f);
@@ -664,6 +679,7 @@ function handleImageSelect(input) {
   input.value = '';
 }
 
+/** 渲染已选图片预览 */
 function renderSelectedImages() {
   const grid = document.getElementById('imageGrid');
   const btn = document.getElementById('addImageBtn');
@@ -679,11 +695,9 @@ function renderSelectedImages() {
   btn.style.display = selectedImages.length >= 30 ? 'none' : 'flex';
 }
 
-function removeSelectedImage(i) {
-  selectedImages.splice(i, 1);
-  renderSelectedImages();
-}
+function removeSelectedImage(i) { selectedImages.splice(i, 1); renderSelectedImages(); }
 
+/** 重置发帖表单 */
 function resetPostForm() {
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
@@ -693,13 +707,14 @@ function resetPostForm() {
   document.getElementById('newPostTitle').textContent = '发布新话题';
 }
 
+/** 提交新帖子（FormData 上传图片） */
 async function doNewPost() {
-  const title=document.getElementById('postTitle').value.trim();
-  const cat=document.getElementById('postCategory').value;
-  const content=document.getElementById('postContent').value.trim();
+  const title = document.getElementById('postTitle').value.trim();
+  const cat = document.getElementById('postCategory').value;
+  const content = document.getElementById('postContent').value.trim();
   if (!title) { toast('请输入标题'); return; }
   if (!content) { toast('请输入正文'); return; }
-  const btn=document.getElementById('submitPostBtn'); btn.disabled=true; btn.textContent='发布中...';
+  const btn = document.getElementById('submitPostBtn'); btn.disabled = true; btn.textContent = '发布中...';
   try {
     const formData = new FormData();
     formData.append('title', title);
@@ -715,61 +730,78 @@ async function doNewPost() {
     resetPostForm();
     if (data.points) state.user.points = data.points;
     renderCheckin(false);
-    if (state.currentCat!=='all'&&state.currentCat!==cat) filterCategory('all'); else await loadPosts();
+    if (state.currentCat !== 'all' && state.currentCat !== cat) filterCategory('all');
+    else await loadPosts();
     toast('发布成功！积分 +5');
-  } catch(e) { toast(e.message); }
-  finally { btn.disabled=false; btn.textContent='发布话题'; }
+  } catch (e) { toast(e.message); }
+  finally { btn.disabled = false; btn.textContent = '发布话题'; }
 }
+
+/** 点赞/取消点赞 */
 async function toggleLike(pid) {
   if (!state.user) { toast('请先登录'); showAuthModal(); return; }
   try {
-    if (state.likedIds.has(pid)) { await api('/api/like/'+pid,{method:'DELETE'}); state.likedIds.delete(pid); }
-    else { await api('/api/like/'+pid,{method:'POST'}); state.likedIds.add(pid); }
+    if (state.likedIds.has(pid)) { await api('/api/like/' + pid, { method: 'DELETE' }); state.likedIds.delete(pid); }
+    else { await api('/api/like/' + pid, { method: 'POST' }); state.likedIds.add(pid); }
     await loadPosts();
-  } catch(e) { toast(e.message); }
+  } catch (e) { toast(e.message); }
 }
 
-// ===== 分类 / 搜索 =====
+// ============================================================
+// 分类筛选 / 搜索
+// ============================================================
 function filterCategory(cat) {
   state.currentCat = cat;
-  document.querySelectorAll('.sidebar-link').forEach(el=>el.classList.toggle('active',el.dataset.cat===cat));
+  document.querySelectorAll('.sidebar-link').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
   document.getElementById('pageTitle').textContent = CAT_MAP[cat];
   document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
   loadPosts();
-  if (window.innerWidth<1024) toggleSidebar();
+  if (window.innerWidth < 1024) toggleSidebar();
 }
+
 function toggleSidebar() {
   document.getElementById('sidebar').classList.toggle('-translate-x-full');
   document.getElementById('sidebarOverlay').classList.toggle('hidden');
 }
-let searchTimer=null;
-document.getElementById('searchInput').addEventListener('input', function(e) {
+
+// 搜索（300ms 防抖）
+let searchTimer = null;
+document.getElementById('searchInput').addEventListener('input', function (e) {
   clearTimeout(searchTimer);
-  const q=e.target.value.trim();
-  searchTimer=setTimeout(async()=>{
-    if (!q) { document.getElementById('pageTitle').textContent=CAT_MAP[state.currentCat]; document.getElementById('pageSub').textContent='欢迎来到社区，参与讨论吧'; await loadPosts(); return; }
-    const params=new URLSearchParams({search:q});
-    const { posts } = await api('/api/posts?'+params);
-    state.posts=posts;
+  const q = e.target.value.trim();
+  searchTimer = setTimeout(async () => {
+    if (!q) {
+      document.getElementById('pageTitle').textContent = CAT_MAP[state.currentCat];
+      document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
+      await loadPosts();
+      return;
+    }
+    const { posts } = await api('/api/posts?' + new URLSearchParams({ search: q }));
+    state.posts = posts;
     document.getElementById('postSkeleton').classList.add('hidden');
-    document.getElementById('pageTitle').textContent='搜索: '+q;
-    document.getElementById('pageSub').textContent='找到 '+posts.length+' 条结果';
+    document.getElementById('pageTitle').textContent = '搜索: ' + q;
+    document.getElementById('pageSub').textContent = '找到 ' + posts.length + ' 条结果';
     renderPosts();
-  },300);
+  }, 300);
 });
 
-// ===== 事件 =====
+// ============================================================
+// 事件绑定
+// ============================================================
 document.getElementById('sidebarToggle').addEventListener('click', toggleSidebar);
-document.querySelectorAll('[id$="Modal"]').forEach(m=>{m.addEventListener('click',function(e){if(e.target===this){this.classList.add('hidden');this.classList.remove('flex');}});});
-document.getElementById('loginPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doLogin();});
-document.getElementById('regPassword').addEventListener('keydown',e=>{if(e.key==='Enter')doRegister();});
+// 点击 Modal 背景关闭
+document.querySelectorAll('[id$="Modal"]').forEach(m => {
+  m.addEventListener('click', function (e) { if (e.target === this) { this.classList.add('hidden'); this.classList.remove('flex'); } });
+});
+// Enter 键提交
+document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
+document.getElementById('regPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 
-// ===== 初始化 =====
-(async()=>{
-  try {
-    const { user } = await api('/api/me');
-    state.user = user;
-  } catch(e) {}
+// ============================================================
+// 页面初始化（恢复登录状态 → 自动签到 → 加载帖子）
+// ============================================================
+(async () => {
+  try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
   renderAuth();
   await loadCheckin();
   await loadPosts();
