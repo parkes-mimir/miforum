@@ -390,7 +390,7 @@ function hideEditModal() {
 }
 
 // ===== Avatar Crop =====
-let avatarCropState = { dragging: false, startX: 0, startY: 0, imgX: 0, imgY: 0, scale: 1 };
+let avatarCropState = { dragging: false, startX: 0, startY: 0, imgX: 0, imgY: 0, scale: 1, minScale: 1 };
 
 function handleAvatarSelect(input) {
   const file = input.files[0];
@@ -420,6 +420,7 @@ function showAvatarCropper(imgSrc) {
     // Scale image to fill the cropper (cover mode)
     const scale = Math.max(cropperSize / imgW, cropperSize / imgH);
     avatarCropState.scale = scale;
+    avatarCropState.minScale = scale; // Cannot zoom out smaller than cover size
     
     // Center the image
     const scaledW = imgW * scale;
@@ -553,7 +554,7 @@ function zoomAvatar(factor, cx, cy) {
   
   // Apply zoom
   const oldScale = avatarCropState.scale;
-  const newScale = Math.max(0.5, Math.min(oldScale * factor, 5));
+  const newScale = Math.max(avatarCropState.minScale, Math.min(oldScale * factor, 5));
   avatarCropState.scale = newScale;
   
   // Adjust position to keep the point under the mouse fixed
