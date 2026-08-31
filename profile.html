@@ -357,8 +357,10 @@ function switchProfileTab(tab) {
     btn.className = t === tab
       ? 'flex-1 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600 transition'
       : 'flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition';
-    document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('hidden', t !== tab);
-    document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)+'Empty').classList.toggle('hidden', t !== tab);
+    const contentEl = document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1));
+    const emptyEl = document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)+'Empty');
+    if (contentEl) contentEl.classList.toggle('hidden', t !== tab);
+    if (emptyEl) emptyEl.classList.toggle('hidden', t !== tab);
   });
   if (tab === 'posts') loadUserPosts(profileUid);
   else if (tab === 'likes') loadUserLikes(profileUid);
