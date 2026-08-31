@@ -1,6 +1,6 @@
 # MiForum
 
-Flarum 风格的轻量论坛，单文件前端 + Node.js 后端，JSON 文件数据库，开箱即用。
+Flarum 风格的轻量论坛，Node.js + Express 后端，JSON 文件数据库，开箱即用。
 
 ## 灵感来源
 
@@ -12,20 +12,21 @@ Flarum 风格的轻量论坛，单文件前端 + Node.js 后端，JSON 文件数
 
 - 注册 / 登录 / 退出（bcryptjs 加密，session 持久化）
 - 自动签到（打开网页即签到，每日 +10 积分）
-- 签到日历（月历视图，左上角三角✓标记已签，大字「补」标记可补签）
+- 签到日历（月历视图，月份选择器，今天按钮，翻页动画）
 - 积分补签（注册日至昨天之间的未签日期，每次消耗 10 积分）
-- 月份快速跳转（点击月份标题弹出选择器，支持翻页动画）
-- 发帖（技术 / 生活 / 公告分类，支持多图片上传，最多 30 张）
-- 帖子新标签页完整展示，图片点击弹窗预览
+- 个人资料（头像裁剪预览、简介、所在地、网站、隐私开关）
+- 发帖（技术 / 生活 / 公告分类，多图片上传最多 30 张，10MB/张）
+- 帖子新标签页完整展示，图片 lightbox 弹窗预览
 - 帖子编辑 / 删除（作者可操作，支持增删图片）
-- 评论（支持图片，最多 3 张，作者可编辑 / 删除）
-- 评论楼层号 + 楼主标签 + 帖主置顶评论
-- 点赞 toggle
+- 评论（支持图片最多 3 张，楼层号，楼主标签，帖主置顶）
+- 评论编辑 / 删除（作者可操作，帖主可删任意评论）
+- 点赞 toggle + TA的点赞列表
 - 搜索 + 分类筛选
 - 三级权限体系（超级管理员 / 管理员 / 普通用户）
 - 超级管理员：授权/撤销管理员、转让超管、用户管理
 - 管理员：禁言/解禁用户、删帖、删评论、置顶帖子
 - 禁言用户无法发帖/评论
+- 积分系统（签到 +10，发帖 +5，补签 -10）
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - 端口占用自动杀旧进程重启
 
@@ -41,6 +42,8 @@ npm start
 
 浏览器打开 http://localhost:3000
 
+超级管理员：`root@miforum.local` / `123456`
+
 ## 技术栈
 
 - **前端**: HTML + Tailwind CSS (CDN) + 原生 JavaScript
@@ -50,8 +53,9 @@ npm start
 ## 项目结构
 
 ```
-├── forum.html        # 首页（帖子列表）
+├── forum.html        # 首页（帖子列表、签到日历、管理面板）
 ├── post.html         # 帖子详情页（新标签页打开）
+├── profile.html      # 个人资料页（头像裁剪、编辑资料、TA的帖子/点赞/收藏）
 ├── server.js         # 后端 REST API
 ├── package.json      # 依赖声明
 ├── schema.sql        # Supabase PostgreSQL schema（备用）
@@ -62,40 +66,109 @@ npm start
 
 ## API
 
+### 认证
+
 | 方法 | 路径 | 说明 |
 |------|------|------|
-| POST | `/api/register` | 注册 |
-| POST | `/api/login` | 登录 |
+| POST | `/api/register` | 注册（username, email, password） |
+| POST | `/api/login` | 登录（email, password） |
 | POST | `/api/logout` | 退出 |
-| GET | `/api/me` | 当前用户 |
+| GET | `/api/me` | 当前用户信息（含 avatar_url, bio, role） |
+
+### 个人资料
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/users/:id` | 用户公开资料（隐私控制） |
+| PUT | `/api/profile` | 修改资料（FormData: avatar, username, bio, location, website, profile_public） |
+| GET | `/api/users/:id/posts` | 用户帖子列表 |
+| GET | `/api/users/:id/likes` | 用户点赞列表 |
+
+### 帖子
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
 | GET | `/api/posts` | 帖子列表（?category=&search=） |
 | GET | `/api/posts/:id` | 单个帖子详情 |
-| POST | `/api/posts` | 发帖（FormData，支持 images 字段多图） |
-| PUT | `/api/posts/:id` | 编辑帖子（FormData，支持 removeImages + images） |
+| POST | `/api/posts` | 发帖（FormData: images[], title, content, category） |
+| PUT | `/api/posts/:id` | 编辑帖子（FormData: images[], removeImages） |
 | DELETE | `/api/posts/:id` | 删除帖子（级联删除评论和图片） |
+| PUT | `/api/posts/:id/pin` | 置顶/取消置顶帖子（管理员） |
+
+### 评论
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
 | GET | `/api/posts/:id/comments` | 评论列表（含楼层号、置顶排序） |
-| POST | `/api/posts/:id/comments` | 发评论（FormData，支持 images 字段） |
-| PUT | `/api/comments/:id` | 编辑评论（FormData，支持增删图片） |
-| DELETE | `/api/comments/:id` | 删除评论（作者或帖主） |
+| POST | `/api/posts/:id/comments` | 发评论（FormData: images[], content） |
+| PUT | `/api/comments/:id` | 编辑评论（FormData: images[], removeImages） |
+| DELETE | `/api/comments/:id` | 删除评论（作者或帖主或管理员） |
 | PUT | `/api/comments/:id/pin` | 置顶/取消置顶评论（仅帖主） |
+
+### 签到
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
 | GET | `/api/checkin/today` | 今日签到状态 |
 | GET | `/api/checkin/history` | 签到历史（365天日历+统计+可补签日期） |
-| POST | `/api/checkin` | 手动签到 |
+| POST | `/api/checkin` | 手动签到（+10积分） |
 | POST | `/api/checkin/auto` | 自动签到（页面加载时调用） |
-| POST | `/api/checkin/retroactive` | 补签（body: `{date: "2026-08-28"}`） |
-| GET | `/api/likes` | 当前用户的点赞列表 |
+| POST | `/api/checkin/retroactive` | 补签（body: {date}，-10积分） |
+
+### 点赞
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/likes` | 当前用户点赞的帖子 ID 列表 |
 | POST | `/api/like/:id` | 点赞 |
 | DELETE | `/api/like/:id` | 取消点赞 |
-| DELETE | `/api/like/:id` | 取消点赞 |
-| GET | `/api/admin/users` | 用户列表（管理员） |
-| PUT | `/api/admin/users/:id/mute` | 禁言/取消禁言（管理员） |
-| DELETE | `/api/admin/users/:id` | 删除用户（管理员，级联删除） |
-| PUT | `/api/posts/:id/pin` | 置顶/取消置顶帖子（管理员） |
-| PUT | `/api/superadmin/grant-admin/:id` | 授予管理员权限（超级管理员） |
-| PUT | `/api/superadmin/revoke-admin/:id` | 撤销管理员权限（超级管理员） |
-| PUT | `/api/superadmin/transfer/:id` | 转让超级管理员（超级管理员） |
+
+### 管理员
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/admin/users` | 用户列表 |
+| PUT | `/api/admin/users/:id/mute` | 禁言/取消禁言 |
+| DELETE | `/api/admin/users/:id` | 删除用户（级联删除） |
+| PUT | `/api/superadmin/grant-admin/:id` | 授予管理员（超管） |
+| PUT | `/api/superadmin/revoke-admin/:id` | 撤销管理员（超管） |
+| PUT | `/api/superadmin/transfer/:id` | 转让超管（超管） |
 
 ## 更新日志
+
+### v0.5.0 (2026-08-31) — 贡献者: parkes-mimir
+
+**个人资料系统**
+
+- 新增 `profile.html` 个人资料页（英雄区 + 简介 + 统计 + 帖子/点赞/收藏 Tab）
+- 头像上传 + 裁剪预览（canvas 渲染，拖动定位，滚轮/按钮/双指缩放 100%-4000%）
+- 个人简介（最多 200 字）、所在地、个人网站
+- 隐私开关（关闭后他人无法查看详细资料）
+- TA的帖子 Tab：展示用户发布的帖子
+- TA的点赞 Tab：展示用户点赞过的帖子
+- TA的收藏 Tab：预留接口，显示「即将上线」
+- 点击头像/用户名跳转个人资料页
+- 帖子/评论 API 返回 `author_avatar_url`，前端显示真实头像
+
+**新增 API**
+
+- `GET /api/users/:id` — 用户公开资料（含隐私控制）
+- `PUT /api/profile` — 修改资料（头像+简介+隐私）
+- `GET /api/users/:id/posts` — 用户帖子列表
+- `GET /api/users/:id/likes` — 用户点赞列表
+
+**收藏系统预留**
+
+- 数据库新增 `bookmarks` 表
+- server.js 注释块说明接口设计（POST/DELETE/GET）
+- 前端 Tab 已就位，待后续对接
+
+**Bug 修复**
+
+- 修复 renderAuth 函数声明缺失导致页面崩溃
+- 修复 Tab 切换空指针错误（bookmarksEmpty 不存在）
+- 头像裁剪改用 canvas 渲染，大圆圈和小预览完全一致
+- 头像缩放限制最低 100%、最高 4000%
 
 ### v0.4.0 (2026-08-31) — 贡献者: parkes-mimir, phppi561
 
@@ -147,14 +220,6 @@ npm start
 - 补签后正确刷新签到状态
 - 签到日历月份选择器修复错位
 
-**代码质量**
-
-- multer Unexpected field 错误处理
-- JSON.parse 加 try-catch 防崩溃
-- 删除帖子时清理评论图片文件
-- 移除未使用变量，清理死代码
-- 新增单帖子 API 避免全量查询
-
 ### v0.2.1 (2026-08-29) — 贡献者: phppi561
 
 **签到 API 时区修复**
@@ -196,7 +261,7 @@ npm start
 
 ## 贡献者
 
-- **parkes-mimir** — 项目发起、需求设计、测试
+- **parkes-mimir** — 项目发起、需求设计、个人资料系统、头像裁剪、测试
 - **phppi561** — 签到 API 时区修复（v0.2.1）、管理员功能（v0.4.0）
 
 ## 声明
