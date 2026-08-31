@@ -533,7 +533,7 @@ function zoomAtPoint(factor, cx, cy) {
   const imgMx = mx - avatarCropState.imgX;
   const imgMy = my - avatarCropState.imgY;
   const oldScale = avatarCropState.scale;
-  const newScale = Math.max(avatarCropState.minScale, Math.min(oldScale * factor, oldScale * 10));
+  const newScale = Math.max(avatarCropState.minScale, Math.min(oldScale * factor, avatarCropState.minScale * 40));
   avatarCropState.scale = newScale;
   avatarCropState.imgX = mx - imgMx * (newScale / oldScale);
   avatarCropState.imgY = my - imgMy * (newScale / oldScale);
