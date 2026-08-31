@@ -352,18 +352,14 @@ let profileUid = null;
 
 function switchProfileTab(tab) {
   profileTab = tab;
-  // Update tab styles
   ['posts','likes','bookmarks'].forEach(t => {
     const btn = document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
-    if (t === tab) {
-      btn.className = 'flex-1 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600 transition';
-    } else {
-      btn.className = 'flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition';
-    }
+    btn.className = t === tab
+      ? 'flex-1 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600 transition'
+      : 'flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition';
     document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('hidden', t !== tab);
     document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)+'Empty').classList.toggle('hidden', t !== tab);
   });
-  // Load data for the tab
   if (tab === 'posts') loadUserPosts(profileUid);
   else if (tab === 'likes') loadUserLikes(profileUid);
 }
