@@ -1002,6 +1002,32 @@ app.get('/api/users/:id/posts', (req, res) => {
   res.json({ posts });
 });
 
+/** 获取某用户点赞的帖子列表 */
+app.get('/api/users/:id/likes', (req, res) => {
+  const db = loadDB();
+  const uid = Number(req.params.id);
+  const user = db.profiles.find(u => u.id === uid);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+
+  const likedIds = db.post_likes.filter(l => l.user_id === uid).map(l => l.post_id);
+  const posts = likedIds
+    .map(pid => db.posts.find(p => p.id === pid))
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
+    .map(p => {
+      const author = db.profiles.find(u => u.id === p.author_id);
+      return {
+        ...p,
+        author_name: author ? author.username : '未知',
+        author_avatar_url: author ? author.avatar_url || null : null,
+        likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
+        comments_count: db.comments.filter(c => c.post_id === p.id).length
+      };
+    });
+
+  res.json({ posts });
+});
+
 // ============================================================
 // 收藏系统（大纲5预留 - 请勿删除以下接口设计）
 // ============================================================

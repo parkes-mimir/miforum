@@ -102,12 +102,24 @@ tailwind.config = {
     </div>
   </div>
 
-  <!-- User's Posts -->
-  <div>
-    <h2 class="text-base font-semibold text-gray-900 mb-3">TA 的帖子</h2>
-    <div id="userPosts" class="space-y-3"></div>
-    <div id="userPostsEmpty" class="hidden text-center py-10">
-      <p class="text-sm text-gray-400">暂无帖子</p>
+  <!-- Tabs Section -->
+  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <!-- Tab Headers -->
+    <div class="flex border-b border-gray-100">
+      <button onclick="switchProfileTab('posts')" id="tabPosts" class="flex-1 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600 transition">TA的帖子</button>
+      <button onclick="switchProfileTab('likes')" id="tabLikes" class="flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition">TA的点赞</button>
+      <button onclick="switchProfileTab('bookmarks')" id="tabBookmarks" class="flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition">TA的收藏</button>
+    </div>
+    <!-- Tab Content -->
+    <div class="p-4 sm:p-5">
+      <div id="tabContentPosts" class="space-y-3"></div>
+      <div id="tabContentPostsEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无帖子</p></div>
+      <div id="tabContentLikes" class="hidden space-y-3"></div>
+      <div id="tabContentLikesEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无点赞</p></div>
+      <div id="tabContentBookmarks" class="hidden text-center py-10">
+        <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+        <p class="text-sm text-gray-400">收藏功能即将上线</p>
+      </div>
     </div>
   </div>
 </div>
@@ -323,7 +335,8 @@ async function loadProfile() {
     // Edit button (only for own profile)
     if (isOwner) document.getElementById('editProfileBtn').classList.remove('hidden');
 
-    // Load user's posts
+    // Load user's posts tab
+    profileUid = uid;
     await loadUserPosts(uid);
 
     document.getElementById('loading').classList.add('hidden');
@@ -333,11 +346,31 @@ async function loadProfile() {
   }
 }
 
-// ===== Load User Posts =====
-async function loadUserPosts(uid) {
-  const { posts } = await api('/api/users/' + uid + '/posts');
-  const el = document.getElementById('userPosts');
-  const empty = document.getElementById('userPostsEmpty');
+// ===== Tabs =====
+let profileTab = 'posts';
+let profileUid = null;
+
+function switchProfileTab(tab) {
+  profileTab = tab;
+  // Update tab styles
+  ['posts','likes','bookmarks'].forEach(t => {
+    const btn = document.getElementById('tab'+t.charAt(0).toUpperCase()+t.slice(1));
+    if (t === tab) {
+      btn.className = 'flex-1 py-3 text-sm font-medium text-primary-600 border-b-2 border-primary-600 transition';
+    } else {
+      btn.className = 'flex-1 py-3 text-sm font-medium text-gray-400 border-b-2 border-transparent hover:text-gray-600 transition';
+    }
+    document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)).classList.toggle('hidden', t !== tab);
+    document.getElementById('tabContent'+t.charAt(0).toUpperCase()+t.slice(1)+'Empty').classList.toggle('hidden', t !== tab);
+  });
+  // Load data for the tab
+  if (tab === 'posts') loadUserPosts(profileUid);
+  else if (tab === 'likes') loadUserLikes(profileUid);
+}
+
+function renderPostCards(posts, containerId, emptyId) {
+  const el = document.getElementById(containerId);
+  const empty = document.getElementById(emptyId);
   if (!posts.length) { el.innerHTML = ''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
   el.innerHTML = posts.map(p => {
@@ -357,6 +390,23 @@ async function loadUserPosts(uid) {
       </div>
     </div>`;
   }).join('');
+}
+
+// ===== Load User Posts =====
+async function loadUserPosts(uid) {
+  const { posts } = await api('/api/users/' + uid + '/posts');
+  renderPostCards(posts, 'tabContentPosts', 'tabContentPostsEmpty');
+}
+
+// ===== Load User Likes =====
+async function loadUserLikes(uid) {
+  try {
+    const { posts } = await api('/api/users/' + uid + '/likes');
+    renderPostCards(posts, 'tabContentLikes', 'tabContentLikesEmpty');
+  } catch(e) {
+    document.getElementById('tabContentLikes').innerHTML = '';
+    document.getElementById('tabContentLikesEmpty').classList.remove('hidden');
+  }
 }
 
 // ===== Edit Profile =====
