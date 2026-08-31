@@ -430,6 +430,9 @@ function avatarHtml(url, letter, size) {
   if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
   return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
 }
+
+/** 渲染右上角登录状态 */
+function renderAuth() {
   const a = document.getElementById('authArea');
   let html = '';
   if (state.user) {
