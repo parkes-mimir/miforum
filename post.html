@@ -49,7 +49,7 @@ tailwind.config = {
     <!-- Post Header -->
     <div class="p-5 sm:p-6 border-b border-gray-100">
       <div class="flex items-center gap-3 mb-4">
-        <div id="postAvatar" class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold"></div>
+        <a id="postAvatarLink" href="#" class="flex-shrink-0"><div id="postAvatar" class="w-10 h-10 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center font-bold"></div></a>
         <div>
           <div class="flex items-center gap-2">
             <span id="postAuthor" class="text-sm font-semibold"></span>
@@ -58,10 +58,13 @@ tailwind.config = {
           <span id="postTime" class="text-xs text-gray-400"></span>
         </div>
         <div id="postActions" class="ml-auto hidden flex items-center gap-1">
-          <button onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
+          <button id="editPostBtn" onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
           </button>
-          <button onclick="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
+          <button id="pinPostBtn" onclick="togglePinPost()" class="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition" title="置顶/取消置顶">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          </button>
+          <button id="deletePostBtn" onclick="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
             <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
           </button>
         </div>
@@ -171,7 +174,7 @@ const CAT_MAP = { tech: '技术', life: '生活', notice: '公告' };
 const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
 
 // 全局状态
-let state = { user: null, post: null, liked: false };
+let state = { user: null, post: null, liked: false, isAdmin: false };
 let commentImages = [];           // 新评论选中的图片
 let commentsDataCache = [];       // 评论数据缓存（编辑时查找用）
 let editCommentRemoveImages = []; // 编辑评论时待删除的图片 URL
@@ -204,6 +207,12 @@ function relTime(iso) {
 
 /** HTML 转义 */
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/** 渲染头像（有图片用 img，否则用首字母） */
+function avatarHtml(url, letter, size) {
+  if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
+  return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
+}
 
 /** 通用 API 请求（JSON 格式） */
 async function api(url, opts) {
@@ -272,8 +281,10 @@ function renderAuth() {
   const a = document.getElementById('authArea');
   if (state.user) {
     a.innerHTML = `<div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
-      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
+        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8')}
+        <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      </a>
       <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     </div>`;
   } else {
@@ -295,7 +306,8 @@ async function loadPage() {
 
     // 设置页面标题和元信息
     document.title = post.title + ' - MiForum';
-    document.getElementById('postAvatar').textContent = post.author_name[0].toUpperCase();
+    document.getElementById('postAvatar').innerHTML = avatarHtml(post.author_avatar_url, post.author_name[0].toUpperCase(), 'w-10 h-10');
+    document.getElementById('postAvatarLink').href = '/profile.html?id=' + post.author_id;
     document.getElementById('postAuthor').textContent = post.author_name;
     document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full ' + (CAT_COLORS[post.category] || 'bg-gray-100 text-gray-600');
     document.getElementById('postCategory').textContent = CAT_MAP[post.category];
@@ -317,8 +329,12 @@ async function loadPage() {
     }
     renderLike();
 
-    // 编辑/删除按钮（仅作者可见）
-    if (state.user && post.author_id === state.user.id) {
+    // 帖子操作按钮：编辑(作者)、置顶(管理员)、删除(作者或管理员)
+    const isAuthor = state.user && post.author_id === state.user.id;
+    document.getElementById('editPostBtn').style.display = isAuthor ? '' : 'none';
+    document.getElementById('pinPostBtn').style.display = state.isAdmin ? '' : 'none';
+    document.getElementById('deletePostBtn').style.display = (isAuthor || state.isAdmin) ? '' : 'none';
+    if (isAuthor || state.isAdmin) {
       document.getElementById('postActions').classList.remove('hidden');
     }
 
@@ -442,6 +458,15 @@ async function deletePost() {
   try { await api('/api/posts/' + state.post.id, { method: 'DELETE' }); toast('已删除'); window.location = '/'; } catch (e) { toast(e.message); }
 }
 
+/** 置顶/取消置顶帖子（仅管理员） */
+async function togglePinPost() {
+  try {
+    const res = await api('/api/posts/' + state.post.id + '/pin', { method: 'PUT' });
+    toast(res.pinned ? '已置顶' : '已取消置顶');
+    await loadPage();
+  } catch (e) { toast(e.message); }
+}
+
 // ============================================================
 // 评论系统
 // ============================================================
@@ -464,10 +489,10 @@ function renderComments(cl, postOwnerId) {
     document.getElementById('commentList').innerHTML = cl.map(c => {
       const own = state.user && c.author_id === state.user.id;
       const isPostOwner = state.user && postOwnerId === state.user.id;
-      const canDelete = own || isPostOwner;
+      const canDelete = own || isPostOwner || state.isAdmin;
       const hasImgs = c.images && c.images.length > 0;
       return `<div class="flex gap-3 ${c.pinned ? 'bg-amber-50 rounded-xl p-3 -mx-3' : ''}" id="comment-${c.id}">
-        <div class="w-8 h-8 rounded-full bg-gray-200 text-gray-600 flex items-center justify-center text-xs font-bold flex-shrink-0">${esc(c.author_name[0].toUpperCase())}</div>
+        <a href="/profile.html?id=${c.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(c.author_avatar_url, c.author_name[0].toUpperCase(), 'w-8 h-8')}</a>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(c.author_name)}</span>
@@ -632,6 +657,7 @@ async function deleteComment(cid) {
 // ============================================================
 (async () => {
   try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
+  try { const { isAdmin } = await api('/api/admin/status'); state.isAdmin = isAdmin; } catch (e) {}
   renderAuth();
   await loadPage();
   document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });

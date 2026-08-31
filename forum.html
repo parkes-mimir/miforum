@@ -268,6 +268,40 @@ tailwind.config = {
   </div>
 </div>
 
+<!-- Admin Panel Modal -->
+<div id="adminPanelModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">用户管理</h2>
+      <div class="flex items-center gap-2">
+        <span id="adminRoleBadge" class="text-xs px-2 py-0.5 rounded-full"></span>
+        <button onclick="hideAdminPanel()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+    </div>
+    <div id="adminUserList" class="flex-1 overflow-y-auto p-5 space-y-3"></div>
+  </div>
+</div>
+    <div class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">管理员密钥</label><input id="adminKey" type="password" placeholder="输入管理员密钥" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <button onclick="doAdminAuth()" class="w-full py-2.5 bg-amber-500 text-white text-sm font-semibold rounded-xl hover:bg-amber-600 transition">认证</button>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Panel Modal -->
+<div id="adminPanelModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">用户管理</h2>
+      <div class="flex items-center gap-2">
+        <button onclick="doAdminLogout()" class="text-xs text-gray-400 hover:text-gray-600 px-2 py-1 rounded-lg transition">退出管理</button>
+        <button onclick="hideAdminPanel()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+    </div>
+    <div id="adminUserList" class="flex-1 overflow-y-auto p-5 space-y-3"></div>
+  </div>
+</div>
+
 <script>
 // ============================================================
 // 配置常量
@@ -391,18 +425,37 @@ async function doLogout() {
   toast('已退出');
 }
 
-/** 渲染右上角登录状态 */
-function renderAuth() {
+/** 渲染头像（有图片用 img，否则用首字母） */
+function avatarHtml(url, letter, size) {
+  if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
+  return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
+}
   const a = document.getElementById('authArea');
+  let html = '';
   if (state.user) {
-    a.innerHTML = `<div class="flex items-center gap-2">
-      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
-      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+    const role = state.user.role || 'user';
+    const isSuperAdmin = role === 'super_admin';
+    const isAdmin = role === 'admin' || isSuperAdmin;
+    const roleLabel = isSuperAdmin ? '超管' : isAdmin ? '管理' : '';
+    const roleColor = isSuperAdmin ? 'bg-red-500' : isAdmin ? 'bg-amber-500' : '';
+
+    html += `<div class="flex items-center gap-2">
+      <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
+        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8')}
+        <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      </a>
+      ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
+      ${state.user.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">禁言中</span>' : ''}
       <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     </div>`;
+    // 管理员入口
+    if (isAdmin) {
+      html += '<button onclick="showAdminPanel()" class="px-3 py-1.5 bg-amber-500 text-white text-sm font-medium rounded-xl hover:bg-amber-600 transition">管理</button>';
+    }
   } else {
-    a.innerHTML = '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
+    html += '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';
   }
+  a.innerHTML = html;
 }
 
 // ============================================================
@@ -633,9 +686,11 @@ function renderPosts() {
     const liked = state.likedIds.has(p.id);
     const hasImgs = p.images && p.images.length > 0;
     const firstImg = hasImgs ? p.images[0] : null;
+    const userRole = state.user ? (state.user.role || 'user') : 'user';
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
     return `<div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" onclick="window.open('/post.html?id=${p.id}','_blank')">
       <div class="flex items-start gap-3">
-        <div class="w-9 h-9 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold flex-shrink-0">${esc(p.author_name[0].toUpperCase())}</div>
+        <a href="/profile.html?id=${p.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(p.author_avatar_url, p.author_name[0].toUpperCase(), 'w-9 h-9')}</a>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
@@ -643,6 +698,8 @@ function renderPosts() {
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
+            ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
+            ${isAdmin ? `<span class="ml-auto flex items-center gap-1"><button onclick="event.stopPropagation();togglePinPost(${p.id},${!!p.pinned})" class="text-xs px-2 py-0.5 rounded-lg ${p.pinned ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'} hover:bg-amber-200 transition">${p.pinned ? '取消置顶' : '置顶'}</button><button onclick="event.stopPropagation();adminDeletePost(${p.id})" class="text-xs px-2 py-0.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button></span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
@@ -796,6 +853,164 @@ document.querySelectorAll('[id$="Modal"]').forEach(m => {
 // Enter 键提交
 document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
 document.getElementById('regPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
+
+// ============================================================
+// 管理员功能
+// ============================================================
+let adminUsersCache = [];
+
+/** 打开管理面板 */
+function showAdminPanel() {
+  loadAdminUsers();
+  document.getElementById('adminPanelModal').classList.remove('hidden');
+  document.getElementById('adminPanelModal').classList.add('flex');
+  // 显示角色标签
+  const badge = document.getElementById('adminRoleBadge');
+  if (state.user && state.user.role === 'super_admin') {
+    badge.textContent = '超级管理员';
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500 text-white';
+  } else {
+    badge.textContent = '管理员';
+    badge.className = 'text-xs px-2 py-0.5 rounded-full bg-amber-500 text-white';
+  }
+}
+function hideAdminPanel() {
+  document.getElementById('adminPanelModal').classList.add('hidden');
+  document.getElementById('adminPanelModal').classList.remove('flex');
+}
+
+/** 加载用户列表 */
+async function loadAdminUsers() {
+  try {
+    const { users } = await api('/api/admin/users');
+    adminUsersCache = users;
+    renderAdminUsers(users);
+  } catch (e) { toast(e.message); }
+}
+
+/** 渲染用户列表 */
+function renderAdminUsers(users) {
+  const list = document.getElementById('adminUserList');
+  const currentRole = state.user ? (state.user.role || 'user') : 'user';
+  const isSuperAdmin = currentRole === 'super_admin';
+
+  if (!users.length) { list.innerHTML = '<p class="text-sm text-gray-400 text-center py-8">暂无用户</p>'; return; }
+
+  list.innerHTML = users.map(u => {
+    const role = u.role || 'user';
+    const roleLabel = role === 'super_admin' ? '超管' : role === 'admin' ? '管理' : '';
+    const roleColor = role === 'super_admin' ? 'bg-red-500' : role === 'admin' ? 'bg-amber-500' : '';
+    const isSuperAdminUser = role === 'super_admin';
+    const isAdminUser = role === 'admin';
+
+    return `
+    <div class="flex items-center gap-3 bg-gray-50 rounded-xl p-3">
+      <a href="/profile.html?id=${u.id}" class="flex-shrink-0">${avatarHtml(u.avatar_url, u.username[0].toUpperCase(), 'w-9 h-9')}</a>
+      <div class="flex-1 min-w-0">
+        <div class="flex items-center gap-2 flex-wrap">
+          <span class="text-sm font-semibold text-gray-900">${esc(u.username)}</span>
+          ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
+          ${u.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>' : ''}
+        </div>
+        <div class="text-xs text-gray-400 truncate">${esc(u.email)} · ${u.points} 积分 · ${u.posts_count} 帖 · ${u.comments_count} 评论</div>
+      </div>
+      <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
+        ${isSuperAdmin && !isSuperAdminUser ? `
+          ${isAdminUser
+            ? `<button onclick="revokeAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>`
+            : `<button onclick="grantAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">设为管理</button>`
+          }
+          <button onclick="transferSuperAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
+        ` : ''}
+        ${!isSuperAdminUser ? `
+          <button onclick="toggleMute(${u.id})" class="text-xs px-2 py-1 rounded-lg ${u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition">${u.muted ? '解禁' : '禁言'}</button>
+          <button onclick="adminDeleteUser(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
+        ` : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+/** 禁言/解禁用户 */
+async function toggleMute(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  const currentlyMuted = u ? u.muted : false;
+  if (!confirm(`确认${currentlyMuted ? '解禁' : '禁言'}用户「${u ? u.username : ''}」？`)) return;
+  try {
+    await api('/api/admin/users/' + uid + '/mute', { method: 'PUT' });
+    toast(currentlyMuted ? '已解禁' : '已禁言');
+    loadAdminUsers();
+  } catch (e) { toast(e.message); }
+}
+
+/** 删除用户 */
+async function adminDeleteUser(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  if (!confirm(`确定删除用户「${u ? u.username : ''}」？\n其帖子、评论、点赞、签到将一并删除，且不可恢复。`)) return;
+  try {
+    await api('/api/admin/users/' + uid, { method: 'DELETE' });
+    toast('用户已删除');
+    loadAdminUsers();
+    loadPosts();
+  } catch (e) { toast(e.message); }
+}
+
+/** 授予管理员权限（仅超级管理员） */
+async function grantAdmin(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  if (!confirm(`确认将「${u ? u.username : ''}」设为管理员？`)) return;
+  try {
+    await api('/api/superadmin/grant-admin/' + uid, { method: 'PUT' });
+    toast('已设为管理员');
+    loadAdminUsers();
+  } catch (e) { toast(e.message); }
+}
+
+/** 撤销管理员权限（仅超级管理员） */
+async function revokeAdmin(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  if (!confirm(`确认撤销「${u ? u.username : ''}」的管理员权限？`)) return;
+  try {
+    await api('/api/superadmin/revoke-admin/' + uid, { method: 'PUT' });
+    toast('已撤销管理员');
+    loadAdminUsers();
+  } catch (e) { toast(e.message); }
+}
+
+/** 转让超级管理员（仅超级管理员） */
+async function transferSuperAdmin(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  if (!confirm(`⚠️ 确认将超级管理员转让给「${u ? u.username : ''}」？\n\n转让后你将降为普通用户，此操作不可撤销！`)) return;
+  if (!confirm('再次确认：真的要转让超级管理员吗？')) return;
+  try {
+    await api('/api/superadmin/transfer/' + uid, { method: 'PUT' });
+    toast('超级管理员已转让');
+    // 重新加载用户信息
+    const { user } = await api('/api/me');
+    state.user = user;
+    renderAuth();
+    hideAdminPanel();
+  } catch (e) { toast(e.message); }
+}
+
+/** 置顶/取消置顶帖子 */
+async function togglePinPost(pid, currentlyPinned) {
+  try {
+    await api('/api/posts/' + pid + '/pin', { method: 'PUT' });
+    toast(currentlyPinned ? '已取消置顶' : '已置顶');
+    loadPosts();
+  } catch (e) { toast(e.message); }
+}
+
+/** 管理员删除帖子 */
+async function adminDeletePost(pid) {
+  if (!confirm('确定删除这篇帖子？')) return;
+  try {
+    await api('/api/posts/' + pid, { method: 'DELETE' });
+    toast('帖子已删除');
+    loadPosts();
+  } catch (e) { toast(e.message); }
+}
 
 // ============================================================
 // 页面初始化（恢复登录状态 → 自动签到 → 加载帖子）

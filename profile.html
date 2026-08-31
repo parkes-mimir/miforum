@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>MiForum - 个人资料</title>
+<script src="https://cdn.tailwindcss.com"></script>
+<script>
+tailwind.config = {
+  theme: { extend: { colors: { primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' } } } }
+}
+</script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+  *{font-family:'Inter',system-ui,-apple-system,sans-serif}
+  body{background:#f0f2f5}
+  .fade-in{animation:fadeIn .2s ease-out}
+  @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+  .toast-in{animation:slideUp .3s ease-out}
+  @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<!-- Topbar -->
+<header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-3xl mx-auto flex items-center justify-between px-4 h-14">
+    <a href="/" class="flex items-center gap-2 font-bold text-xl text-primary-600">
+      <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+      MiForum
+    </a>
+    <div id="authArea" class="flex items-center gap-2"></div>
+  </div>
+</header>
+
+<!-- Loading -->
+<div id="loading" class="max-w-3xl mx-auto p-4 lg:p-6">
+  <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+    <div class="flex gap-4 items-end">
+      <div class="w-20 h-20 rounded-full bg-gray-100 skeleton"></div>
+      <div class="space-y-2 flex-1"><div class="h-6 w-40 bg-gray-100 rounded skeleton"></div><div class="h-4 w-24 bg-gray-100 rounded skeleton"></div></div>
+    </div>
+    <div class="h-4 w-full bg-gray-100 rounded skeleton"></div>
+    <div class="h-4 w-3/4 bg-gray-100 rounded skeleton"></div>
+  </div>
+</div>
+
+<!-- Profile Page -->
+<div id="profilePage" class="max-w-3xl mx-auto p-4 lg:p-6 hidden">
+  <!-- Profile Card -->
+  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
+    <!-- Hero -->
+    <div class="bg-gradient-to-br from-primary-500 to-primary-700 p-6 sm:p-8">
+      <div class="flex items-end gap-4">
+        <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white border-4 border-white/30"></div>
+        <div class="flex-1 min-w-0 pb-1">
+          <div class="flex items-center gap-2 flex-wrap">
+            <h1 id="profileUsername" class="text-xl font-bold text-white"></h1>
+            <span id="profileRole" class="text-xs px-2 py-0.5 rounded-full hidden"></span>
+          </div>
+          <p id="profileJoinDate" class="text-xs text-white/60 mt-1"></p>
+        </div>
+        <button id="editProfileBtn" onclick="showEditModal()" class="hidden px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-xl transition">编辑资料</button>
+      </div>
+    </div>
+
+    <!-- Info -->
+    <div class="p-5 sm:p-6 space-y-4">
+      <!-- Bio -->
+      <div id="profileBioSection" class="hidden">
+        <p id="profileBio" class="text-sm text-gray-600 leading-relaxed"></p>
+      </div>
+
+      <!-- Location & Website -->
+      <div id="profileMeta" class="hidden flex flex-wrap gap-3 text-xs text-gray-500">
+        <span id="profileLocation" class="hidden items-center gap-1"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg><span></span></span>
+        <a id="profileWebsite" href="#" target="_blank" class="hidden items-center gap-1 text-primary-600 hover:underline"><svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg><span></span></a>
+      </div>
+
+      <!-- Privacy notice -->
+      <div id="profilePrivate" class="hidden text-center py-4">
+        <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+        <p class="text-sm text-gray-400">该用户已设置隐私，资料不可见</p>
+      </div>
+
+      <!-- Stats -->
+      <div id="profileStats" class="grid grid-cols-3 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div id="statPosts" class="text-lg font-bold text-gray-900">0</div>
+          <div class="text-xs text-gray-500">帖子</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div id="statComments" class="text-lg font-bold text-gray-900">0</div>
+          <div class="text-xs text-gray-500">评论</div>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center">
+          <div id="statPoints" class="text-lg font-bold text-primary-600">0</div>
+          <div class="text-xs text-gray-500">积分</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- User's Posts -->
+  <div>
+    <h2 class="text-base font-semibold text-gray-900 mb-3">TA 的帖子</h2>
+    <div id="userPosts" class="space-y-3"></div>
+    <div id="userPostsEmpty" class="hidden text-center py-10">
+      <p class="text-sm text-gray-400">暂无帖子</p>
+    </div>
+  </div>
+</div>
+
+<!-- Edit Profile Modal -->
+<div id="editModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[85vh] overflow-y-auto">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">编辑资料</h2>
+      <button onclick="hideEditModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-4">
+      <!-- Avatar -->
+      <div class="flex items-center gap-4">
+        <div id="editAvatarPreview" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 overflow-hidden"></div>
+        <div>
+          <button onclick="document.getElementById('editAvatar').click()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition">更换头像</button>
+          <input type="file" id="editAvatar" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" onchange="previewEditAvatar(this)">
+          <p class="text-xs text-gray-400 mt-1">JPG/PNG/GIF/WebP/BMP，最大 10MB</p>
+        </div>
+      </div>
+      <!-- Username -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">用户名</label>
+        <input id="editUsername" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <!-- Bio -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">简介</label>
+        <textarea id="editBio" rows="3" maxlength="200" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="介绍一下自己..."></textarea>
+        <p class="text-xs text-gray-400 mt-1"><span id="bioCharCount">0</span>/200</p>
+      </div>
+      <!-- Location -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">所在地</label>
+        <input id="editLocation" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="例如：北京">
+      </div>
+      <!-- Website -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">个人网站</label>
+        <input id="editWebsite" type="url" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="https://...">
+      </div>
+      <!-- Privacy -->
+      <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+        <div>
+          <p class="text-sm font-medium text-gray-700">公开资料</p>
+          <p class="text-xs text-gray-400">关闭后他人无法查看你的简介、所在地和网站</p>
+        </div>
+        <label class="relative inline-flex items-center cursor-pointer">
+          <input type="checkbox" id="editPublic" class="sr-only peer">
+          <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+        </label>
+      </div>
+      <button onclick="saveProfile()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
+    </div>
+  </div>
+</div>
+
+<!-- Toast -->
+<div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
+
+<style>.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
+
+<script>
+const CAT_MAP = { tech:'技术', life:'生活', notice:'公告' };
+const CAT_COLORS = { tech:'bg-blue-100 text-blue-700', life:'bg-pink-100 text-pink-700', notice:'bg-amber-100 text-amber-700' };
+
+let state = { user: null, profile: null };
+let editAvatarFile = null;
+
+// ===== 工具 =====
+function toast(msg) {
+  const el = document.createElement('div');
+  el.className = 'toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg';
+  el.textContent = msg;
+  document.getElementById('toastContainer').appendChild(el);
+  setTimeout(() => { el.style.opacity='0'; el.style.transition='opacity .3s'; setTimeout(()=>el.remove(),300); }, 2500);
+}
+function relTime(iso) {
+  const d = Date.now() - new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z')).getTime();
+  const m = Math.floor(d/60000);
+  if (m < 1) return '刚刚';
+  if (m < 60) return m + '分钟前';
+  const h = Math.floor(m/60);
+  if (h < 24) return h + '小时前';
+  const date = new Date(iso + (iso.includes('Z')||iso.includes('+') ? '' : 'Z'));
+  return date.getFullYear() + '年' + (date.getMonth()+1) + '月' + date.getDate() + '日';
+}
+function esc(s) { const d=document.createElement('div'); d.textContent=s; return d.innerHTML; }
+async function api(url, opts) {
+  const res = await fetch(url, { headers:{'Content-Type':'application/json'}, ...opts });
+  const data = await res.json();
+  if (!res.ok) throw new Error(data.error || '请求失败');
+  return data;
+}
+
+// ===== Auth =====
+function renderAuth() {
+  const a = document.getElementById('authArea');
+  if (state.user) {
+    const role = state.user.role || 'user';
+    const isSuperAdmin = role === 'super_admin';
+    const isAdmin = role === 'admin' || isSuperAdmin;
+    const roleLabel = isSuperAdmin ? '超管' : isAdmin ? '管理' : '';
+    const roleColor = isSuperAdmin ? 'bg-red-500' : isAdmin ? 'bg-amber-500' : '';
+    a.innerHTML = `<div class="flex items-center gap-2">
+      <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
+      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+      ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
+    </div>`;
+  } else {
+    a.innerHTML = `<a href="/" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</a>`;
+  }
+}
+
+// ===== Lightbox =====
+function openLightbox(url) {
+  const w = window.open('', '_blank');
+  w.document.write(`<html><head><title>图片预览</title><style>body{margin:0;display:flex;align-items:center;justify-content:center;min-height:100vh;background:#111;cursor:pointer}</style></head><body onclick="window.close()"><img src="${url}" style="max-width:95vw;max-height:95vh;object-fit:contain"></body></html>`);
+}
+
+// ===== Avatar Helper =====
+function renderAvatar(url, letter, size, bgColor, textColor) {
+  if (url) return `<img src="${url}" class="${size} rounded-full object-cover">`;
+  return `<div class="${size} rounded-full ${bgColor} ${textColor} flex items-center justify-center font-bold">${esc(letter)}</div>`;
+}
+
+// ===== Load Profile =====
+async function loadProfile() {
+  const params = new URLSearchParams(window.location.search);
+  const uid = params.get('id');
+  if (!uid) { document.getElementById('loading').innerHTML='<p class="text-center text-gray-400 py-20">用户不存在</p>'; return; }
+
+  try {
+    const { user } = await api('/api/users/' + uid);
+    state.profile = user;
+    document.title = user.username + ' - MiForum';
+
+    // Avatar
+    const letter = user.username[0].toUpperCase();
+    document.getElementById('profileAvatar').innerHTML = renderAvatar(user.avatar_url, letter, 'w-full h-full', '', 'text-white');
+
+    // Username + role
+    document.getElementById('profileUsername').textContent = user.username;
+    const roleEl = document.getElementById('profileRole');
+    if (user.role === 'super_admin') { roleEl.textContent = '超管'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500 text-white'; roleEl.classList.remove('hidden'); }
+    else if (user.role === 'admin') { roleEl.textContent = '管理'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-amber-500 text-white'; roleEl.classList.remove('hidden'); }
+    else { roleEl.classList.add('hidden'); }
+
+    // Join date
+    document.getElementById('profileJoinDate').textContent = '加入于 ' + relTime(user.created_at);
+
+    // Bio
+    if (user.bio) { document.getElementById('profileBio').textContent = user.bio; document.getElementById('profileBioSection').classList.remove('hidden'); }
+
+    // Location & Website
+    const metaEl = document.getElementById('profileMeta');
+    const locEl = document.getElementById('profileLocation');
+    const webEl = document.getElementById('profileWebsite');
+    let hasMeta = false;
+    if (user.location) { locEl.querySelector('span').textContent = user.location; locEl.classList.remove('hidden'); locEl.classList.add('flex'); hasMeta = true; } else { locEl.classList.add('hidden'); }
+    if (user.website) { webEl.querySelector('span').textContent = user.website; webEl.href = user.website; webEl.classList.remove('hidden'); webEl.classList.add('flex'); hasMeta = true; } else { webEl.classList.add('hidden'); }
+    if (hasMeta) metaEl.classList.remove('hidden'); else metaEl.classList.add('hidden');
+
+    // Privacy check
+    const isOwner = state.user && state.user.id === user.id;
+    if (user.profile_public === false && !isOwner) {
+      document.getElementById('profileBioSection').classList.add('hidden');
+      document.getElementById('profileMeta').classList.add('hidden');
+      document.getElementById('profileStats').classList.add('hidden');
+      document.getElementById('profilePrivate').classList.remove('hidden');
+    } else {
+      document.getElementById('profilePrivate').classList.add('hidden');
+      document.getElementById('profileStats').classList.remove('hidden');
+      // Stats
+      document.getElementById('statPosts').textContent = user.posts_count;
+      document.getElementById('statComments').textContent = user.comments_count;
+      document.getElementById('statPoints').textContent = user.points || 0;
+    }
+
+    // Edit button (only for own profile)
+    if (isOwner) document.getElementById('editProfileBtn').classList.remove('hidden');
+
+    // Load user's posts
+    await loadUserPosts(uid);
+
+    document.getElementById('loading').classList.add('hidden');
+    document.getElementById('profilePage').classList.remove('hidden');
+  } catch(e) {
+    document.getElementById('loading').innerHTML = '<p class="text-center text-red-400 py-20">' + esc(e.message) + '</p>';
+  }
+}
+
+// ===== Load User Posts =====
+async function loadUserPosts(uid) {
+  const { posts } = await api('/api/users/' + uid + '/posts');
+  const el = document.getElementById('userPosts');
+  const empty = document.getElementById('userPostsEmpty');
+  if (!posts.length) { el.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  el.innerHTML = posts.map(p => {
+    const hasImgs = p.images && p.images.length > 0;
+    return `<div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" onclick="window.open('/post.html?id=${p.id}','_blank')">
+      <div class="flex items-center gap-2 mb-1 flex-wrap">
+        <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
+        <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
+        ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
+      </div>
+      <h3 class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
+      <p class="text-xs text-gray-500 line-clamp-1">${esc(p.content).replace(/\n/g,' ')}</p>
+      <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+        <span>❤ ${p.likes_count}</span>
+        <span>💬 ${p.comments_count}</span>
+        ${hasImgs ? '<span>📷 ' + p.images.length + '</span>' : ''}
+      </div>
+    </div>`;
+  }).join('');
+}
+
+// ===== Edit Profile =====
+function showEditModal() {
+  if (!state.profile) return;
+  editAvatarFile = null;
+  document.getElementById('editUsername').value = state.profile.username || '';
+  document.getElementById('editBio').value = state.profile.bio || '';
+  document.getElementById('editLocation').value = state.profile.location || '';
+  document.getElementById('editWebsite').value = state.profile.website || '';
+  document.getElementById('editPublic').checked = state.profile.profile_public !== false;
+  document.getElementById('bioCharCount').textContent = (state.profile.bio || '').length;
+  // Avatar preview
+  const preview = document.getElementById('editAvatarPreview');
+  if (state.profile.avatar_url) {
+    preview.innerHTML = `<img src="${state.profile.avatar_url}" class="w-full h-full object-cover">`;
+  } else {
+    preview.textContent = state.profile.username[0].toUpperCase();
+  }
+  document.getElementById('editModal').classList.remove('hidden');
+  document.getElementById('editModal').classList.add('flex');
+}
+function hideEditModal() {
+  document.getElementById('editModal').classList.add('hidden');
+  document.getElementById('editModal').classList.remove('flex');
+}
+
+function previewEditAvatar(input) {
+  const file = input.files[0];
+  if (!file) return;
+  if (file.size > 10*1024*1024) { toast('头像不能超过10MB'); input.value=''; return; }
+  editAvatarFile = file;
+  const reader = new FileReader();
+  reader.onload = (e) => {
+    document.getElementById('editAvatarPreview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+  };
+  reader.readAsDataURL(file);
+}
+
+// Bio char count
+document.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('editBio').addEventListener('input', (e) => {
+    document.getElementById('bioCharCount').textContent = e.target.value.length;
+  });
+});
+
+async function saveProfile() {
+  const username = document.getElementById('editUsername').value.trim();
+  const bio = document.getElementById('editBio').value.trim();
+  const location = document.getElementById('editLocation').value.trim();
+  const website = document.getElementById('editWebsite').value.trim();
+  const profile_public = document.getElementById('editPublic').checked;
+
+  if (!username) { toast('用户名不能为空'); return; }
+
+  try {
+    const fd = new FormData();
+    fd.append('username', username);
+    fd.append('bio', bio);
+    fd.append('location', location);
+    fd.append('website', website);
+    fd.append('profile_public', profile_public);
+    if (editAvatarFile) fd.append('avatar', editAvatarFile);
+
+    const res = await fetch('/api/profile', { method: 'PUT', body: fd });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || '保存失败');
+
+    // Update local state
+    state.user = { ...state.user, ...data.user };
+    state.profile = { ...state.profile, ...data.user };
+    renderAuth();
+    hideEditModal();
+    await loadProfile();
+    toast('资料已更新');
+  } catch(e) { toast(e.message); }
+}
+
+// ===== Init =====
+(async () => {
+  try { const { user } = await api('/api/me'); state.user = user; } catch(e) {}
+  renderAuth();
+  await loadProfile();
+})();
+</script>
+</body>
+</html>
