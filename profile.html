@@ -145,10 +145,14 @@ tailwind.config = {
             </button>
           </div>
           <p class="text-xs text-gray-400 text-center mt-2">拖动调整位置 · 滚轮/按钮缩放</p>
-          <div class="flex items-center justify-center gap-3 mt-3">
+          <div class="flex items-center justify-center gap-4 mt-3">
             <div class="text-center">
-              <p class="text-xs text-gray-400 mb-1">头像预览</p>
-              <div id="avatarCropPreview" class="w-16 h-16 rounded-full overflow-hidden border-2 border-primary-200 bg-gray-100 mx-auto"></div>
+              <p class="text-xs text-gray-400 mb-1">大头像</p>
+              <div id="avatarCropPreviewLg" class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 mx-auto"></div>
+            </div>
+            <div class="text-center">
+              <p class="text-xs text-gray-400 mb-1">小头像</p>
+              <div id="avatarCropPreviewSm" class="w-8 h-8 rounded-full overflow-hidden border border-gray-200 bg-gray-100 mx-auto"></div>
             </div>
           </div>
         </div>
@@ -444,31 +448,29 @@ function applyCropTransform() {
 
 function updateCropPreview() {
   const img = document.getElementById('avatarCropImg');
-  const preview = document.getElementById('avatarCropPreview');
   const cropperSize = 200;
-  const previewSize = 64;
   
   // Create a canvas to crop
   const canvas = document.createElement('canvas');
-  canvas.width = previewSize;
-  canvas.height = previewSize;
+  canvas.width = cropperSize;
+  canvas.height = cropperSize;
   const ctx = canvas.getContext('2d');
   
   // Draw the cropped circle
   ctx.beginPath();
-  ctx.arc(previewSize/2, previewSize/2, previewSize/2, 0, Math.PI * 2);
+  ctx.arc(cropperSize/2, cropperSize/2, cropperSize/2, 0, Math.PI * 2);
   ctx.clip();
   
-  // Calculate source rect
-  const scaleRatio = previewSize / cropperSize;
   const sx = -avatarCropState.imgX / avatarCropState.scale;
   const sy = -avatarCropState.imgY / avatarCropState.scale;
   const sw = cropperSize / avatarCropState.scale;
   const sh = cropperSize / avatarCropState.scale;
   
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, previewSize, previewSize);
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cropperSize, cropperSize);
   
-  preview.innerHTML = `<img src="${canvas.toDataURL('image/png')}" class="w-full h-full object-cover">`;
+  const dataUrl = canvas.toDataURL('image/png');
+  document.getElementById('avatarCropPreviewLg').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+  document.getElementById('avatarCropPreviewSm').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
 }
 
 // Drag events for avatar cropper
