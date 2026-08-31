@@ -19,12 +19,6 @@ tailwind.config = {
   .toast-in{animation:slideUp .3s ease-out}
   @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
   ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
-  /* Avatar cropper */
-  .avatar-cropper{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:grab;margin:0 auto;background:#f1f5f9}
-  .avatar-cropper:active{cursor:grabbing}
-  .avatar-cropper img{position:absolute;top:0;left:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none}
-  .avatar-crop-mask{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.4);pointer-events:none;z-index:1}
-  .avatar-crop-preview{width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid primary-200;background:#f1f5f9}
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -131,28 +125,29 @@ tailwind.config = {
         <label class="block text-xs font-medium text-gray-500 mb-2">头像</label>
         <!-- Cropper area (hidden by default) -->
         <div id="avatarCropperWrap" class="hidden mb-3">
-          <div class="avatar-cropper" id="avatarCropper">
-            <div class="avatar-crop-mask"></div>
-            <img id="avatarCropImg" src="">
+          <!-- Main cropper canvas (circle) -->
+          <div id="avatarCropper" class="relative w-48 h-48 mx-auto cursor-grab active:cursor-grabbing">
+            <canvas id="avatarCropCanvas" width="192" height="192" class="rounded-full"></canvas>
+            <div class="absolute inset-0 rounded-full pointer-events-none" style="box-shadow:0 0 0 3px rgba(99,102,241,0.4)"></div>
           </div>
+          <!-- Hidden img for source data -->
+          <img id="avatarCropImg" src="" class="hidden">
+          <!-- Zoom controls -->
           <div class="flex items-center justify-center gap-3 mt-3">
-            <button onclick="zoomBtn(-0.2)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="缩小">
+            <button onclick="zoomBtn(-0.15)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="缩小">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
             </button>
             <span id="zoomLevel" class="text-xs text-gray-500 w-12 text-center">100%</span>
-            <button onclick="zoomBtn(0.2)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="放大">
+            <button onclick="zoomBtn(0.15)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="放大">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             </button>
           </div>
-          <p class="text-xs text-gray-400 text-center mt-2">拖动调整位置 · 滚轮/按钮缩放</p>
+          <p class="text-xs text-gray-400 text-center mt-2">拖动调整 · 滚轮/按钮缩放</p>
+          <!-- Preview -->
           <div class="flex items-center justify-center gap-4 mt-3">
             <div class="text-center">
-              <p class="text-xs text-gray-400 mb-1">大头像</p>
-              <div id="avatarCropPreviewLg" class="w-16 h-16 rounded-full overflow-hidden border-2 border-gray-200 bg-gray-100 mx-auto"></div>
-            </div>
-            <div class="text-center">
-              <p class="text-xs text-gray-400 mb-1">小头像</p>
-              <div id="avatarCropPreviewSm" class="w-8 h-8 rounded-full overflow-hidden border border-gray-200 bg-gray-100 mx-auto"></div>
+              <p class="text-xs text-gray-400 mb-1">预览</p>
+              <canvas id="avatarPreviewCanvas" width="64" height="64" class="rounded-full border-2 border-gray-200 mx-auto"></canvas>
             </div>
           </div>
         </div>
@@ -393,8 +388,9 @@ function hideEditModal() {
   document.getElementById('editModal').classList.remove('flex');
 }
 
-// ===== Avatar Crop =====
+// ===== Avatar Crop (Canvas-based) =====
 let avatarCropState = { dragging: false, startX: 0, startY: 0, imgX: 0, imgY: 0, scale: 1, minScale: 1 };
+const CROPPER_SIZE = 192; // canvas px (matches w-48 = 12rem = 192px)
 
 function handleAvatarSelect(input) {
   const file = input.files[0];
@@ -402,9 +398,7 @@ function handleAvatarSelect(input) {
   if (file.size > 10*1024*1024) { toast('头像不能超过10MB'); input.value=''; return; }
   editAvatarFile = file;
   const reader = new FileReader();
-  reader.onload = (e) => {
-    showAvatarCropper(e.target.result);
-  };
+  reader.onload = (e) => { showAvatarCropper(e.target.result); };
   reader.readAsDataURL(file);
   input.value = '';
 }
@@ -412,68 +406,58 @@ function handleAvatarSelect(input) {
 function showAvatarCropper(imgSrc) {
   document.getElementById('avatarDisplay').classList.add('hidden');
   document.getElementById('avatarCropperWrap').classList.remove('hidden');
-  
   const img = document.getElementById('avatarCropImg');
   img.src = imgSrc;
-  
   img.onload = () => {
-    const cropperSize = 200;
     const imgW = img.naturalWidth;
     const imgH = img.naturalHeight;
-    
-    // Scale image to fill the cropper (cover mode)
-    const scale = Math.max(cropperSize / imgW, cropperSize / imgH);
+    // Cover mode: scale to fill the cropper circle
+    const scale = Math.max(CROPPER_SIZE / imgW, CROPPER_SIZE / imgH);
     avatarCropState.scale = scale;
-    avatarCropState.minScale = scale; // Cannot zoom out smaller than cover size
-    
-    // Center the image
+    avatarCropState.minScale = scale;
+    // Center
     const scaledW = imgW * scale;
     const scaledH = imgH * scale;
-    avatarCropState.imgX = (cropperSize - scaledW) / 2;
-    avatarCropState.imgY = (cropperSize - scaledH) / 2;
-    
-    applyCropTransform();
+    avatarCropState.imgX = (CROPPER_SIZE - scaledW) / 2;
+    avatarCropState.imgY = (CROPPER_SIZE - scaledH) / 2;
+    renderCrop();
     updateZoomLevel();
   };
 }
 
-function applyCropTransform() {
+/** Render the crop onto both canvases (main + preview) using the same logic */
+function renderCrop() {
   const img = document.getElementById('avatarCropImg');
-  img.style.width = (img.naturalWidth * avatarCropState.scale) + 'px';
-  img.style.height = (img.naturalHeight * avatarCropState.scale) + 'px';
-  img.style.left = avatarCropState.imgX + 'px';
-  img.style.top = avatarCropState.imgY + 'px';
-  updateCropPreview();
-}
-
-function updateCropPreview() {
-  const img = document.getElementById('avatarCropImg');
-  const cropperSize = 200;
-  
-  // Create a canvas to crop
-  const canvas = document.createElement('canvas');
-  canvas.width = cropperSize;
-  canvas.height = cropperSize;
-  const ctx = canvas.getContext('2d');
-  
-  // Draw the cropped circle
-  ctx.beginPath();
-  ctx.arc(cropperSize/2, cropperSize/2, cropperSize/2, 0, Math.PI * 2);
-  ctx.clip();
-  
   const sx = -avatarCropState.imgX / avatarCropState.scale;
   const sy = -avatarCropState.imgY / avatarCropState.scale;
-  const sw = cropperSize / avatarCropState.scale;
-  const sh = cropperSize / avatarCropState.scale;
-  
-  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, cropperSize, cropperSize);
-  
-  const dataUrl = canvas.toDataURL('image/png');
-  document.getElementById('avatarCropPreviewLg').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
-  document.getElementById('avatarCropPreviewSm').innerHTML = `<img src="${dataUrl}" class="w-full h-full object-cover">`;
+  const sw = CROPPER_SIZE / avatarCropState.scale;
+  const sh = CROPPER_SIZE / avatarCropState.scale;
+
+  // Main cropper canvas (192x192)
+  const mainCanvas = document.getElementById('avatarCropCanvas');
+  const mainCtx = mainCanvas.getContext('2d');
+  mainCtx.clearRect(0, 0, CROPPER_SIZE, CROPPER_SIZE);
+  mainCtx.save();
+  mainCtx.beginPath();
+  mainCtx.arc(CROPPER_SIZE/2, CROPPER_SIZE/2, CROPPER_SIZE/2, 0, Math.PI * 2);
+  mainCtx.clip();
+  mainCtx.drawImage(img, sx, sy, sw, sh, 0, 0, CROPPER_SIZE, CROPPER_SIZE);
+  mainCtx.restore();
+
+  // Preview canvas (64x64) - same crop, smaller
+  const prevCanvas = document.getElementById('avatarPreviewCanvas');
+  const prevCtx = prevCanvas.getContext('2d');
+  const prevSize = 64;
+  prevCtx.clearRect(0, 0, prevSize, prevSize);
+  prevCtx.save();
+  prevCtx.beginPath();
+  prevCtx.arc(prevSize/2, prevSize/2, prevSize/2, 0, Math.PI * 2);
+  prevCtx.clip();
+  prevCtx.drawImage(img, sx, sy, sw, sh, 0, 0, prevSize, prevSize);
+  prevCtx.restore();
 }
 
-// Drag events for avatar cropper
+// Drag
 document.getElementById('avatarCropper').addEventListener('mousedown', (e) => {
   e.preventDefault();
   avatarCropState.dragging = true;
@@ -485,44 +469,44 @@ document.addEventListener('mousemove', (e) => {
   avatarCropState.imgX = e.clientX - avatarCropState.startX;
   avatarCropState.imgY = e.clientY - avatarCropState.startY;
   clampCropPosition();
-  applyCropTransform();
+  renderCrop();
 });
 document.addEventListener('mouseup', () => { avatarCropState.dragging = false; });
 
-// Touch support
+// Touch drag
 document.getElementById('avatarCropper').addEventListener('touchstart', (e) => {
-  const touch = e.touches[0];
-  avatarCropState.dragging = true;
-  avatarCropState.startX = touch.clientX - avatarCropState.imgX;
-  avatarCropState.startY = touch.clientY - avatarCropState.imgY;
+  if (e.touches.length === 1) {
+    avatarCropState.dragging = true;
+    avatarCropState.startX = e.touches[0].clientX - avatarCropState.imgX;
+    avatarCropState.startY = e.touches[0].clientY - avatarCropState.imgY;
+  }
 }, { passive: true });
 document.addEventListener('touchmove', (e) => {
-  if (!avatarCropState.dragging) return;
-  const touch = e.touches[0];
-  avatarCropState.imgX = touch.clientX - avatarCropState.startX;
-  avatarCropState.imgY = touch.clientY - avatarCropState.startY;
+  if (!avatarCropState.dragging || e.touches.length !== 1) return;
+  avatarCropState.imgX = e.touches[0].clientX - avatarCropState.startX;
+  avatarCropState.imgY = e.touches[0].clientY - avatarCropState.startY;
   clampCropPosition();
-  applyCropTransform();
+  renderCrop();
 }, { passive: true });
 document.addEventListener('touchend', () => { avatarCropState.dragging = false; });
 
 // Mouse wheel zoom
 document.getElementById('avatarCropper').addEventListener('wheel', (e) => {
   e.preventDefault();
-  const delta = e.deltaY > 0 ? 0.9 : 1.1; // scroll down = zoom out, scroll up = zoom in
-  zoomAvatar(delta, e.clientX, e.clientY);
+  const factor = e.deltaY > 0 ? 0.92 : 1.08;
+  zoomAtPoint(factor, e.clientX, e.clientY);
 }, { passive: false });
 
-// Pinch-to-zoom (touch)
+// Pinch-to-zoom
 let lastPinchDist = 0;
 document.getElementById('avatarCropper').addEventListener('touchstart', (e) => {
   if (e.touches.length === 2) {
-    e.preventDefault();
     const dx = e.touches[0].clientX - e.touches[1].clientX;
     const dy = e.touches[0].clientY - e.touches[1].clientY;
     lastPinchDist = Math.sqrt(dx * dx + dy * dy);
+    avatarCropState.dragging = false;
   }
-}, { passive: false });
+}, { passive: true });
 document.getElementById('avatarCropper').addEventListener('touchmove', (e) => {
   if (e.touches.length === 2) {
     e.preventDefault();
@@ -530,10 +514,10 @@ document.getElementById('avatarCropper').addEventListener('touchmove', (e) => {
     const dy = e.touches[0].clientY - e.touches[1].clientY;
     const dist = Math.sqrt(dx * dx + dy * dy);
     if (lastPinchDist > 0) {
-      const delta = dist / lastPinchDist;
+      const factor = dist / lastPinchDist;
       const cx = (e.touches[0].clientX + e.touches[1].clientX) / 2;
       const cy = (e.touches[0].clientY + e.touches[1].clientY) / 2;
-      zoomAvatar(delta, cx, cy);
+      zoomAtPoint(factor, cx, cy);
     }
     lastPinchDist = dist;
   }
@@ -542,91 +526,66 @@ document.getElementById('avatarCropper').addEventListener('touchend', (e) => {
   if (e.touches.length < 2) lastPinchDist = 0;
 });
 
-function zoomAvatar(factor, cx, cy) {
-  const cropper = document.getElementById('avatarCropper');
-  const rect = cropper.getBoundingClientRect();
-  
-  // Mouse position relative to cropper
+function zoomAtPoint(factor, cx, cy) {
+  const rect = document.getElementById('avatarCropper').getBoundingClientRect();
   const mx = cx - rect.left;
   const my = cy - rect.top;
-  
-  // Position of mouse relative to image
   const imgMx = mx - avatarCropState.imgX;
   const imgMy = my - avatarCropState.imgY;
-  
-  // Apply zoom
   const oldScale = avatarCropState.scale;
-  const newScale = Math.max(avatarCropState.minScale, Math.min(oldScale * factor, 5));
+  const newScale = Math.max(avatarCropState.minScale, Math.min(oldScale * factor, oldScale * 10));
   avatarCropState.scale = newScale;
-  
-  // Adjust position to keep the point under the mouse fixed
   avatarCropState.imgX = mx - imgMx * (newScale / oldScale);
   avatarCropState.imgY = my - imgMy * (newScale / oldScale);
-  
   clampCropPosition();
-  applyCropTransform();
+  renderCrop();
   updateZoomLevel();
 }
 
 function zoomBtn(delta) {
-  const cropper = document.getElementById('avatarCropper');
-  const rect = cropper.getBoundingClientRect();
-  const factor = 1 + delta;
-  zoomAvatar(factor, rect.left + rect.width/2, rect.top + rect.height/2);
+  const rect = document.getElementById('avatarCropper').getBoundingClientRect();
+  zoomAtPoint(1 + delta, rect.left + rect.width/2, rect.top + rect.height/2);
 }
 
 function updateZoomLevel() {
   const img = document.getElementById('avatarCropImg');
-  const cropperSize = 200;
-  const baseScale = Math.max(cropperSize / img.naturalWidth, cropperSize / img.naturalHeight);
+  const baseScale = Math.max(CROPPER_SIZE / img.naturalWidth, CROPPER_SIZE / img.naturalHeight);
   const percent = Math.round((avatarCropState.scale / baseScale) * 100);
   document.getElementById('zoomLevel').textContent = percent + '%';
 }
 
 function clampCropPosition() {
   const img = document.getElementById('avatarCropImg');
-  const cropperSize = 200;
   const scaledW = img.naturalWidth * avatarCropState.scale;
   const scaledH = img.naturalHeight * avatarCropState.scale;
-  
-  // Image must cover the entire cropper
-  if (scaledW >= cropperSize) {
-    avatarCropState.imgX = Math.min(0, Math.max(cropperSize - scaledW, avatarCropState.imgX));
+  if (scaledW >= CROPPER_SIZE) {
+    avatarCropState.imgX = Math.min(0, Math.max(CROPPER_SIZE - scaledW, avatarCropState.imgX));
   } else {
-    avatarCropState.imgX = (cropperSize - scaledW) / 2;
+    avatarCropState.imgX = (CROPPER_SIZE - scaledW) / 2;
   }
-  if (scaledH >= cropperSize) {
-    avatarCropState.imgY = Math.min(0, Math.max(cropperSize - scaledH, avatarCropState.imgY));
+  if (scaledH >= CROPPER_SIZE) {
+    avatarCropState.imgY = Math.min(0, Math.max(CROPPER_SIZE - scaledH, avatarCropState.imgY));
   } else {
-    avatarCropState.imgY = (cropperSize - scaledH) / 2;
+    avatarCropState.imgY = (CROPPER_SIZE - scaledH) / 2;
   }
 }
 
-function getCroppedBlob() {
-  return new Promise((resolve) => {
-    const img = document.getElementById('avatarCropImg');
-    const cropperSize = 200;
-    const outputSize = 256;
-    
-    const canvas = document.createElement('canvas');
-    canvas.width = outputSize;
-    canvas.height = outputSize;
-    const ctx = canvas.getContext('2d');
-    
-    ctx.beginPath();
-    ctx.arc(outputSize/2, outputSize/2, outputSize/2, 0, Math.PI * 2);
-    ctx.clip();
-    
-    const scaleRatio = outputSize / cropperSize;
-    const sx = -avatarCropState.imgX / avatarCropState.scale;
-    const sy = -avatarCropState.imgY / avatarCropState.scale;
-    const sw = cropperSize / avatarCropState.scale;
-    const sh = cropperSize / avatarCropState.scale;
-    
-    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outputSize, outputSize);
-    
-    canvas.toBlob((blob) => resolve(blob), 'image/png');
-  });
+async function getCroppedBlob() {
+  const img = document.getElementById('avatarCropImg');
+  const outputSize = 256;
+  const canvas = document.createElement('canvas');
+  canvas.width = outputSize;
+  canvas.height = outputSize;
+  const ctx = canvas.getContext('2d');
+  ctx.beginPath();
+  ctx.arc(outputSize/2, outputSize/2, outputSize/2, 0, Math.PI * 2);
+  ctx.clip();
+  const sx = -avatarCropState.imgX / avatarCropState.scale;
+  const sy = -avatarCropState.imgY / avatarCropState.scale;
+  const sw = CROPPER_SIZE / avatarCropState.scale;
+  const sh = CROPPER_SIZE / avatarCropState.scale;
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outputSize, outputSize);
+  return new Promise(resolve => canvas.toBlob(b => resolve(b), 'image/png'));
 }
 
 // Bio char count
