@@ -19,6 +19,12 @@ tailwind.config = {
   .toast-in{animation:slideUp .3s ease-out}
   @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
   ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+  /* Avatar cropper */
+  .avatar-cropper{position:relative;width:200px;height:200px;border-radius:50%;overflow:hidden;cursor:grab;margin:0 auto;background:#f1f5f9}
+  .avatar-cropper:active{cursor:grabbing}
+  .avatar-cropper img{position:absolute;top:0;left:0;transform-origin:0 0;user-select:none;-webkit-user-drag:none}
+  .avatar-crop-mask{position:absolute;inset:0;border-radius:50%;box-shadow:0 0 0 9999px rgba(0,0,0,.4);pointer-events:none;z-index:1}
+  .avatar-crop-preview{width:64px;height:64px;border-radius:50%;overflow:hidden;border:2px solid primary-200;background:#f1f5f9}
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -121,12 +127,30 @@ tailwind.config = {
     </div>
     <div class="space-y-4">
       <!-- Avatar -->
-      <div class="flex items-center gap-4">
-        <div id="editAvatarPreview" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 overflow-hidden"></div>
-        <div>
-          <button onclick="document.getElementById('editAvatar').click()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition">更换头像</button>
-          <input type="file" id="editAvatar" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" onchange="previewEditAvatar(this)">
-          <p class="text-xs text-gray-400 mt-1">JPG/PNG/GIF/WebP/BMP，最大 10MB</p>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-2">头像</label>
+        <!-- Cropper area (hidden by default) -->
+        <div id="avatarCropperWrap" class="hidden mb-3">
+          <div class="avatar-cropper" id="avatarCropper">
+            <div class="avatar-crop-mask"></div>
+            <img id="avatarCropImg" src="">
+          </div>
+          <p class="text-xs text-gray-400 text-center mt-2">拖动图片调整位置</p>
+          <div class="flex items-center justify-center gap-3 mt-2">
+            <div class="text-center">
+              <p class="text-xs text-gray-400 mb-1">预览</p>
+              <div id="avatarCropPreview" class="w-16 h-16 rounded-full overflow-hidden border-2 border-primary-200 bg-gray-100 mx-auto"></div>
+            </div>
+          </div>
+        </div>
+        <!-- Current avatar display -->
+        <div id="avatarDisplay" class="flex items-center gap-4">
+          <div id="editAvatarPreview" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 overflow-hidden"></div>
+          <div>
+            <button onclick="document.getElementById('editAvatar').click()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition">更换头像</button>
+            <input type="file" id="editAvatar" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" onchange="handleAvatarSelect(this)">
+            <p class="text-xs text-gray-400 mt-1">JPG/PNG/GIF/WebP/BMP，最大 10MB</p>
+          </div>
         </div>
       </div>
       <!-- Username -->
@@ -344,6 +368,10 @@ function showEditModal() {
   } else {
     preview.textContent = state.profile.username[0].toUpperCase();
   }
+  // Reset cropper
+  document.getElementById('avatarCropperWrap').classList.add('hidden');
+  document.getElementById('avatarDisplay').classList.remove('hidden');
+  editAvatarFile = null;
   document.getElementById('editModal').classList.remove('hidden');
   document.getElementById('editModal').classList.add('flex');
 }
@@ -352,16 +380,142 @@ function hideEditModal() {
   document.getElementById('editModal').classList.remove('flex');
 }
 
-function previewEditAvatar(input) {
+// ===== Avatar Crop =====
+let avatarCropState = { dragging: false, startX: 0, startY: 0, imgX: 0, imgY: 0, scale: 1 };
+
+function handleAvatarSelect(input) {
   const file = input.files[0];
   if (!file) return;
   if (file.size > 10*1024*1024) { toast('头像不能超过10MB'); input.value=''; return; }
   editAvatarFile = file;
   const reader = new FileReader();
   reader.onload = (e) => {
-    document.getElementById('editAvatarPreview').innerHTML = `<img src="${e.target.result}" class="w-full h-full object-cover">`;
+    showAvatarCropper(e.target.result);
   };
   reader.readAsDataURL(file);
+  input.value = '';
+}
+
+function showAvatarCropper(imgSrc) {
+  document.getElementById('avatarDisplay').classList.add('hidden');
+  document.getElementById('avatarCropperWrap').classList.remove('hidden');
+  
+  const img = document.getElementById('avatarCropImg');
+  img.src = imgSrc;
+  
+  img.onload = () => {
+    const cropperSize = 200;
+    const imgW = img.naturalWidth;
+    const imgH = img.naturalHeight;
+    
+    // Scale image to fill the cropper (cover mode)
+    const scale = Math.max(cropperSize / imgW, cropperSize / imgH);
+    avatarCropState.scale = scale;
+    
+    // Center the image
+    const scaledW = imgW * scale;
+    const scaledH = imgH * scale;
+    avatarCropState.imgX = (cropperSize - scaledW) / 2;
+    avatarCropState.imgY = (cropperSize - scaledH) / 2;
+    
+    applyCropTransform();
+  };
+}
+
+function applyCropTransform() {
+  const img = document.getElementById('avatarCropImg');
+  img.style.width = (img.naturalWidth * avatarCropState.scale) + 'px';
+  img.style.height = (img.naturalHeight * avatarCropState.scale) + 'px';
+  img.style.left = avatarCropState.imgX + 'px';
+  img.style.top = avatarCropState.imgY + 'px';
+  updateCropPreview();
+}
+
+function updateCropPreview() {
+  const img = document.getElementById('avatarCropImg');
+  const preview = document.getElementById('avatarCropPreview');
+  const cropperSize = 200;
+  const previewSize = 64;
+  
+  // Create a canvas to crop
+  const canvas = document.createElement('canvas');
+  canvas.width = previewSize;
+  canvas.height = previewSize;
+  const ctx = canvas.getContext('2d');
+  
+  // Draw the cropped circle
+  ctx.beginPath();
+  ctx.arc(previewSize/2, previewSize/2, previewSize/2, 0, Math.PI * 2);
+  ctx.clip();
+  
+  // Calculate source rect
+  const scaleRatio = previewSize / cropperSize;
+  const sx = -avatarCropState.imgX / avatarCropState.scale;
+  const sy = -avatarCropState.imgY / avatarCropState.scale;
+  const sw = cropperSize / avatarCropState.scale;
+  const sh = cropperSize / avatarCropState.scale;
+  
+  ctx.drawImage(img, sx, sy, sw, sh, 0, 0, previewSize, previewSize);
+  
+  preview.innerHTML = `<img src="${canvas.toDataURL('image/png')}" class="w-full h-full object-cover">`;
+}
+
+// Drag events for avatar cropper
+document.getElementById('avatarCropper').addEventListener('mousedown', (e) => {
+  e.preventDefault();
+  avatarCropState.dragging = true;
+  avatarCropState.startX = e.clientX - avatarCropState.imgX;
+  avatarCropState.startY = e.clientY - avatarCropState.imgY;
+});
+document.addEventListener('mousemove', (e) => {
+  if (!avatarCropState.dragging) return;
+  avatarCropState.imgX = e.clientX - avatarCropState.startX;
+  avatarCropState.imgY = e.clientY - avatarCropState.startY;
+  applyCropTransform();
+});
+document.addEventListener('mouseup', () => { avatarCropState.dragging = false; });
+
+// Touch support
+document.getElementById('avatarCropper').addEventListener('touchstart', (e) => {
+  const touch = e.touches[0];
+  avatarCropState.dragging = true;
+  avatarCropState.startX = touch.clientX - avatarCropState.imgX;
+  avatarCropState.startY = touch.clientY - avatarCropState.imgY;
+}, { passive: true });
+document.addEventListener('touchmove', (e) => {
+  if (!avatarCropState.dragging) return;
+  const touch = e.touches[0];
+  avatarCropState.imgX = touch.clientX - avatarCropState.startX;
+  avatarCropState.imgY = touch.clientY - avatarCropState.startY;
+  applyCropTransform();
+}, { passive: true });
+document.addEventListener('touchend', () => { avatarCropState.dragging = false; });
+
+function getCroppedBlob() {
+  return new Promise((resolve) => {
+    const img = document.getElementById('avatarCropImg');
+    const cropperSize = 200;
+    const outputSize = 256;
+    
+    const canvas = document.createElement('canvas');
+    canvas.width = outputSize;
+    canvas.height = outputSize;
+    const ctx = canvas.getContext('2d');
+    
+    ctx.beginPath();
+    ctx.arc(outputSize/2, outputSize/2, outputSize/2, 0, Math.PI * 2);
+    ctx.clip();
+    
+    const scaleRatio = outputSize / cropperSize;
+    const sx = -avatarCropState.imgX / avatarCropState.scale;
+    const sy = -avatarCropState.imgY / avatarCropState.scale;
+    const sw = cropperSize / avatarCropState.scale;
+    const sh = cropperSize / avatarCropState.scale;
+    
+    ctx.drawImage(img, sx, sy, sw, sh, 0, 0, outputSize, outputSize);
+    
+    canvas.toBlob((blob) => resolve(blob), 'image/png');
+  });
 }
 
 // Bio char count
@@ -387,7 +541,16 @@ async function saveProfile() {
     fd.append('location', location);
     fd.append('website', website);
     fd.append('profile_public', profile_public);
-    if (editAvatarFile) fd.append('avatar', editAvatarFile);
+    // If avatar was cropped, use the cropped blob
+    if (editAvatarFile) {
+      const cropperVisible = !document.getElementById('avatarCropperWrap').classList.contains('hidden');
+      if (cropperVisible) {
+        const blob = await getCroppedBlob();
+        fd.append('avatar', blob, 'avatar.png');
+      } else {
+        fd.append('avatar', editAvatarFile);
+      }
+    }
 
     const res = await fetch('/api/profile', { method: 'PUT', body: fd });
     const data = await res.json();
