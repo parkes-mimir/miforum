@@ -135,6 +135,7 @@ app.use(express.json());
 app.use(express.static(path.join(__dirname)));         // 静态文件（forum.html, post.html）
 app.use('/uploads', express.static(UPLOADS_DIR));      // 上传图片静态访问
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
+app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 
 // Session 配置（7天有效期）
 app.use(session({
