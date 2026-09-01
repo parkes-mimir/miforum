@@ -464,6 +464,7 @@ async function doLogin() {
     state.user = user;
     hideAuthModal();
     renderAuth();
+    await loadCategories();
     await loadCheckin();
     await loadPosts();
     toast('登录成功！');
@@ -482,6 +483,7 @@ async function doRegister() {
     state.user = user;
     hideAuthModal();
     renderAuth();
+    await loadCategories();
     await loadCheckin();
     await loadPosts();
     toast('注册成功！');
