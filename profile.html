@@ -51,6 +51,7 @@
         <div class="flex-1 min-w-0 pb-1">
           <div class="flex items-center gap-2 flex-wrap">
             <h1 id="profileUsername" class="text-xl font-bold text-white"></h1>
+            <span id="profileDisplayId" class="text-xs text-white/60"></span>
             <span id="profileRole" class="text-xs px-2 py-0.5 rounded-full hidden"></span>
           </div>
           <p id="profileJoinDate" class="text-xs text-white/60 mt-1"></p>
@@ -288,6 +289,7 @@ async function loadProfile() {
 
     // Username + role
     document.getElementById('profileUsername').textContent = user.username;
+    document.getElementById('profileDisplayId').textContent = '#' + user.display_id;
     const roleEl = document.getElementById('profileRole');
     if (user.role === 'super_admin') { roleEl.textContent = '超管'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500 text-white'; roleEl.classList.remove('hidden'); }
     else if (user.role === 'admin') { roleEl.textContent = '管理'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-amber-500 text-white'; roleEl.classList.remove('hidden'); }

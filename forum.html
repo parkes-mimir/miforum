@@ -843,6 +843,7 @@ function renderPosts() {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
+            <span class="text-xs text-gray-400">#${esc(p.author_display_id)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'} cursor-pointer hover:opacity-80 transition" onclick="event.stopPropagation();filterCategory('${esc(p.category)}')">${esc(CAT_MAP[p.category] || p.category)}</span>
             ${p.tags && p.tags.length ? p.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('') : ''}

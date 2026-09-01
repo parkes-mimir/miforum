@@ -47,6 +47,7 @@
         <div>
           <div class="flex items-center gap-2">
             <span id="postAuthor" class="text-sm font-semibold"></span>
+            <span id="postAuthorId" class="text-xs text-gray-400"></span>
             <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" onclick="window.open('/?category='+encodeURIComponent('${esc(state.post ? state.post.category : '')}'),'_blank')"></span>
             <span id="postTags"></span>
           </div>
@@ -316,6 +317,7 @@ async function loadPage() {
     document.getElementById('postAvatar').innerHTML = avatarHtml(post.author_avatar_url, post.author_name[0].toUpperCase(), 'w-10 h-10');
     document.getElementById('postAvatarLink').href = '/profile.html?id=' + post.author_id;
     document.getElementById('postAuthor').textContent = post.author_name;
+    document.getElementById('postAuthorId').textContent = '#' + post.author_display_id;
     document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition ' + (CAT_COLORS[post.category] || 'bg-gray-100 text-gray-600');
     document.getElementById('postCategory').textContent = CAT_MAP[post.category];
     document.getElementById('postCategory').onclick = () => window.open('/?category=' + encodeURIComponent(post.category), '_blank');
@@ -561,6 +563,7 @@ function renderComments(cl, postOwnerId) {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(c.author_name)}</span>
+            <span class="text-xs text-gray-400">#${esc(c.author_display_id)}</span>
             ${c.is_post_owner ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>' : ''}
             ${c.pinned ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>' : ''}
             <span class="text-xs text-gray-400">#${c.floor}</span>
