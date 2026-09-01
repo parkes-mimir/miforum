@@ -27,6 +27,10 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，JSON 文件数据库�
 - 管理员：禁言/解禁用户、删帖、删评论、置顶帖子
 - 禁言用户无法发帖/评论
 - 积分系统（签到 +10，发帖 +5，补签 -10）
+- 积分商店（称号、头像框、改名卡，兑换即生效）
+- 称号系统（发帖/评论/个人资料显示称号标签）
+- 头像框系统（CSS-based 金/银/蓝/紫框，头像圆形区域外展示）
+- 改名卡（兑换后获得改名次数，改名消耗一次）
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - 端口占用自动杀旧进程重启
 
@@ -56,6 +60,7 @@ npm start
 ├── forum.html        # 首页（帖子列表、签到日历、管理面板）
 ├── post.html         # 帖子详情页（新标签页打开）
 ├── profile.html      # 个人资料页（头像裁剪、编辑资料、TA的帖子/点赞/收藏）
+├── shop.html         # 积分商店（称号、头像框、改名卡兑换）
 ├── server.js         # 后端 REST API
 ├── package.json      # 依赖声明
 ├── schema.sql        # Supabase PostgreSQL schema（备用）
@@ -73,7 +78,7 @@ npm start
 | POST | `/api/register` | 注册（username, email, password） |
 | POST | `/api/login` | 登录（email, password） |
 | POST | `/api/logout` | 退出 |
-| GET | `/api/me` | 当前用户信息（含 avatar_url, bio, role） |
+| GET | `/api/me` | 当前用户信息（含 avatar_url, bio, role, title, avatar_frame, rename_chances） |
 
 ### 个人资料
 
@@ -149,15 +154,24 @@ npm start
 | GET | `/api/admin/users` | 用户列表 |
 | PUT | `/api/admin/users/:id/mute` | 禁言/取消禁言 |
 | DELETE | `/api/admin/users/:id` | 删除用户（级联删除） |
+| PUT | `/api/admin/users/:id/points` | 设置用户积分（管理员） |
 | PUT | `/api/superadmin/grant-admin/:id` | 授予管理员（超管） |
 | PUT | `/api/superadmin/revoke-admin/:id` | 撤销管理员（超管） |
 | PUT | `/api/superadmin/transfer/:id` | 转让超管（超管） |
+
+### 积分商店
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/shop/items` | 获取商品列表 |
+| POST | `/api/shop/exchange` | 兑换商品（自动设置称号/头像框/改名卡） |
+| GET | `/api/shop/orders` | 兑换记录 |
 
 ## 更新日志
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
-**最新版本 v0.6.0** — 帖子标签系统、动态分类管理、收藏改五角星
+**最新版本 v0.7.0** — 积分商店系统（称号、头像框、改名卡）、头像框预览
 
 ## 贡献者
 

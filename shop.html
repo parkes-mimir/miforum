@@ -87,6 +87,29 @@ tailwind.config = {
       <h3 id="modalTitle" class="text-lg font-bold mb-1">确认兑换</h3>
       <p id="modalDesc" class="text-sm text-gray-500"></p>
     </div>
+    <!-- 头像框预览 -->
+    <div id="avatarPreview" class="hidden mb-4">
+      <p class="text-xs text-gray-500 mb-2 text-center">预览效果</p>
+      <div class="flex items-center justify-center gap-6">
+        <div class="text-center">
+          <div id="previewBefore" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1"></div>
+          <p class="text-xs text-gray-400">当前</p>
+        </div>
+        <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        <div class="text-center">
+          <div id="previewAfter" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1"></div>
+          <p class="text-xs text-gray-400">兑换后</p>
+        </div>
+      </div>
+    </div>
+    <!-- 称号预览 -->
+    <div id="titlePreview" class="hidden mb-4">
+      <p class="text-xs text-gray-500 mb-2 text-center">预览效果</p>
+      <div class="flex items-center justify-center gap-2">
+        <span class="text-sm font-medium text-gray-900">你的用户名</span>
+        <span id="previewTitle" class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700"></span>
+      </div>
+    </div>
     <div class="bg-gray-50 rounded-xl p-4 mb-4">
       <div class="flex justify-between items-center">
         <span class="text-sm text-gray-600">商品价格</span>
@@ -286,7 +309,42 @@ function showExchangeModal(itemId) {
   btn.className = remaining < 0 
     ? 'flex-1 px-4 py-2.5 bg-gray-300 text-gray-500 rounded-xl text-sm font-medium cursor-not-allowed'
     : 'flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition';
-  
+
+  // 隐藏所有预览
+  document.getElementById('avatarPreview').classList.add('hidden');
+  document.getElementById('titlePreview').classList.add('hidden');
+
+  // 头像框预览
+  if (item.type === 'avatar_frame' && item.value !== 'none') {
+    const frameStyles = {
+      gold: 'box-shadow: 0 0 0 3px #fbbf24, 0 0 8px #fbbf2440',
+      silver: 'border: 3px solid #94a3b8',
+      blue: 'box-shadow: 0 0 0 3px #3b82f6, 0 0 8px #3b82f640',
+      purple: 'box-shadow: 0 0 0 3px #a855f7, 0 0 12px #a855f740'
+    };
+    const style = frameStyles[item.value] || '';
+    const letter = state.user.username ? state.user.username[0].toUpperCase() : '?';
+    const avatarHtml = state.user.avatar_url
+      ? `<img src="${state.user.avatar_url}" class="w-full h-full object-cover rounded-full">`
+      : letter;
+    document.getElementById('previewBefore').innerHTML = avatarHtml;
+    document.getElementById('previewBefore').className = state.user.avatar_url
+      ? 'w-16 h-16 rounded-full overflow-hidden mx-auto mb-1'
+      : 'w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1';
+    document.getElementById('previewAfter').innerHTML = avatarHtml;
+    document.getElementById('previewAfter').className = state.user.avatar_url
+      ? `w-16 h-16 rounded-full overflow-hidden mx-auto mb-1`
+      : `w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1`;
+    document.getElementById('previewAfter').style = style;
+    document.getElementById('avatarPreview').classList.remove('hidden');
+  }
+
+  // 称号预览
+  if (item.type === 'title') {
+    document.getElementById('previewTitle').textContent = item.value;
+    document.getElementById('titlePreview').classList.remove('hidden');
+  }
+
   document.getElementById('exchangeModal').classList.remove('hidden');
   document.getElementById('exchangeModal').classList.add('flex');
 }

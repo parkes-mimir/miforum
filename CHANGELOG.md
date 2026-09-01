@@ -4,6 +4,52 @@
 
 ---
 
+## [0.7.1] - 2026-09-01 - 贡献者：parkes-mimir
+
+### 新增
+
+- 头像框预览：兑换前可看到当前头像 + 框体效果对比
+- 称号预览：兑换前可看到用户名 + 称号标签效果
+
+### 文档
+
+- CHANGELOG.md 添加 v0.7.0 更新日志
+- README.md 更新 API 表（商店API）、功能列表、项目结构
+
+---
+
+## [0.7.0] - 2026-09-01 - 贡献者：parkes-mimir, jxwzx
+
+### 新增
+
+- 积分商店系统：称号（永久生效）、头像框（CSS样式）、改名卡
+- 商店页面 `shop.html`：商品展示、兑换确认弹窗、头像框/称号预览、兑换记录
+- 称号系统：发帖/评论/个人资料显示称号标签
+- 头像框系统：CSS-based（金/银/蓝/紫），头像圆形区域外的框体
+- 改名卡：兑换后获得 `rename_chances`，改名消耗一张，无卡不能改名
+- 帖子/评论/收藏 API 返回 `author_title` 和 `author_avatar_frame`
+- 管理员设置积分 API：`PUT /api/admin/users/:id/points`
+
+### 移除
+
+- 普通用户发帖置顶（移除 `pin_card` 商品）
+- 顶置次数字段（移除 `pinned_count`/`pin_chances`）
+
+### 修复
+
+- `loadDB()` 补充 `shop_items`/`shop_orders` 初始化（兼容已有数据库）
+- `shop.html` 修复引用已删除变量 `pin_card`/`pin_chances`
+- 添加 `/shop` 路由
+
+### API
+
+- `GET /api/shop/items` — 获取商店商品
+- `POST /api/shop/exchange` — 兑换商品（自动设置称号/头像框/改名卡）
+- `GET /api/shop/orders` — 兑换记录
+- `PUT /api/admin/users/:id/points` — 管理员设置积分
+
+---
+
 ## [0.6.0] - 2026-09-01 - 贡献者：parkes-mimir
 
 ### 新增
