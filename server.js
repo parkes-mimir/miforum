@@ -278,15 +278,19 @@ app.get('/api/me', (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
   const db = loadDB();
   const u = db.profiles.find(p => p.id === req.session.userId);
-  res.json({ user: u ? {
+  if (!u) return res.json({ user: null });
+  res.json({ user: {
     id: u.id, username: u.username, email: u.email,
     avatar_url: u.avatar_url || null,
     bio: u.bio || '',
     location: u.location || '',
     website: u.website || '',
     profile_public: u.profile_public !== false,
-    points: u.points, muted: !!u.muted, role: u.role || 'user'
-  } : null });
+    points: u.points || 0, muted: !!u.muted, role: u.role || 'user',
+    title: u.title || null,
+    avatar_frame: u.avatar_frame || null,
+    rename_chances: u.rename_chances || 0
+  } });
 });
 
 // ============================================================
@@ -320,13 +324,15 @@ app.get('/api/posts', (req, res) => {
     return new Date(b.created_at) - new Date(a.created_at);
   });
 
-  // 拼接作者名、头像、点赞数、评论数
+  // 拼接作者名、头像、称号、头像框、点赞数、评论数
   const result = posts.map(p => {
     const author = db.profiles.find(u => u.id === p.author_id);
     return {
       ...p,
       author_name: author ? author.username : '未知',
       author_avatar_url: author ? author.avatar_url || null : null,
+      author_title: author ? author.title || null : null,
+      author_avatar_frame: author ? author.avatar_frame || null : null,
       likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
       comments_count: db.comments.filter(c => c.post_id === p.id).length,
       bookmarks_count: db.bookmarks.filter(b => b.post_id === p.id).length
@@ -348,6 +354,8 @@ app.get('/api/posts/:id', (req, res) => {
       ...post,
       author_name: author ? author.username : '未知',
       author_avatar_url: author ? author.avatar_url || null : null,
+      author_title: author ? author.title || null : null,
+      author_avatar_frame: author ? author.avatar_frame || null : null,
       likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
       comments_count: db.comments.filter(c => c.post_id === post.id).length,
       bookmarks_count: db.bookmarks.filter(b => b.post_id === post.id).length
@@ -495,6 +503,8 @@ app.get('/api/posts/:id/comments', (req, res) => {
       ...c,
       author_name: author ? author.username : '未知',
       author_avatar_url: author ? author.avatar_url || null : null,
+      author_title: author ? author.title || null : null,
+      author_avatar_frame: author ? author.avatar_frame || null : null,
       floor: floorMap[c.id],
       is_post_owner: post ? c.author_id === post.author_id : false
     };
@@ -888,6 +898,8 @@ app.get('/api/bookmarks', requireAuth, (req, res) => {
         ...post,
         author_name: author ? author.username : '未知',
         author_avatar_url: author ? author.avatar_url || null : null,
+        author_title: author ? author.title || null : null,
+        author_avatar_frame: author ? author.avatar_frame || null : null,
         likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
         comments_count: db.comments.filter(c => c.post_id === post.id).length,
         bookmarks_count: db.bookmarks.filter(bk => bk.post_id === post.id).length,
@@ -971,6 +983,20 @@ app.put('/api/posts/:id/pin', requireAdmin, (req, res) => {
   post.pinned = !post.pinned;
   saveDB(db);
   res.json({ ok: true, pinned: !!post.pinned });
+});
+
+/** 设置用户积分（管理员可操作） */
+app.put('/api/admin/users/:id/points', requireAdmin, (req, res) => {
+  const db = loadDB();
+  const uid = Number(req.params.id);
+  const user = db.profiles.find(u => u.id === uid);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  const points = Number(req.body.points);
+  if (!Number.isFinite(points) || points < 0) return res.status(400).json({ error: '积分必须为非负整数' });
+  if (points > 1000000) return res.status(400).json({ error: '积分上限为 1,000,000' });
+  user.points = Math.floor(points);
+  saveDB(db);
+  res.json({ ok: true, points: user.points });
 });
 
 // ============================================================
@@ -1214,6 +1240,8 @@ app.get('/api/users/:id', (req, res) => {
     username: user.username,
     avatar_url: user.avatar_url || null,
     role: user.role || 'user',
+    title: user.title || null,
+    avatar_frame: user.avatar_frame || null,
     created_at: user.created_at,
     posts_count: db.posts.filter(p => p.author_id === uid).length,
     comments_count: db.comments.filter(c => c.author_id === uid).length
@@ -1243,11 +1271,16 @@ app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req
   const user = db.profiles.find(p => p.id === req.session.userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
-  // 用户名修改（需检查唯一性）
+  // 用户名修改（需检查唯一性 + 改名卡）
   if (username && username !== user.username) {
+    // 校验改名卡
+    if ((user.rename_chances || 0) <= 0) {
+      return res.status(400).json({ error: '改名卡不足，请先在积分商店兑换' });
+    }
     if (db.profiles.find(p => p.username === username && p.id !== user.id)) {
       return res.status(400).json({ error: '用户名已被占用' });
     }
+    user.rename_chances--;
     user.username = username;
   }
 
@@ -1277,7 +1310,10 @@ app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req
       id: user.id, username: user.username, email: user.email,
       avatar_url: user.avatar_url, bio: user.bio,
       location: user.location, website: user.website,
-      profile_public: user.profile_public, points: user.points
+      profile_public: user.profile_public, points: user.points || 0,
+      title: user.title || null,
+      avatar_frame: user.avatar_frame || null,
+      rename_chances: user.rename_chances || 0
     }
   });
 });
@@ -1296,6 +1332,8 @@ app.get('/api/users/:id/posts', (req, res) => {
       ...p,
       author_name: user.username,
       author_avatar_url: user.avatar_url || null,
+      author_title: user.title || null,
+      author_avatar_frame: user.avatar_frame || null,
       likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
       comments_count: db.comments.filter(c => c.post_id === p.id).length
     }));
@@ -1321,6 +1359,8 @@ app.get('/api/users/:id/likes', (req, res) => {
         ...p,
         author_name: author ? author.username : '未知',
         author_avatar_url: author ? author.avatar_url || null : null,
+        author_title: author ? author.title || null : null,
+        author_avatar_frame: author ? author.avatar_frame || null : null,
         likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
         comments_count: db.comments.filter(c => c.post_id === p.id).length
       };
