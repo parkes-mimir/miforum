@@ -81,6 +81,10 @@ tailwind.config = {
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           <span id="commentCount">0</span> 评论
         </span>
+        <button id="bookmarkBtn" onclick="toggleBookmark()" class="flex items-center gap-1 text-sm text-gray-400 hover:text-yellow-500 transition">
+          <svg id="bookmarkIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <span id="bookmarkText">收藏</span>
+        </button>
       </div>
     </div>
 
@@ -328,6 +332,7 @@ async function loadPage() {
       state.liked = ids.includes(post.id);
     }
     renderLike();
+    await loadBookmarkStatus();
 
     // 帖子操作按钮：编辑(作者)、置顶(管理员)、删除(作者或管理员)
     const isAuthor = state.user && post.author_id === state.user.id;
@@ -364,6 +369,31 @@ async function toggleLike() {
     if (state.liked) { await api('/api/like/' + state.post.id, { method: 'DELETE' }); state.post.likes_count--; state.liked = false; }
     else { await api('/api/like/' + state.post.id, { method: 'POST' }); state.post.likes_count++; state.liked = true; }
     renderLike();
+  } catch (e) { toast(e.message); }
+}
+
+// ===== 收藏 =====
+let isBookmarked = false;
+
+function renderBookmark() {
+  const btn = document.getElementById('bookmarkBtn');
+  const icon = document.getElementById('bookmarkIcon');
+  const text = document.getElementById('bookmarkText');
+  if (isBookmarked) { icon.setAttribute('fill', 'currentColor'); btn.classList.add('text-yellow-500'); btn.classList.remove('text-gray-400'); text.textContent = '已收藏'; }
+  else { icon.setAttribute('fill', 'none'); btn.classList.remove('text-yellow-500'); btn.classList.add('text-gray-400'); text.textContent = '收藏'; }
+}
+
+async function loadBookmarkStatus() {
+  if (!state.user || !state.post) return;
+  try { const d = await api('/api/bookmark/' + state.post.id); isBookmarked = d.isBookmarked; renderBookmark(); } catch (e) {}
+}
+
+async function toggleBookmark() {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  try {
+    if (isBookmarked) { await api('/api/bookmark/' + state.post.id, { method: 'DELETE' }); isBookmarked = false; toast('已取消收藏'); }
+    else { await api('/api/bookmark/' + state.post.id, { method: 'POST' }); isBookmarked = true; toast('收藏成功'); }
+    renderBookmark();
   } catch (e) { toast(e.message); }
 }
 

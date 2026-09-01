@@ -289,10 +289,10 @@ app.get('/api/posts', (req, res) => {
       author_name: author ? author.username : '未知',
       author_avatar_url: author ? author.avatar_url || null : null,
       likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
-      comments_count: db.comments.filter(c => c.post_id === p.id).length
+      comments_count: db.comments.filter(c => c.post_id === p.id).length,
+      bookmarks_count: db.bookmarks.filter(b => b.post_id === p.id).length
     };
   });
-
   res.json({ posts: result });
 });
 
@@ -310,7 +310,8 @@ app.get('/api/posts/:id', (req, res) => {
       author_name: author ? author.username : '未知',
       author_avatar_url: author ? author.avatar_url || null : null,
       likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
-      comments_count: db.comments.filter(c => c.post_id === post.id).length
+      comments_count: db.comments.filter(c => c.post_id === post.id).length,
+      bookmarks_count: db.bookmarks.filter(b => b.post_id === post.id).length
     }
   });
 });
@@ -769,6 +770,71 @@ app.delete('/api/like/:postId', requireAuth, (req, res) => {
   db.post_likes = db.post_likes.filter(l => !(l.post_id === pid && l.user_id === req.session.userId));
   saveDB(db);
   res.json({ ok: true });
+});
+
+// ============================================================
+// 收藏 API
+// ============================================================
+
+/** 收藏帖子 */
+app.post('/api/bookmark/:postId', requireAuth, (req, res) => {
+  const db = loadDB();
+  const pid = Number(req.params.postId);
+  const post = db.posts.find(p => p.id === pid);
+  if (!post) return res.status(404).json({ error: '帖子不存在' });
+  if (db.bookmarks.find(b => b.post_id === pid && b.user_id === req.session.userId)) {
+    return res.status(400).json({ error: '已收藏' });
+  }
+  db.bookmarks.push({
+    id: db.nextId.bookmarks++,
+    post_id: pid,
+    user_id: req.session.userId,
+    created_at: new Date().toISOString()
+  });
+  saveDB(db);
+  res.json({ ok: true });
+});
+
+/** 取消收藏 */
+app.delete('/api/bookmark/:postId', requireAuth, (req, res) => {
+  const db = loadDB();
+  const pid = Number(req.params.postId);
+  db.bookmarks = db.bookmarks.filter(b => !(b.post_id === pid && b.user_id === req.session.userId));
+  saveDB(db);
+  res.json({ ok: true });
+});
+
+/** 检查帖子是否已收藏 */
+app.get('/api/bookmark/:postId', requireAuth, (req, res) => {
+  const db = loadDB();
+  const pid = Number(req.params.postId);
+  const isBookmarked = db.bookmarks.some(b => b.post_id === pid && b.user_id === req.session.userId);
+  res.json({ isBookmarked });
+});
+
+/** 获取当前用户收藏列表 */
+app.get('/api/bookmarks', requireAuth, (req, res) => {
+  const db = loadDB();
+  const userId = req.session.userId;
+  const userBookmarks = db.bookmarks.filter(b => b.user_id === userId);
+  const posts = userBookmarks
+    .map(b => {
+      const post = db.posts.find(p => p.id === b.post_id);
+      if (!post) return null;
+      const author = db.profiles.find(u => u.id === post.author_id);
+      return {
+        ...post,
+        author_name: author ? author.username : '未知',
+        author_avatar_url: author ? author.avatar_url || null : null,
+        likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
+        comments_count: db.comments.filter(c => c.post_id === post.id).length,
+        bookmarks_count: db.bookmarks.filter(bk => bk.post_id === post.id).length,
+        bookmarked_at: b.created_at
+      };
+    })
+    .filter(Boolean)
+    .sort((a, b) => new Date(b.bookmarked_at) - new Date(a.bookmarked_at));
+  res.json({ posts });
 });
 
 // ============================================================
