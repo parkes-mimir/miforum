@@ -86,6 +86,12 @@ tailwind.config = {
       </button>
     </nav>
 
+    <!-- Tags -->
+    <div class="p-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">热门标签</p>
+      <div id="tagCloud" class="flex flex-wrap gap-1.5 px-1"></div>
+    </div>
+
     <!-- Check-in Card -->
     <div class="p-4">
       <div class="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl p-4 text-white">
@@ -186,6 +192,15 @@ tailwind.config = {
         </div>
         <input type="file" id="postImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleImageSelect(this)">
         <p class="text-xs text-gray-400 mt-1">支持 JPG / PNG / GIF / WebP / BMP，单张最大 10MB</p>
+      </div>
+      <!-- 标签 -->
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">标签（可选，最多10个）</label>
+        <div id="tagInputWrap" class="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl min-h-[42px] cursor-text" onclick="document.getElementById('tagInput').focus()">
+          <span id="tagPills"></span>
+          <input id="tagInput" type="text" class="flex-1 min-w-[60px] text-sm outline-none bg-transparent" placeholder="输入标签回车确认" onkeydown="handleTagKey(event)">
+        </div>
+        <p class="text-xs text-gray-400 mt-1">回车添加，每个标签最多20字</p>
       </div>
       <button id="submitPostBtn" onclick="doNewPost()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">发布话题</button>
     </div>
@@ -665,24 +680,91 @@ async function doRetroactive(date) {
 // 帖子列表
 // ============================================================
 let selectedImages = []; // 新帖选中的图片文件
+let postTags = []; // 新帖标签
 
-/** 加载帖子列表 */
+/** 标签输入处理 */
+function handleTagKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const input = document.getElementById('tagInput');
+    const tag = input.value.trim().replace(/,/g, '');
+    if (!tag) return;
+    if (postTags.length >= 10) { toast('最多10个标签'); return; }
+    if (tag.length > 20) { toast('标签最多20字'); return; }
+    if (postTags.includes(tag)) { toast('标签重复'); return; }
+    postTags.push(tag);
+    input.value = '';
+    renderTagPills();
+  }
+}
+
+function renderTagPills() {
+  const el = document.getElementById('tagPills');
+  el.innerHTML = postTags.map((t, i) =>
+    `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded-full text-xs">${esc(t)}<button onclick="removeTag(${i})" class="hover:text-primary-900">&times;</button></span>`
+  ).join('');
+}
+
+function removeTag(i) { postTags.splice(i, 1); renderTagPills(); }
+
+function resetPostForm() {
+  document.getElementById('postTitle').value = '';
+  document.getElementById('postContent').value = '';
+  document.getElementById('postCategory').value = 'tech';
+  selectedImages = [];
+  postTags = [];
+  renderSelectedImages();
+  renderTagPills();
+  document.getElementById('newPostTitle').textContent = '发布新话题';
+}
+
+/** 加载帖子列表 + 标签云 */
 async function loadPosts() {
   const params = new URLSearchParams();
   if (state.currentCat !== 'all') params.set('category', state.currentCat);
   const { posts } = await api('/api/posts?' + params);
   state.posts = posts;
-  // 加载当前用户的点赞和收藏状态
   if (state.user) {
-    const [{ ids }, bookmarks] = await Promise.all([api('/api/likes'), api('/api/bookmarks').catch(() => ({ posts: [] }))]);
+    const { ids } = await api('/api/likes');
     state.likedIds = new Set(ids);
-    state.bookmarkedIds = new Set((bookmarks.posts || []).map(p => p.id));
-  } else {
-    state.likedIds = new Set();
-    state.bookmarkedIds = new Set();
-  }
+    try { const b = await api('/api/bookmarks'); state.bookmarkedIds = new Set((b.posts||[]).map(p=>p.id)); } catch(e) { state.bookmarkedIds = new Set(); }
+  } else { state.likedIds = new Set(); state.bookmarkedIds = new Set(); }
   document.getElementById('postSkeleton').classList.add('hidden');
   renderPosts();
+  loadTagCloud();
+}
+
+/** 加载热门标签云 */
+async function loadTagCloud() {
+  try {
+    const { tags } = await api('/api/tags');
+    const el = document.getElementById('tagCloud');
+    if (!tags.length) { el.innerHTML = '<span class="text-xs text-gray-300">暂无标签</span>'; return; }
+    el.innerHTML = tags.slice(0, 20).map(t =>
+      `<button onclick="filterByTag('${esc(t.name)}')" class="tag-btn px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">#${esc(t.name)} <span class="text-gray-300">${t.count}</span></button>`
+    ).join('');
+  } catch(e) {}
+}
+
+/** 按标签筛选 */
+function filterByTag(tag) {
+  // 高亮选中的标签
+  document.querySelectorAll('.tag-btn').forEach(el => {
+    el.classList.toggle('bg-primary-100', el.textContent.includes(tag));
+    el.classList.toggle('text-primary-700', el.textContent.includes(tag));
+  });
+  // 筛选帖子
+  const filtered = state.posts.filter(p => p.tags && p.tags.includes(tag));
+  document.getElementById('pageTitle').textContent = '标签: #' + tag;
+  document.getElementById('pageSub').textContent = '找到 ' + filtered.length + ' 条结果';
+  const list = document.getElementById('postList'), empty = document.getElementById('emptyState');
+  if (!filtered.length) { list.innerHTML = ''; empty.classList.remove('hidden'); return; }
+  empty.classList.add('hidden');
+  // 复用 renderPosts 的逻辑但用 filtered 数据
+  const orig = state.posts;
+  state.posts = filtered;
+  renderPosts();
+  state.posts = orig;
 }
 
 /** 渲染帖子列表 */
@@ -705,6 +787,7 @@ function renderPosts() {
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
+            ${p.tags && p.tags.length ? p.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">#${esc(t)}</span>`).join('') : ''}
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
             ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
@@ -776,7 +859,7 @@ function resetPostForm() {
   document.getElementById('newPostTitle').textContent = '发布新话题';
 }
 
-/** 提交新帖子（FormData 上传图片） */
+/** 提交新帖子（FormData 上传图片 + 标签） */
 async function doNewPost() {
   const title = document.getElementById('postTitle').value.trim();
   const cat = document.getElementById('postCategory').value;
@@ -789,6 +872,7 @@ async function doNewPost() {
     formData.append('title', title);
     formData.append('content', content);
     formData.append('category', cat);
+    formData.append('tags', JSON.stringify(postTags));
     selectedImages.forEach(f => formData.append('images', f));
 
     const res = await fetch('/api/posts', { method: 'POST', body: formData });

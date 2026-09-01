@@ -54,6 +54,7 @@ tailwind.config = {
           <div class="flex items-center gap-2">
             <span id="postAuthor" class="text-sm font-semibold"></span>
             <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full"></span>
+            <span id="postTags"></span>
           </div>
           <span id="postTime" class="text-xs text-gray-400"></span>
         </div>
@@ -102,6 +103,14 @@ tailwind.config = {
           <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </div>
         <input type="file" id="editNewImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleEditImageSelect(this)">
+      </div>
+      <!-- 标签编辑 -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">标签（最多10个）</label>
+        <div id="editTagWrap" class="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl min-h-[38px] cursor-text" onclick="document.getElementById('editTagInput').focus()">
+          <span id="editTagPills"></span>
+          <input id="editTagInput" type="text" class="flex-1 min-w-[50px] text-sm outline-none bg-transparent" placeholder="回车添加" onkeydown="handleEditTagKey(event)">
+        </div>
       </div>
       <div class="flex gap-2 justify-end">
         <button onclick="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
@@ -315,6 +324,11 @@ async function loadPage() {
     document.getElementById('postAuthor').textContent = post.author_name;
     document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full ' + (CAT_COLORS[post.category] || 'bg-gray-100 text-gray-600');
     document.getElementById('postCategory').textContent = CAT_MAP[post.category];
+    // 标签
+    const tagsEl = document.getElementById('postTags');
+    if (post.tags && post.tags.length) {
+      tagsEl.innerHTML = post.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">#${esc(t)}</span>`).join(' ');
+    } else { tagsEl.innerHTML = ''; }
     document.getElementById('postTime').textContent = relTime(post.created_at) + (post.updated_at ? ' (已编辑)' : '');
     document.getElementById('postTitle').textContent = post.title;
     document.getElementById('postContent').textContent = post.content;
@@ -398,21 +412,26 @@ async function toggleBookmark() {
 }
 
 // ============================================================
-// 帖子编辑（支持增删图片）
+// 帖子编辑（支持增删图片 + 标签）
 // ============================================================
+
+let editPostTags = [];
 
 /** 进入编辑模式 */
 function startEditPost() {
   editRemoveImages = [];
   editNewImages = [];
+  editPostTags = state.post.tags ? [...state.post.tags] : [];
   document.getElementById('editTitle').value = state.post.title;
   document.getElementById('editCategory').value = state.post.category;
   document.getElementById('editContent').value = state.post.content;
   renderEditImages(state.post.images || []);
+  renderEditTagPills();
   document.getElementById('editPostArea').classList.remove('hidden');
   document.getElementById('postTitle').classList.add('hidden');
   document.getElementById('postContent').classList.add('hidden');
   document.getElementById('postImages').classList.add('hidden');
+  document.getElementById('postTags').classList.add('hidden');
 }
 
 /** 取消编辑 */
@@ -421,6 +440,26 @@ function cancelEditPost() {
   document.getElementById('postTitle').classList.remove('hidden');
   document.getElementById('postContent').classList.remove('hidden');
   document.getElementById('postImages').classList.remove('hidden');
+  document.getElementById('postTags').classList.remove('hidden');
+}
+
+/** 标签编辑 */
+function handleEditTagKey(e) {
+  if (e.key === 'Enter' || e.key === ',') {
+    e.preventDefault();
+    const input = document.getElementById('editTagInput');
+    const tag = input.value.trim().replace(/,/g, '');
+    if (!tag || editPostTags.length >= 10 || tag.length > 20) return;
+    if (editPostTags.includes(tag)) return;
+    editPostTags.push(tag);
+    input.value = '';
+    renderEditTagPills();
+  }
+}
+function renderEditTagPills() {
+  document.getElementById('editTagPills').innerHTML = editPostTags.map((t, i) =>
+    `<span class="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded-full text-xs">${esc(t)}<button onclick="editPostTags.splice(${i},1);renderEditTagPills()" class="hover:text-primary-900">&times;</button></span>`
+  ).join('');
 }
 
 /** 渲染编辑区的图片网格（已有图片 + 新增图片） */
@@ -461,7 +500,7 @@ function handleEditImageSelect(input) {
 }
 function removeEditNewImg(i) { editNewImages.splice(i, 1); renderEditImages(state.post.images || []); }
 
-/** 保存编辑（FormData 上传新图片 + 删除旧图片） */
+/** 保存编辑（FormData 上传新图片 + 删除旧图片 + 标签） */
 async function saveEditPost() {
   const title = document.getElementById('editTitle').value.trim();
   const content = document.getElementById('editContent').value.trim();
@@ -471,6 +510,7 @@ async function saveEditPost() {
   try {
     const fd = new FormData();
     fd.append('title', title); fd.append('content', content); fd.append('category', category);
+    fd.append('tags', JSON.stringify(editPostTags));
     if (editRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editRemoveImages));
     editNewImages.forEach(f => fd.append('images', f));
     const res = await fetch('/api/posts/' + state.post.id, { method: 'PUT', body: fd });

@@ -258,15 +258,19 @@ app.get('/api/me', (req, res) => {
 // 帖子 API
 // ============================================================
 
-/** 获取帖子列表（支持分类筛选和搜索） */
+/** 获取帖子列表（支持分类、标签筛选和搜索） */
 app.get('/api/posts', (req, res) => {
   const db = loadDB();
-  const { category, search } = req.query;
+  const { category, search, tag } = req.query;
   let posts = [...db.posts];
 
   // 分类筛选
   if (category && category !== 'all') {
     posts = posts.filter(p => p.category === category);
+  }
+  // 标签筛选
+  if (tag) {
+    posts = posts.filter(p => p.tags && p.tags.includes(tag));
   }
   // 关键词搜索（标题和内容）
   if (search) {
@@ -316,17 +320,23 @@ app.get('/api/posts/:id', (req, res) => {
   });
 });
 
-/** 发帖（支持多图片，最多30张） */
+/** 发帖（支持多图片 + 标签） */
 app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('images', 30)), (req, res) => {
-  const { title, content, category } = req.body;
+  const { title, content, category, tags } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
   const db = loadDB();
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
+  // 解析标签：JSON 数组字符串或逗号分隔
+  let parsedTags = [];
+  try { parsedTags = tags ? JSON.parse(tags) : []; } catch(e) { parsedTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []; }
+  parsedTags = [...new Set(parsedTags.map(t => t.slice(0, 20)))].slice(0, 10); // 去重，限长，最多10个
+
   const post = {
     id: db.nextId.posts++,
     title, content,
     category: category || 'tech',
+    tags: parsedTags,
     author_id: req.session.userId,
     images,
     pinned: false,
@@ -343,9 +353,9 @@ app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('
   res.json({ postId: post.id, points: user ? user.points : 0 });
 });
 
-/** 编辑帖子（支持新增/删除图片） */
+/** 编辑帖子（支持新增/删除图片 + 标签） */
 app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.array('images', 30)), (req, res) => {
-  const { title, content, category, removeImages } = req.body;
+  const { title, content, category, tags, removeImages } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
   const db = loadDB();
@@ -372,6 +382,12 @@ app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.arra
   post.title = title;
   post.content = content;
   if (category) post.category = category;
+  // 更新标签
+  if (tags !== undefined) {
+    let parsedTags = [];
+    try { parsedTags = tags ? JSON.parse(tags) : []; } catch(e) { parsedTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []; }
+    post.tags = [...new Set(parsedTags.map(t => t.slice(0, 20)))].slice(0, 10);
+  }
   post.updated_at = new Date().toISOString();
   saveDB(db);
 
@@ -954,6 +970,25 @@ app.put('/api/superadmin/transfer/:id', requireSuperAdmin, (req, res) => {
   target.role = 'super_admin';
   saveDB(db);
   res.json({ ok: true, message: `已将超级管理员转让给 ${target.username}` });
+});
+
+// ============================================================
+// 标签 API
+// ============================================================
+
+/** 获取所有已使用的标签（去重，按使用次数排序） */
+app.get('/api/tags', (req, res) => {
+  const db = loadDB();
+  const tagCount = {};
+  db.posts.forEach(p => {
+    if (p.tags && Array.isArray(p.tags)) {
+      p.tags.forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; });
+    }
+  });
+  const tags = Object.entries(tagCount)
+    .sort((a, b) => b[1] - a[1])
+    .map(([name, count]) => ({ name, count }));
+  res.json({ tags });
 });
 
 // ============================================================
