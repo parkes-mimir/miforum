@@ -62,13 +62,25 @@ function loadDB() {
     return {
       profiles: [], posts: [], comments: [],
       check_ins: [], post_likes: [], bookmarks: [],
-      nextId: { profiles: 1, posts: 1, comments: 1, check_ins: 1, post_likes: 1, bookmarks: 1 }
+      categories: [
+        { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
+        { id: 2, name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', order: 2 },
+        { id: 3, name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', order: 3 }
+      ],
+      nextId: { profiles: 1, posts: 1, comments: 1, check_ins: 1, post_likes: 1, bookmarks: 1, categories: 4 }
     };
   }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  // 确保 bookmarks 字段存在（兼容旧数据库）
   if (!db.bookmarks) db.bookmarks = [];
   if (!db.nextId.bookmarks) db.nextId.bookmarks = 1;
+  if (!db.categories) {
+    db.categories = [
+      { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
+      { id: 2, name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', order: 2 },
+      { id: 3, name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', order: 3 }
+    ];
+  }
+  if (!db.nextId.categories) db.nextId.categories = db.categories.length + 1;
   return db;
 }
 
@@ -934,6 +946,63 @@ app.put('/api/posts/:id/pin', requireAdmin, (req, res) => {
   post.pinned = !post.pinned;
   saveDB(db);
   res.json({ ok: true, pinned: !!post.pinned });
+});
+
+// ============================================================
+// 分类管理 API（管理员可操作）
+// ============================================================
+
+/** 获取所有分类（公开） */
+app.get('/api/categories', (req, res) => {
+  const db = loadDB();
+  const cats = db.categories.sort((a, b) => a.order - b.order);
+  res.json({ categories: cats });
+});
+
+/** 创建分类（管理员） */
+app.post('/api/categories', requireAdmin, (req, res) => {
+  const { name, label, color } = req.body;
+  if (!name || !label) return res.status(400).json({ error: '请填写分类标识和名称' });
+  const db = loadDB();
+  if (db.categories.find(c => c.name === name)) return res.status(400).json({ error: '分类标识已存在' });
+  const cat = {
+    id: db.nextId.categories++,
+    name: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    label,
+    color: color || 'bg-gray-100 text-gray-700',
+    order: db.categories.length + 1
+  };
+  db.categories.push(cat);
+  saveDB(db);
+  res.json({ ok: true, category: cat });
+});
+
+/** 编辑分类（管理员） */
+app.put('/api/categories/:id', requireAdmin, (req, res) => {
+  const { label, color, order } = req.body;
+  const db = loadDB();
+  const cid = Number(req.params.id);
+  const cat = db.categories.find(c => c.id === cid);
+  if (!cat) return res.status(404).json({ error: '分类不存在' });
+  if (label) cat.label = label;
+  if (color) cat.color = color;
+  if (order !== undefined) cat.order = Number(order);
+  saveDB(db);
+  res.json({ ok: true, category: cat });
+});
+
+/** 删除分类（管理员，帖子归为 uncategorized） */
+app.delete('/api/categories/:id', requireAdmin, (req, res) => {
+  const db = loadDB();
+  const cid = Number(req.params.id);
+  const idx = db.categories.findIndex(c => c.id === cid);
+  if (idx === -1) return res.status(404).json({ error: '分类不存在' });
+  const catName = db.categories[idx].name;
+  // 删除的分类下帖子归为 'uncategorized'
+  db.posts.forEach(p => { if (p.category === catName) p.category = 'uncategorized'; });
+  db.categories.splice(idx, 1);
+  saveDB(db);
+  res.json({ ok: true });
 });
 
 // ============================================================

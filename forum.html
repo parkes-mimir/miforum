@@ -67,23 +67,17 @@ tailwind.config = {
   <!-- Sidebar -->
   <aside id="sidebar" class="fixed lg:sticky top-14 left-0 z-30 w-64 h-[calc(100vh-3.5rem)] bg-white border-r border-gray-200/60 overflow-y-auto -translate-x-full lg:translate-x-0 transition-transform flex-shrink-0">
     <nav class="p-4 space-y-1">
-      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-3">版块分类</p>
+      <div class="flex items-center justify-between mb-3 px-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">版块分类</p>
+        <button id="manageCatsBtn" onclick="showCategoryModal()" class="hidden text-xs text-gray-400 hover:text-primary-600 transition" title="管理分类">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      </div>
       <button onclick="filterCategory('all')" data-cat="all" class="sidebar-link active w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
         全部话题
       </button>
-      <button onclick="filterCategory('tech')" data-cat="tech" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4"/></svg>
-        技术
-      </button>
-      <button onclick="filterCategory('life')" data-cat="life" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-        生活
-      </button>
-      <button onclick="filterCategory('notice')" data-cat="notice" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5.882V19.24a1.76 1.76 0 01-3.417.592l-2.147-6.15M18 13a3 3 0 100-6M5.436 13.683A4.001 4.001 0 017 6h1.832c4.1 0 7.625-1.234 9.168-3v14c-1.543-1.766-5.067-3-9.168-3H7a3.988 3.988 0 01-1.564-.317z"/></svg>
-        公告
-      </button>
+      <div id="categoryNav"></div>
     </nav>
 
     <!-- Tags -->
@@ -215,6 +209,25 @@ tailwind.config = {
 
 <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
 
+<!-- Category Management Modal -->
+<div id="categoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">分类管理</h2>
+      <button onclick="hideCategoryModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div id="categoryList" class="flex-1 overflow-y-auto space-y-2 mb-4"></div>
+    <div class="border-t border-gray-100 pt-4 space-y-2">
+      <p class="text-xs font-medium text-gray-500">添加新分类</p>
+      <div class="flex gap-2">
+        <input id="newCatName" type="text" class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标识（英文）">
+        <input id="newCatLabel" type="text" class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="显示名">
+        <button onclick="createCategory()" class="px-3 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Check-in History Modal -->
 <div id="checkinHistoryModal" class="fixed inset-0 z-50 hidden items-center justify-center bg-black/40 backdrop-blur-sm">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col fade-in">
@@ -321,8 +334,53 @@ tailwind.config = {
 // ============================================================
 // 配置常量
 // ============================================================
-const CAT_MAP = { all: '全部话题', tech: '技术', life: '生活', notice: '公告' };
-const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
+// 动态分类（从 API 加载）
+let CAT_MAP = { all: '全部话题' };
+let CAT_COLORS = {};
+let categoriesData = [];
+
+/** 加载分类 */
+async function loadCategories() {
+  try {
+    const { categories } = await api('/api/categories');
+    categoriesData = categories;
+    CAT_MAP = { all: '全部话题' };
+    CAT_COLORS = {};
+    categories.forEach(c => {
+      CAT_MAP[c.name] = c.label;
+      CAT_COLORS[c.name] = c.color;
+    });
+    renderCategoryNav();
+    // 更新发帖弹窗分类选项
+    updatePostCategorySelect();
+    // 显示管理员分类管理按钮
+    if (state.user) {
+      const role = state.user.role || 'user';
+      if (role === 'admin' || role === 'super_admin') {
+        document.getElementById('manageCatsBtn').classList.remove('hidden');
+      }
+    }
+  } catch(e) {}
+}
+
+/** 渲染侧边栏分类导航 */
+function renderCategoryNav() {
+  const nav = document.getElementById('categoryNav');
+  const icons = ['tech','life','notice','game','movie','book','music','food','travel','other'];
+  nav.innerHTML = categoriesData.map((c, i) =>
+    `<button onclick="filterCategory('${c.name}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>
+      ${esc(c.label)}
+    </button>`
+  ).join('');
+}
+
+/** 更新发帖弹窗的分类下拉 */
+function updatePostCategorySelect() {
+  const sel = document.getElementById('postCategory');
+  if (!sel) return;
+  sel.innerHTML = categoriesData.map(c => `<option value="${c.name}">${esc(c.label)}</option>`).join('');
+}
 
 // 全局状态
 let state = { user: null, currentCat: 'all', posts: [], likedIds: new Set(), bookmarkedIds: new Set() };
@@ -786,8 +844,8 @@ function renderPosts() {
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
-            ${p.tags && p.tags.length ? p.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">#${esc(t)}</span>`).join('') : ''}
+            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'} cursor-pointer hover:opacity-80 transition" onclick="event.stopPropagation();filterCategory('${esc(p.category)}')">${esc(CAT_MAP[p.category] || p.category)}</span>
+            ${p.tags && p.tags.length ? p.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('') : ''}
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
             ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
@@ -1126,11 +1184,78 @@ async function adminDeletePost(pid) {
 }
 
 // ============================================================
-// 页面初始化（恢复登录状态 → 自动签到 → 加载帖子）
+// 分类管理（管理员）
+// ============================================================
+function showCategoryModal() {
+  renderCategoryList();
+  document.getElementById('categoryModal').classList.remove('hidden');
+  document.getElementById('categoryModal').classList.add('flex');
+}
+function hideCategoryModal() {
+  document.getElementById('categoryModal').classList.add('hidden');
+  document.getElementById('categoryModal').classList.remove('flex');
+}
+
+function renderCategoryList() {
+  const el = document.getElementById('categoryList');
+  if (!categoriesData.length) { el.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无分类</p>'; return; }
+  el.innerHTML = categoriesData.map(c => `
+    <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+      <span class="text-xs px-2 py-1 rounded-full ${c.color}">${esc(c.label)}</span>
+      <span class="text-xs text-gray-400 font-mono">${esc(c.name)}</span>
+      <div class="ml-auto flex items-center gap-1">
+        <button onclick="editCategory(${c.id})" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-lg transition">编辑</button>
+        <button onclick="deleteCategory(${c.id},'${esc(c.name)}')" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>
+      </div>
+    </div>
+  `).join('');
+}
+
+async function createCategory() {
+  const name = document.getElementById('newCatName').value.trim();
+  const label = document.getElementById('newCatLabel').value.trim();
+  if (!name || !label) { toast('请填写标识和名称'); return; }
+  try {
+    await api('/api/categories', { method: 'POST', body: JSON.stringify({ name, label }) });
+    document.getElementById('newCatName').value = '';
+    document.getElementById('newCatLabel').value = '';
+    await loadCategories();
+    renderCategoryList();
+    toast('分类已添加');
+  } catch(e) { toast(e.message); }
+}
+
+async function editCategory(id) {
+  const cat = categoriesData.find(c => c.id === id);
+  if (!cat) return;
+  const newLabel = prompt('分类显示名称：', cat.label);
+  if (!newLabel || newLabel === cat.label) return;
+  try {
+    await api('/api/categories/' + id, { method: 'PUT', body: JSON.stringify({ label: newLabel }) });
+    await loadCategories();
+    renderCategoryList();
+    toast('分类已更新');
+  } catch(e) { toast(e.message); }
+}
+
+async function deleteCategory(id, name) {
+  if (!confirm(`删除分类「${name}」？\n该分类下的帖子将变为未分类。`)) return;
+  try {
+    await api('/api/categories/' + id, { method: 'DELETE' });
+    await loadCategories();
+    renderCategoryList();
+    if (state.currentCat === name) filterCategory('all');
+    toast('分类已删除');
+  } catch(e) { toast(e.message); }
+}
+
+// ============================================================
+// 页面初始化（恢复登录状态 → 加载分类 → 自动签到 → 加载帖子）
 // ============================================================
 (async () => {
   try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
   renderAuth();
+  await loadCategories();
   await loadCheckin();
   await loadPosts();
 })();
