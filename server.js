@@ -62,17 +62,23 @@ function loadDB() {
     return {
       profiles: [], posts: [], comments: [],
       check_ins: [], post_likes: [], bookmarks: [],
+      shop_items: DEFAULT_SHOP_ITEMS.map(it => ({ ...it })),
+      shop_orders: [],
       categories: [
         { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
         { id: 2, name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', order: 2 },
         { id: 3, name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', order: 3 }
       ],
-      nextId: { profiles: 1, posts: 1, comments: 1, check_ins: 1, post_likes: 1, bookmarks: 1, categories: 4 }
+      nextId: { profiles: 1, posts: 1, comments: 1, check_ins: 1, post_likes: 1, bookmarks: 1, shop_items: 12, shop_orders: 1, categories: 4 }
     };
   }
   const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
   if (!db.bookmarks) db.bookmarks = [];
   if (!db.nextId.bookmarks) db.nextId.bookmarks = 1;
+  if (!db.shop_items) db.shop_items = DEFAULT_SHOP_ITEMS.map(it => ({ ...it }));
+  if (!db.shop_orders) db.shop_orders = [];
+  if (!db.nextId.shop_items) db.nextId.shop_items = (db.shop_items.reduce((m, it) => Math.max(m, it.id), 0) + 1);
+  if (!db.nextId.shop_orders) db.nextId.shop_orders = 1;
   if (!db.categories) {
     db.categories = [
       { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
