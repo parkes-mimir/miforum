@@ -127,6 +127,21 @@ npm start
 | POST | `/api/bookmark/:id` | 收藏 |
 | DELETE | `/api/bookmark/:id` | 取消收藏 |
 
+### 标签
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/tags` | 热门标签（按使用次数排序） |
+
+### 分类
+
+| 方法 | 路径 | 说明 |
+|------|------|------|
+| GET | `/api/categories` | 获取所有分类（公开） |
+| POST | `/api/categories` | 创建分类（管理员） |
+| PUT | `/api/categories/:id` | 编辑分类（管理员） |
+| DELETE | `/api/categories/:id` | 删除分类（管理员） |
+
 ### 管理员
 
 | 方法 | 路径 | 说明 |
@@ -141,6 +156,8 @@ npm start
 ## 更新日志
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
+
+**最新版本 v0.5.3** — 帖子标签系统、动态分类管理、收藏改五角星
 
 ## 贡献者
 
