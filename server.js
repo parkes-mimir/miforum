@@ -2,7 +2,7 @@
  * MiForum 后端服务器
  * 基于 Express.js + JSON 文件数据库的轻量论坛
  *
- * 功能：用户认证、个人资料、帖子 CRUD、评论 CRUD、签到系统、点赞、收藏（预留）
+ * 功能：用户认证、个人资料、帖子 CRUD、评论 CRUD、签到系统、点赞、收藏、标签、分类管理
  * 数据存储：db.json（自动创建，无需配置数据库）
  */
 
@@ -240,7 +240,6 @@ app.post('/api/login', async (req, res) => {
   if (!ok) return res.status(400).json({ error: '邮箱或密码错误' });
 
   req.session.userId = user.id;
-  const isAdmin = user.role === 'admin' || user.role === 'super_admin';
   res.json({ user: { id: user.id, username: user.username, email: user.email, points: user.points, role: user.role } });
 });
 
@@ -439,6 +438,7 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
   db.posts.splice(idx, 1);
   db.comments = db.comments.filter(c => c.post_id !== pid);
   db.post_likes = db.post_likes.filter(l => l.post_id !== pid);
+  db.bookmarks = db.bookmarks.filter(b => b.post_id !== pid);
   saveDB(db);
 
   res.json({ ok: true });
@@ -931,6 +931,7 @@ app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
   db.posts = db.posts.filter(p => p.author_id !== uid);
   db.comments = db.comments.filter(c => c.author_id !== uid && !userPostIds.has(c.post_id));
   db.post_likes = db.post_likes.filter(l => l.user_id !== uid && !userPostIds.has(l.post_id));
+  db.bookmarks = db.bookmarks.filter(b => b.user_id !== uid && !userPostIds.has(b.post_id));
   db.check_ins = db.check_ins.filter(c => c.user_id !== uid);
   db.profiles.splice(idx, 1);
   saveDB(db);
@@ -967,7 +968,7 @@ app.post('/api/categories', requireAdmin, (req, res) => {
   if (db.categories.find(c => c.name === name)) return res.status(400).json({ error: '分类标识已存在' });
   const cat = {
     id: db.nextId.categories++,
-    name: name.toLowerCase().replace(/[^a-z0-9]/g, ''),
+    name: name.slice(0, 20),
     label,
     color: color || 'bg-gray-100 text-gray-700',
     order: db.categories.length + 1
@@ -1208,15 +1209,6 @@ app.get('/api/users/:id/likes', (req, res) => {
   res.json({ posts });
 });
 
-// ============================================================
-// 收藏系统（大纲5预留 - 请勿删除以下接口设计）
-// ============================================================
-// POST   /api/bookmarks              添加收藏 { post_id }
-// DELETE /api/bookmarks/:postId      取消收藏
-// GET    /api/users/:id/bookmarks    获取用户收藏列表
-// 数据库：bookmarks 表 { id, user_id, post_id, created_at }
-// 前端：profile.html 中的收藏 Tab 展示
-// ============================================================
 
 // ============================================================
 // 服务器启动（端口被占用时自动杀旧进程）
