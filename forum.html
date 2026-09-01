@@ -310,7 +310,8 @@ const CAT_MAP = { all: '全部话题', tech: '技术', life: '生活', notice: '
 const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
 
 // 全局状态
-let state = { user: null, currentCat: 'all', posts: [], likedIds: new Set() };
+let state = { user: null, currentCat: 'all', posts: [], likedIds: new Set(), bookmarkedIds: new Set() };
+
 
 // ============================================================
 // 工具函数
@@ -673,8 +674,15 @@ async function loadPosts() {
   const { posts } = await api('/api/posts?' + params);
   state.posts = posts;
   // 加载当前用户的点赞状态
-  if (state.user) { const { ids } = await api('/api/likes'); state.likedIds = new Set(ids); }
-  else state.likedIds = new Set();
+  if (state.user) { 
+    const { ids } = await api('/api/likes'); 
+    state.likedIds = new Set(ids); 
+    try {
+      const bookmarks = await api('/api/bookmarks');
+      state.bookmarkedIds = new Set(bookmarks.map(b => b.id));
+    } catch(e) { state.bookmarkedIds = new Set(); }
+  }
+  else { state.likedIds = new Set(); state.bookmarkedIds = new Set(); }
   document.getElementById('postSkeleton').classList.add('hidden');
   renderPosts();
 }
@@ -710,12 +718,20 @@ function renderPosts() {
           <div class="flex items-center gap-4 mt-3">
             <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked ? 'text-red-500' : 'text-gray-400'} hover:text-red-500 transition">
               <svg class="w-4 h-4" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
-              ${p.likes_count}
+              ${p.likes_count || 0}
             </button>
             <span class="flex items-center gap-1 text-xs text-gray-400">
               <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
-              ${p.comments_count}
+              ${p.comments_count || 0}
             </span>
+            <span class="flex items-center gap-1 text-xs text-gray-400">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              ${p.bookmarks_count || 0}
+            </span>
+            <button onclick="event.stopPropagation();toggleBookmark(${p.id})" class="flex items-center gap-1 text-xs ${state.bookmarkedIds.has(p.id) ? 'text-yellow-500' : 'text-gray-400'} hover:text-yellow-500 transition">
+              <svg class="w-4 h-4" fill="${state.bookmarkedIds.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              收藏
+            </button>
           </div>
         </div>
       </div>
@@ -1024,6 +1040,25 @@ async function adminDeletePost(pid) {
   await loadCheckin();
   await loadPosts();
 })();
+
+/** 收藏/取消收藏帖子 */
+async function toggleBookmark(postId) {
+  if (!state.user) { toast('请先登录'); return; }
+  const isBookmarked = state.bookmarkedIds.has(postId);
+  try {
+    if (isBookmarked) {
+      await api('/api/bookmark/' + postId, { method: 'DELETE' });
+      state.bookmarkedIds.delete(postId);
+      toast('已取消收藏');
+    } else {
+      await api('/api/bookmark/' + postId, { method: 'POST' });
+      state.bookmarkedIds.add(postId);
+      toast('收藏成功');
+    }
+    renderPosts();
+  } catch (e) { toast(e.message); }
+}
 </script>
 </body>
 </html>
+

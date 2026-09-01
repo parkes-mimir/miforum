@@ -170,6 +170,30 @@ npm start
 - 头像裁剪改用 canvas 渲染，大圆圈和小预览完全一致
 - 头像缩放限制最低 100%、最高 4000%
 
+### v0.5.1 (2026-09-01) — 贡献者: jxwzx
+
+**收藏功能**
+
+- 帖子列表页添加收藏按钮（书签图标）
+- 帖子详情页添加收藏按钮
+- 个人中心新增"TA的收藏"标签页
+- 收藏列表页面显示用户收藏的所有帖子
+- 点赞数、评论数、收藏数显示优化（防止 undefined）
+
+**API 新增**
+
+- `POST /api/bookmark/:postId` - 添加收藏
+- `DELETE /api/bookmark/:postId` - 取消收藏
+- `GET /api/bookmarks` - 获取用户收藏列表
+- `GET /api/bookmark/:postId` - 检查帖子是否已收藏
+
+**数据库**
+
+- 新增 `bookmarks` 数据表
+- 新增 `nextId.bookmarks` 计数器
+
+---
+
 ### v0.4.0 (2026-08-31) — 贡献者: parkes-mimir, phppi561
 
 **权限体系重构**
@@ -263,6 +287,7 @@ npm start
 
 - **parkes-mimir** — 项目发起、需求设计、个人资料系统、头像裁剪、测试
 - **phppi561** — 签到 API 时区修复（v0.2.1）、管理员功能（v0.4.0）
+- **jxwzx** — 收藏功能开发（v0.5.1）
 
 ## 声明
 

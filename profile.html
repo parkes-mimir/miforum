@@ -116,11 +116,11 @@ tailwind.config = {
       <div id="tabContentPostsEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无帖子</p></div>
       <div id="tabContentLikes" class="hidden space-y-3"></div>
       <div id="tabContentLikesEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无点赞</p></div>
-      <div id="tabContentBookmarks" class="hidden text-center py-10">
+      <div id="tabContentBookmarks" class="hidden space-y-3"></div>
+      <div id="tabContentBookmarksEmpty" class="hidden text-center py-10">
         <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
-        <p class="text-sm text-gray-400">收藏功能即将上线</p>
+        <p class="text-sm text-gray-400">暂未收藏</p>
       </div>
-    </div>
   </div>
 </div>
 
@@ -364,6 +364,7 @@ function switchProfileTab(tab) {
   });
   if (tab === 'posts') loadUserPosts(profileUid);
   else if (tab === 'likes') loadUserLikes(profileUid);
+  else if (tab === 'bookmarks') loadUserBookmarks(profileUid);
 }
 
 function renderPostCards(posts, containerId, emptyId) {
@@ -382,8 +383,8 @@ function renderPostCards(posts, containerId, emptyId) {
       <h3 class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
       <p class="text-xs text-gray-500 line-clamp-1">${esc(p.content).replace(/\n/g,' ')}</p>
       <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
-        <span>❤ ${p.likes_count}</span>
-        <span>💬 ${p.comments_count}</span>
+        <span>❤ ${(p.likes_count || 0)}</span>
+        <span>💬 ${(p.comments_count || 0)}</span>
         ${hasImgs ? '<span>📷 ' + p.images.length + '</span>' : ''}
       </div>
     </div>`;
@@ -407,6 +408,16 @@ async function loadUserLikes(uid) {
   }
 }
 
+// ===== Load User Bookmarks =====
+async function loadUserBookmarks(uid) {
+  try {
+    const bookmarks = await api('/api/bookmarks');
+    renderPostCards(bookmarks, 'tabContentBookmarks', 'tabContentBookmarksEmpty');
+  } catch(e) {
+    document.getElementById('tabContentBookmarks').innerHTML = '';
+    document.getElementById('tabContentBookmarksEmpty').classList.remove('hidden');
+  }
+}
 // ===== Edit Profile =====
 function showEditModal() {
   if (!state.profile) return;
@@ -693,3 +704,6 @@ async function saveProfile() {
 </script>
 </body>
 </html>
+
+
+

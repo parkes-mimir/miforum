@@ -4,10 +4,18 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MiForum</title>
-<script src="https://cdn.tailwindcss.com"></script>
+<script src="https://cdn.tailwindcss.com">
+function renderBookmark() {
+  document.getElementById('bookmarkCount').textContent = (state.post.bookmarks_count || 0);
+}
+</script>
 <script>
 tailwind.config = {
   theme: { extend: { colors: { primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' } } } }
+}
+
+function renderBookmark() {
+  document.getElementById('bookmarkCount').textContent = (state.post.bookmarks_count || 0);
 }
 </script>
 <style>
@@ -80,6 +88,10 @@ tailwind.config = {
         <span class="flex items-center gap-1 text-sm text-gray-400">
           <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
           <span id="commentCount">0</span> 评论
+        </span>
+        <span class="flex items-center gap-1 text-sm text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          <span id="bookmarkCount">0</span> 收藏
         </span>
       </div>
     </div>
@@ -328,6 +340,7 @@ async function loadPage() {
       state.liked = ids.includes(post.id);
     }
     renderLike();
+    renderBookmark();
 
     // 帖子操作按钮：编辑(作者)、置顶(管理员)、删除(作者或管理员)
     const isAuthor = state.user && post.author_id === state.user.id;
@@ -663,6 +676,58 @@ async function deleteComment(cid) {
   document.getElementById('loginPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doLogin(); });
   document.getElementById('regPassword').addEventListener('keydown', e => { if (e.key === 'Enter') doRegister(); });
 })();
+
+/** 当前帖子是否已收藏 */
+let isBookmarked = false;
+
+/** 切换收藏状态 */
+async function toggleBookmark() {
+  if (!state.user) { toast('请先登录'); return; }
+  try {
+    if (isBookmarked) {
+      await api('/api/bookmark/' + state.postId, { method: 'DELETE' });
+      isBookmarked = false;
+      toast('已取消收藏');
+    } else {
+      await api('/api/bookmark/' + state.postId, { method: 'POST' });
+      isBookmarked = true;
+      toast('收藏成功');
+    }
+    updateBookmarkUI();
+  } catch (e) { toast(e.message); }
+}
+
+/** 更新收藏按钮 UI */
+function updateBookmarkUI() {
+  const btn = document.getElementById('bookmarkBtn');
+  const icon = document.getElementById('bookmarkIcon');
+  const text = document.getElementById('bookmarkText');
+  if (isBookmarked) {
+    btn.className = 'flex items-center gap-1 text-sm text-yellow-500 hover:text-yellow-600 transition';
+    icon.setAttribute('fill', 'currentColor');
+    text.textContent = '已收藏';
+  } else {
+    btn.className = 'flex items-center gap-1 text-sm text-gray-400 hover:text-yellow-500 transition';
+    icon.setAttribute('fill', 'none');
+    text.textContent = '收藏';
+  }
+}
+
+/** 加载收藏状态 */
+async function loadBookmarkStatus() {
+  if (!state.user || !state.postId) return;
+  try {
+    const data = await api('/api/bookmark/' + state.postId);
+    isBookmarked = data.isBookmarked;
+    updateBookmarkUI();
+  } catch (e) { /* ignore */ }
+}
+
+function renderBookmark() {
+  document.getElementById('bookmarkCount').textContent = (state.post.bookmarks_count || 0);
+}
 </script>
 </body>
 </html>
+
+
