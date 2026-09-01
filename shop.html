@@ -314,16 +314,17 @@ async function confirmExchange() {
     state.user.points = result.points;
     document.getElementById('userPoints').textContent = state.user.points;
 
-    // 同步改名卡/置顶卡次数
+    // 同步改名卡次数
     if (result.rename_chances !== undefined) state.user.rename_chances = result.rename_chances;
-    if (result.pin_chances !== undefined) state.user.pin_chances = result.pin_chances;
 
-    // 兑换改名卡后额外提示当前可用次数
+    // 兑换成功提示
     const exchanged = state.items.find(i => i.id === state.selectedItemId);
     if (exchanged && exchanged.type === 'rename_card') {
       toast(`当前改名卡：${result.rename_chances} 张`, 'info');
-    } else if (exchanged && exchanged.type === 'pin_card') {
-      toast(`当前置顶卡：${result.pin_chances} 张`, 'info');
+    } else if (exchanged && exchanged.type === 'title') {
+      toast(`称号已更换为「${exchanged.value}」`, 'success');
+    } else if (exchanged && exchanged.type === 'avatar_frame') {
+      toast(`头像框已${exchanged.value === 'none' ? '移除' : '更换'}`, 'success');
     }
 
     hideExchangeModal();

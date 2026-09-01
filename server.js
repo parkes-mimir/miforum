@@ -1073,6 +1073,102 @@ app.get('/api/tags', (req, res) => {
 });
 
 // ============================================================
+// 积分商店 API
+// ============================================================
+
+/** 获取商品列表 */
+app.get('/api/shop/items', (req, res) => {
+  const db = loadDB();
+  const items = db.shop_items.filter(item => item.enabled);
+  res.json({ items });
+});
+
+/** 获取用户兑换记录 */
+app.get('/api/shop/orders', requireAuth, (req, res) => {
+  const db = loadDB();
+  const userId = req.session.userId;
+  const orders = db.shop_orders
+    .filter(o => o.user_id === userId)
+    .map(o => {
+      const item = db.shop_items.find(i => i.id === o.item_id);
+      return {
+        ...o,
+        item_name: item ? item.name : '未知商品',
+        item_icon: item ? item.icon : '❓'
+      };
+    })
+    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  res.json({ orders });
+});
+
+/** 兑换商品 */
+app.post('/api/shop/exchange', requireAuth, (req, res) => {
+  const db = loadDB();
+  const userId = req.session.userId;
+  const itemId = Number(req.body.itemId);
+
+  if (!itemId) return res.status(400).json({ error: '缺少商品 ID' });
+
+  const item = db.shop_items.find(i => i.id === itemId && i.enabled);
+  if (!item) return res.status(404).json({ error: '商品不存在或已下架' });
+  if (item.stock === 0) return res.status(400).json({ error: '商品已售罄' });
+
+  const user = db.profiles.find(u => u.id === userId);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  if ((user.points || 0) < item.price) {
+    return res.status(400).json({ error: `积分不足，需要 ${item.price} 积分，当前 ${user.points || 0} 积分` });
+  }
+
+  // 扣积分
+  user.points -= item.price;
+
+  // 减库存
+  if (item.stock > 0) item.stock--;
+
+  // 兑换记录
+  const order = {
+    id: db.nextId.shop_orders++,
+    user_id: userId,
+    item_id: item.id,
+    item_name: item.name,
+    item_type: item.type,
+    price: item.price,
+    status: 'completed',
+    created_at: new Date().toISOString()
+  };
+  db.shop_orders.push(order);
+
+  // 处理商品效果
+  if (item.type === 'rename_card') {
+    user.rename_chances = (user.rename_chances || 0) + 1;
+  } else if (item.type === 'title') {
+    user.title = item.value;
+  } else if (item.type === 'avatar_frame') {
+    user.avatar_frame = item.value === 'none' ? null : item.value;
+  }
+
+  saveDB(db);
+  res.json({
+    ok: true,
+    message: `成功兑换 ${item.name}`,
+    order,
+    points: user.points || 0,
+    rename_chances: user.rename_chances || 0,
+    title: user.title || null,
+    avatar_frame: user.avatar_frame || null
+  });
+});
+
+/** 获取商品详情 */
+app.get('/api/shop/items/:id', (req, res) => {
+  const db = loadDB();
+  const itemId = Number(req.params.id);
+  const item = db.shop_items.find(i => i.id === itemId && i.enabled);
+  if (!item) return res.status(404).json({ error: '商品不存在' });
+  res.json({ item });
+});
+
+// ============================================================
 // 个人资料 API
 // ============================================================
 
