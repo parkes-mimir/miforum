@@ -13,6 +13,11 @@
   - 普通用户从 `001` 开始自动生成
   - 所有用户相关 API 返回 `display_id` 字段
   - 帖子/评论 API 返回 `author_display_id` 字段
+- 前端显示 display_id
+  - 帖子列表显示作者 display_id
+  - 帖子详情和评论显示 display_id
+  - 个人资料显示 display_id
+  - 管理员用户列表显示 display_id
 
 ### API 变更
 
