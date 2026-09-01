@@ -1081,6 +1081,7 @@ function renderAdminUsers(users) {
       <div class="flex-1 min-w-0">
         <div class="flex items-center gap-2 flex-wrap">
           <span class="text-sm font-semibold text-gray-900">${esc(u.username)}</span>
+          <span class="text-xs text-gray-400">#${esc(u.display_id)}</span>
           ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
           ${u.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>' : ''}
         </div>
