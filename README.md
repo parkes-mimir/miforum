@@ -99,7 +99,7 @@ npm start
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
-**最新版本 v0.8.0** — SQLite 数据库迁移、Tailwind CSS 本地化
+**最新版本 v0.8.1** — 用户 display_id 系统（三位数用户标识）
 
 ## 贡献者
 

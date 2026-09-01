@@ -57,6 +57,7 @@ function createTables() {
     -- 用户表
     CREATE TABLE IF NOT EXISTS profiles (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
+      display_id TEXT UNIQUE NOT NULL,
       username TEXT UNIQUE NOT NULL,
       email TEXT UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
@@ -178,14 +179,14 @@ function createTables() {
  * 初始化默认数据
  */
 function initDefaultData() {
-  // 初始化超级管理员
+  // 初始化超级管理员（display_id 固定为 '000'）
   const adminExists = db.prepare('SELECT id FROM profiles WHERE email = ?').get('root@miforum.local');
   if (!adminExists) {
     const hash = bcrypt.hashSync('123456', 10);
     db.prepare(`
-      INSERT INTO profiles (username, email, password_hash, role, profile_public)
-      VALUES (?, ?, ?, ?, ?)
-    `).run('超级管理员', 'root@miforum.local', hash, 'super_admin', 1);
+      INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run('000', '超级管理员', 'root@miforum.local', hash, 'super_admin', 1);
   }
 
   // 初始化默认商品
@@ -226,6 +227,25 @@ function getDb() {
 }
 
 /**
+ * 生成下一个用户 display_id（001-999）
+ * @returns {string} 三位数ID
+ */
+function getNextDisplayId() {
+  const row = db.prepare(`
+    SELECT display_id FROM profiles 
+    WHERE display_id != '000' 
+    ORDER BY CAST(display_id AS INTEGER) DESC 
+    LIMIT 1
+  `).get();
+  
+  if (!row) return '001';
+  
+  const nextNum = parseInt(row.display_id, 10) + 1;
+  if (nextNum > 999) throw new Error('用户数量已达上限（999）');
+  return String(nextNum).padStart(3, '0');
+}
+
+/**
  * 关闭数据库连接
  */
 function closeDb() {
@@ -238,5 +258,6 @@ function closeDb() {
 module.exports = {
   getDb,
   closeDb,
+  getNextDisplayId,
   DB_FILE
 };

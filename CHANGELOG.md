@@ -4,6 +4,29 @@
 
 ---
 
+## [0.8.1] - 2026-09-01 - 贡献者：parkes-mimir
+
+### 新增
+
+- 用户 display_id 系统：三位数用户标识（000-999）
+  - 超级管理员固定为 `000`
+  - 普通用户从 `001` 开始自动生成
+  - 所有用户相关 API 返回 `display_id` 字段
+  - 帖子/评论 API 返回 `author_display_id` 字段
+
+### API 变更
+
+- 注册响应新增 `display_id` 字段
+- 登录响应新增 `display_id` 字段
+- `/api/me` 响应新增 `display_id` 字段
+- `/api/users/:id` 响应新增 `display_id` 字段
+- `/api/admin/users` 响应新增 `display_id` 字段
+- `/api/profile` 响应新增 `display_id` 字段
+- 帖子列表/详情响应新增 `author_display_id` 字段
+- 评论列表响应新增 `author_display_id` 字段
+
+---
+
 ## [0.8.0] - 2026-09-01 - 贡献者：parkes-mimir, jxwzx
 
 ### 重大变更

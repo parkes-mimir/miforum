@@ -13,7 +13,7 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { execSync } = require('child_process');
-const { getDb, closeDb } = require('./database');
+const { getDb, closeDb, getNextDisplayId } = require('./database');
 
 // ============================================================
 // 常量配置
@@ -177,14 +177,15 @@ app.post('/api/register', async (req, res) => {
   const existsName = db.prepare('SELECT id FROM profiles WHERE username = ?').get(username);
   if (existsName) return res.status(400).json({ error: '用户名已被占用' });
 
+  const displayId = getNextDisplayId();
   const hash = await bcrypt.hash(password, 10);
   const result = db.prepare(`
-    INSERT INTO profiles (username, email, password_hash, role, profile_public, created_at)
-    VALUES (?, ?, ?, 'user', 1, datetime('now'))
-  `).run(username, email, hash);
+    INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, created_at)
+    VALUES (?, ?, ?, ?, 'user', 1, datetime('now'))
+  `).run(displayId, username, email, hash);
 
   req.session.userId = result.lastInsertRowid;
-  res.json({ user: { id: result.lastInsertRowid, username, email, points: 0 } });
+  res.json({ user: { id: result.lastInsertRowid, display_id: displayId, username, email, points: 0 } });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -198,7 +199,7 @@ app.post('/api/login', async (req, res) => {
   if (!ok) return res.status(400).json({ error: '邮箱或密码错误' });
 
   req.session.userId = user.id;
-  res.json({ user: { id: user.id, username: user.username, email: user.email, points: user.points, role: user.role } });
+  res.json({ user: { id: user.id, display_id: user.display_id, username: user.username, email: user.email, points: user.points, role: user.role } });
 });
 
 app.post('/api/logout', (req, res) => {
@@ -211,7 +212,7 @@ app.get('/api/me', (req, res) => {
   const u = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!u) return res.json({ user: null });
   res.json({ user: {
-    id: u.id, username: u.username, email: u.email,
+    id: u.id, display_id: u.display_id, username: u.username, email: u.email,
     avatar_url: u.avatar_url || null,
     bio: u.bio || '',
     location: u.location || '',
@@ -232,7 +233,7 @@ app.get('/api/posts', (req, res) => {
   const { category, search, tag } = req.query;
   let sql = `
     SELECT p.*,
-      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
       pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
@@ -275,7 +276,7 @@ app.get('/api/posts/:id', (req, res) => {
   const pid = Number(req.params.id);
   const p = db.prepare(`
     SELECT p.*,
-      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
       pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
@@ -406,7 +407,7 @@ app.get('/api/posts/:id/comments', (req, res) => {
 
   const commentsRaw = db.prepare(`
     SELECT c.*,
-      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
       pr.title AS author_title, pr.avatar_frame AS author_avatar_frame
     FROM comments c
     LEFT JOIN profiles pr ON pr.id = c.author_id
@@ -697,7 +698,7 @@ app.get('/api/bookmarks', requireAuth, (req, res) => {
   const userId = req.session.userId;
   const rows = db.prepare(`
     SELECT p.*, b.created_at AS bookmarked_at,
-      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
       pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
@@ -733,6 +734,7 @@ app.get('/api/admin/users', requireAdmin, (req, res) => {
     FROM profiles u
   `).all().map(u => ({
     id: u.id,
+    display_id: u.display_id,
     username: u.username,
     email: u.email,
     points: u.points || 0,
@@ -1002,6 +1004,7 @@ app.get('/api/users/:id', (req, res) => {
 
   const publicData = {
     id: user.id,
+    display_id: user.display_id,
     username: user.username,
     avatar_url: user.avatar_url || null,
     role: user.role || 'user',
@@ -1071,7 +1074,7 @@ app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req
     res.json({
       ok: true,
       user: {
-        id: updated.id, username: updated.username, email: updated.email,
+        id: updated.id, display_id: updated.display_id, username: updated.username, email: updated.email,
         avatar_url: updated.avatar_url, bio: updated.bio,
         location: updated.location, website: updated.website,
         profile_public: intToBool(updated.profile_public), points: updated.points || 0,
@@ -1102,6 +1105,7 @@ app.get('/api/users/:id/posts', (req, res) => {
     tags: parseJsonField(p.tags, []),
     images: parseJsonField(p.images, []),
     pinned: intToBool(p.pinned),
+    author_display_id: user.display_id,
     author_name: user.username,
     author_avatar_url: user.avatar_url || null,
     author_title: user.title || null,
@@ -1118,7 +1122,7 @@ app.get('/api/users/:id/likes', (req, res) => {
 
   const posts = db.prepare(`
     SELECT p.*,
-      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
       pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count

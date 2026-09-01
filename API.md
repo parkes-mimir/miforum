@@ -259,6 +259,7 @@ POST /api/register
 {
   "user": {
     "id": 1,
+    "display_id": "001",
     "username": "testuser",
     "email": "test@example.com",
     "points": 0
@@ -285,6 +286,7 @@ POST /api/login
 {
   "user": {
     "id": 1,
+    "display_id": "001",
     "username": "testuser",
     "email": "test@example.com",
     "points": 0,
@@ -315,6 +317,7 @@ GET /api/me
 {
   "user": {
     "id": 1,
+    "display_id": "001",
     "username": "testuser",
     "email": "test@example.com",
     "avatar_url": "/uploads/avatar.png",
@@ -358,6 +361,7 @@ GET /api/posts
       "category": "tech",
       "tags": ["javascript", "nodejs"],
       "author_id": 1,
+      "author_display_id": "001",
       "images": ["/uploads/img1.png"],
       "pinned": false,
       "created_at": "2026-09-01T12:00:00.000Z",
@@ -390,6 +394,7 @@ GET /api/posts/:id
     "category": "tech",
     "tags": ["javascript"],
     "author_id": 1,
+    "author_display_id": "001",
     "images": ["/uploads/img1.png"],
     "pinned": false,
     "created_at": "2026-09-01T12:00:00.000Z",
@@ -487,6 +492,7 @@ GET /api/posts/:id/comments
       "id": 1,
       "post_id": 1,
       "author_id": 2,
+      "author_display_id": "002",
       "content": "评论内容",
       "images": ["/uploads/img.png"],
       "pinned": false,
@@ -725,6 +731,8 @@ GET /api/bookmarks
       "id": 1,
       "title": "帖子标题",
       "content": "帖子内容",
+      "author_display_id": "001",
+      "author_name": "testuser",
       "bookmarked_at": "2026-09-01T12:00:00.000Z"
     }
   ]
@@ -857,6 +865,7 @@ GET /api/users/:id
 {
   "user": {
     "id": 1,
+    "display_id": "001",
     "username": "testuser",
     "avatar_url": "/uploads/avatar.png",
     "role": "user",
@@ -894,6 +903,7 @@ PUT /api/profile
   "ok": true,
   "user": {
     "id": 1,
+    "display_id": "001",
     "username": "newname",
     "email": "test@example.com",
     "avatar_url": "/uploads/avatar.png",
@@ -923,6 +933,7 @@ GET /api/users/:id/posts
       "id": 1,
       "title": "帖子标题",
       "content": "帖子内容",
+      "author_display_id": "001",
       "author_name": "testuser",
       "author_avatar_url": "/uploads/avatar.png",
       "author_title": "新手上路",
@@ -948,6 +959,7 @@ GET /api/users/:id/likes
       "id": 2,
       "title": "点赞的帖子",
       "content": "帖子内容",
+      "author_display_id": "002",
       "author_name": "user2",
       "likes_count": 10,
       "comments_count": 5
@@ -974,6 +986,19 @@ GET /api/admin/users
   "users": [
     {
       "id": 1,
+      "display_id": "000",
+      "username": "超级管理员",
+      "email": "admin@example.com",
+      "points": 0,
+      "muted": false,
+      "role": "super_admin",
+      "created_at": "2026-08-28T12:00:00.000Z",
+      "posts_count": 0,
+      "comments_count": 0
+    },
+    {
+      "id": 2,
+      "display_id": "001",
       "username": "testuser",
       "email": "test@example.com",
       "points": 100,
