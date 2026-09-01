@@ -53,6 +53,23 @@ const upload = multer({
 });
 
 // ============================================================
+// 默认商品（首次创建 db.json 时写入）
+// ============================================================
+const DEFAULT_SHOP_ITEMS = [
+  { id: 1, name: '改名卡', description: '修改一次用户名', icon: '✏️', type: 'rename_card', price: 100, stock: -1, enabled: true },
+  { id: 2, name: '新手上路', description: '永久称号', icon: '🌱', type: 'title', value: '新手上路', price: 50, stock: -1, enabled: true },
+  { id: 3, name: '活跃达人', description: '永久称号', icon: '🔥', type: 'title', value: '活跃达人', price: 200, stock: -1, enabled: true },
+  { id: 4, name: '技术大佬', description: '永久称号', icon: '💎', type: 'title', value: '技术大佬', price: 300, stock: -1, enabled: true },
+  { id: 5, name: '社区元老', description: '永久称号', icon: '🏛️', type: 'title', value: '社区元老', price: 500, stock: -1, enabled: true },
+  { id: 6, name: '论坛之星', description: '永久称号', icon: '⭐', type: 'title', value: '论坛之星', price: 800, stock: -1, enabled: true },
+  { id: 7, name: '金色光环', description: '头像金色光圈', icon: '🟡', type: 'avatar_frame', value: 'gold', price: 150, stock: -1, enabled: true },
+  { id: 8, name: '银色边框', description: '头像银色边框', icon: '⚪', type: 'avatar_frame', value: 'silver', price: 80, stock: -1, enabled: true },
+  { id: 9, name: '蓝色冰晶', description: '头像蓝色光晕', icon: '🔵', type: 'avatar_frame', value: 'blue', price: 200, stock: -1, enabled: true },
+  { id: 10, name: '紫色星光', description: '头像紫色光晕', icon: '🟣', type: 'avatar_frame', value: 'purple', price: 250, stock: -1, enabled: true },
+  { id: 11, name: '无头像框', description: '移除头像框', icon: '⬜', type: 'avatar_frame', value: 'none', price: 0, stock: -1, enabled: true }
+];
+
+// ============================================================
 // JSON 文件数据库
 // 数据结构：{ profiles, posts, comments, check_ins, post_likes, bookmarks, nextId }
 // 每次读写都是完整加载/保存，适合小规模应用
