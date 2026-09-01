@@ -1,9 +1,9 @@
 /**
  * MiForum 后端服务器
- * 基于 Express.js + JSON 文件数据库的轻量论坛
+ * 基于 Express.js + SQLite 数据库的轻量论坛
  *
  * 功能：用户认证、个人资料、帖子 CRUD、评论 CRUD、签到系统、点赞、收藏、标签、分类管理
- * 数据存储：db.json（自动创建，无需配置数据库）
+ * 数据存储：data.db（SQLite，通过 database.js 模块管理）
  */
 
 const express = require('express');
@@ -13,24 +13,24 @@ const path = require('path');
 const fs = require('fs');
 const multer = require('multer');
 const { execSync } = require('child_process');
+const { getDb, closeDb } = require('./database');
 
 // ============================================================
 // 常量配置
 // ============================================================
 const app = express();
 const PORT = process.env.PORT || 3000;
-const DB_FILE = path.join(__dirname, 'db.json');
 const UPLOADS_DIR = path.join(__dirname, 'uploads');
 const SUPER_ADMIN_EMAIL = 'root@miforum.local';
 const SUPER_ADMIN_PASSWORD = '123456';
+
+const db = getDb();
 
 // 确保上传目录存在
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 // ============================================================
 // Multer 图片上传配置
-// 文件名格式：webforum20260830-1788074397176.png
-// 限制：10MB，仅支持图片格式
 // ============================================================
 const storage = multer.diskStorage({
   destination: (req, file, cb) => cb(null, UPLOADS_DIR),
@@ -53,94 +53,7 @@ const upload = multer({
 });
 
 // ============================================================
-// 默认商品（首次创建 db.json 时写入）
-// ============================================================
-const DEFAULT_SHOP_ITEMS = [
-  { id: 1, name: '改名卡', description: '修改一次用户名', icon: '✏️', type: 'rename_card', price: 100, stock: -1, enabled: true },
-  { id: 2, name: '新手上路', description: '永久称号', icon: '🌱', type: 'title', value: '新手上路', price: 50, stock: -1, enabled: true },
-  { id: 3, name: '活跃达人', description: '永久称号', icon: '🔥', type: 'title', value: '活跃达人', price: 200, stock: -1, enabled: true },
-  { id: 4, name: '技术大佬', description: '永久称号', icon: '💎', type: 'title', value: '技术大佬', price: 300, stock: -1, enabled: true },
-  { id: 5, name: '社区元老', description: '永久称号', icon: '🏛️', type: 'title', value: '社区元老', price: 500, stock: -1, enabled: true },
-  { id: 6, name: '论坛之星', description: '永久称号', icon: '⭐', type: 'title', value: '论坛之星', price: 800, stock: -1, enabled: true },
-  { id: 7, name: '金色光环', description: '头像金色光圈', icon: '🟡', type: 'avatar_frame', value: 'gold', price: 150, stock: -1, enabled: true },
-  { id: 8, name: '银色边框', description: '头像银色边框', icon: '⚪', type: 'avatar_frame', value: 'silver', price: 80, stock: -1, enabled: true },
-  { id: 9, name: '蓝色冰晶', description: '头像蓝色光晕', icon: '🔵', type: 'avatar_frame', value: 'blue', price: 200, stock: -1, enabled: true },
-  { id: 10, name: '紫色星光', description: '头像紫色光晕', icon: '🟣', type: 'avatar_frame', value: 'purple', price: 250, stock: -1, enabled: true },
-  { id: 11, name: '无头像框', description: '移除头像框', icon: '⬜', type: 'avatar_frame', value: 'none', price: 0, stock: -1, enabled: true }
-];
-
-// ============================================================
-// JSON 文件数据库
-// 数据结构：{ profiles, posts, comments, check_ins, post_likes, bookmarks, nextId }
-// 每次读写都是完整加载/保存，适合小规模应用
-// ============================================================
-function loadDB() {
-  if (!fs.existsSync(DB_FILE)) {
-    return {
-      profiles: [], posts: [], comments: [],
-      check_ins: [], post_likes: [], bookmarks: [],
-      shop_items: DEFAULT_SHOP_ITEMS.map(it => ({ ...it })),
-      shop_orders: [],
-      categories: [
-        { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
-        { id: 2, name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', order: 2 },
-        { id: 3, name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', order: 3 }
-      ],
-      nextId: { profiles: 1, posts: 1, comments: 1, check_ins: 1, post_likes: 1, bookmarks: 1, shop_items: 12, shop_orders: 1, categories: 4 }
-    };
-  }
-  const db = JSON.parse(fs.readFileSync(DB_FILE, 'utf8'));
-  if (!db.bookmarks) db.bookmarks = [];
-  if (!db.nextId.bookmarks) db.nextId.bookmarks = 1;
-  if (!db.shop_items) db.shop_items = DEFAULT_SHOP_ITEMS.map(it => ({ ...it }));
-  if (!db.shop_orders) db.shop_orders = [];
-  if (!db.nextId.shop_items) db.nextId.shop_items = (db.shop_items.reduce((m, it) => Math.max(m, it.id), 0) + 1);
-  if (!db.nextId.shop_orders) db.nextId.shop_orders = 1;
-  if (!db.categories) {
-    db.categories = [
-      { id: 1, name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', order: 1 },
-      { id: 2, name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', order: 2 },
-      { id: 3, name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', order: 3 }
-    ];
-  }
-  if (!db.nextId.categories) db.nextId.categories = db.categories.length + 1;
-  return db;
-}
-
-function saveDB(db) {
-  fs.writeFileSync(DB_FILE, JSON.stringify(db, null, 2));
-}
-
-// ============================================================
-// 初始化超级管理员账号（首次启动自动创建）
-// ============================================================
-async function initSuperAdmin() {
-  const db = loadDB();
-  if (!db.profiles.find(p => p.email === SUPER_ADMIN_EMAIL)) {
-    const hash = await bcrypt.hash(SUPER_ADMIN_PASSWORD, 10);
-    db.profiles.push({
-      id: db.nextId.profiles++,
-      username: '超级管理员',
-      email: SUPER_ADMIN_EMAIL,
-      password_hash: hash,
-      avatar_url: null,
-      bio: '',
-      location: '',
-      website: '',
-      profile_public: true,
-      points: 0,
-      muted: false,
-      role: 'super_admin',
-      created_at: new Date().toISOString()
-    });
-    saveDB(db);
-    console.log('  超级管理员已创建: ' + SUPER_ADMIN_EMAIL + ' / ' + SUPER_ADMIN_PASSWORD);
-  }
-}
-initSuperAdmin();
-
-// ============================================================
-// 辅助函数：删除文件（忽略不存在的情况）
+// 辅助函数
 // ============================================================
 function deleteFile(url) {
   const filePath = path.join(__dirname, url);
@@ -151,16 +64,24 @@ function deleteImages(images) {
   if (images && images.length > 0) images.forEach(deleteFile);
 }
 
+function parseJsonField(val, fallback) {
+  if (val === null || val === undefined) return fallback;
+  if (Array.isArray(val) || typeof val === 'object') return val;
+  try { return JSON.parse(val); } catch (e) { return fallback; }
+}
+
+function boolToInt(v) { return v ? 1 : 0; }
+function intToBool(v) { return v === 1 || v === true; }
+
 // ============================================================
 // 中间件
 // ============================================================
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));         // 静态文件（forum.html, post.html）
-app.use('/uploads', express.static(UPLOADS_DIR));      // 上传图片静态访问
+app.use(express.static(path.join(__dirname)));
+app.use('/uploads', express.static(UPLOADS_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
 app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 
-// Session 配置（7天有效期）
 app.use(session({
   secret: 'miforum-' + Math.random().toString(36).slice(2),
   resave: false,
@@ -168,43 +89,35 @@ app.use(session({
   cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
 }));
 
-// 登录校验中间件
 function requireAuth(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: '请先登录' });
   next();
 }
 
-// 管理员权限校验中间件（超级管理员或管理员）
 function requireAdmin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: '请先登录' });
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
     return res.status(403).json({ error: '需要管理员权限' });
   }
   next();
 }
 
-// 超级管理员权限校验中间件
 function requireSuperAdmin(req, res, next) {
   if (!req.session.userId) return res.status(401).json({ error: '请先登录' });
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user || user.role !== 'super_admin') {
     return res.status(403).json({ error: '需要超级管理员权限' });
   }
   next();
 }
 
-// 禁言校验中间件：被禁言用户不能发布/编辑内容
 function requireNotMuted(req, res, next) {
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
-  if (user && user.muted) return res.status(403).json({ error: '你已被禁言，暂时无法发布内容' });
+  const user = db.prepare('SELECT muted FROM profiles WHERE id = ?').get(req.session.userId);
+  if (user && intToBool(user.muted)) return res.status(403).json({ error: '你已被禁言，暂时无法发布内容' });
   next();
 }
 
-// Multer 错误处理包装（忽略 Unexpected field 错误）
 function multerUpload(middleware) {
   return (req, res, next) => {
     middleware(req, res, (err) => {
@@ -216,48 +129,69 @@ function multerUpload(middleware) {
 }
 
 // ============================================================
+// 日期工具（签到系统）
+// ============================================================
+function dateStr(d) { return new Date(d).toLocaleDateString('sv-SE'); }
+function todayStr() { return dateStr(new Date()); }
+
+function addDays(dateStrIn, n) {
+  const [y, m, d] = dateStrIn.split('-').map(Number);
+  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
+}
+
+function daysBetween(a, b) {
+  return Math.floor((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
+}
+
+function calcStreaks(checkinDates) {
+  if (!checkinDates.length) return { current: 0, longest: 0, total: 0 };
+
+  const sorted = [...checkinDates].sort();
+  const dateSet = new Set(sorted);
+  let current = 0, longest = 0, streak = 0;
+
+  const today = todayStr();
+  let d = dateSet.has(today) ? today : addDays(today, -1);
+  while (dateSet.has(d)) { current++; d = addDays(d, -1); }
+
+  for (let i = 0; i < sorted.length; i++) {
+    if (i === 0 || daysBetween(sorted[i - 1], sorted[i]) === 1) streak++;
+    else streak = 1;
+    longest = Math.max(longest, streak);
+  }
+
+  return { current, longest, total: sorted.length };
+}
+
+// ============================================================
 // 用户认证 API
 // ============================================================
 
-/** 注册：用户名 + 邮箱 + 密码 */
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: '请填写所有字段' });
   if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
 
-  const db = loadDB();
-  if (db.profiles.find(p => p.email === email)) return res.status(400).json({ error: '邮箱已被注册' });
-  if (db.profiles.find(p => p.username === username)) return res.status(400).json({ error: '用户名已被占用' });
+  const existsEmail = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
+  if (existsEmail) return res.status(400).json({ error: '邮箱已被注册' });
+  const existsName = db.prepare('SELECT id FROM profiles WHERE username = ?').get(username);
+  if (existsName) return res.status(400).json({ error: '用户名已被占用' });
 
   const hash = await bcrypt.hash(password, 10);
-  const user = {
-    id: db.nextId.profiles++,
-    username, email,
-    password_hash: hash,
-    avatar_url: null,
-    bio: '',
-    location: '',
-    website: '',
-    profile_public: true,
-    points: 0,
-    muted: false,
-    role: 'user',
-    created_at: new Date().toISOString()
-  };
-  db.profiles.push(user);
-  saveDB(db);
+  const result = db.prepare(`
+    INSERT INTO profiles (username, email, password_hash, role, profile_public, created_at)
+    VALUES (?, ?, ?, 'user', 1, datetime('now'))
+  `).run(username, email, hash);
 
-  req.session.userId = user.id;
-  res.json({ user: { id: user.id, username, email, points: 0 } });
+  req.session.userId = result.lastInsertRowid;
+  res.json({ user: { id: result.lastInsertRowid, username, email, points: 0 } });
 });
 
-/** 登录：邮箱 + 密码 */
 app.post('/api/login', async (req, res) => {
   const { email, password } = req.body;
   if (!email || !password) return res.status(400).json({ error: '请填写邮箱和密码' });
 
-  const db = loadDB();
-  const user = db.profiles.find(p => p.email === email);
+  const user = db.prepare('SELECT * FROM profiles WHERE email = ?').get(email);
   if (!user) return res.status(400).json({ error: '邮箱或密码错误' });
 
   const ok = await bcrypt.compare(password, user.password_hash);
@@ -267,17 +201,14 @@ app.post('/api/login', async (req, res) => {
   res.json({ user: { id: user.id, username: user.username, email: user.email, points: user.points, role: user.role } });
 });
 
-/** 退出登录 */
 app.post('/api/logout', (req, res) => {
   req.session.destroy();
   res.json({ ok: true });
 });
 
-/** 获取当前登录用户信息 */
 app.get('/api/me', (req, res) => {
   if (!req.session.userId) return res.json({ user: null });
-  const db = loadDB();
-  const u = db.profiles.find(p => p.id === req.session.userId);
+  const u = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!u) return res.json({ user: null });
   res.json({ user: {
     id: u.id, username: u.username, email: u.email,
@@ -285,8 +216,8 @@ app.get('/api/me', (req, res) => {
     bio: u.bio || '',
     location: u.location || '',
     website: u.website || '',
-    profile_public: u.profile_public !== false,
-    points: u.points || 0, muted: !!u.muted, role: u.role || 'user',
+    profile_public: intToBool(u.profile_public),
+    points: u.points || 0, muted: intToBool(u.muted), role: u.role || 'user',
     title: u.title || null,
     avatar_frame: u.avatar_frame || null,
     rename_chances: u.rename_chances || 0
@@ -297,80 +228,82 @@ app.get('/api/me', (req, res) => {
 // 帖子 API
 // ============================================================
 
-/** 获取帖子列表（支持分类、标签筛选和搜索） */
 app.get('/api/posts', (req, res) => {
-  const db = loadDB();
   const { category, search, tag } = req.query;
-  let posts = [...db.posts];
+  let sql = `
+    SELECT p.*,
+      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
+      (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
+    FROM posts p
+    LEFT JOIN profiles pr ON pr.id = p.author_id
+    WHERE 1=1
+  `;
+  const params = [];
 
-  // 分类筛选
   if (category && category !== 'all') {
-    posts = posts.filter(p => p.category === category);
+    sql += ' AND p.category = ?';
+    params.push(category);
   }
-  // 标签筛选
   if (tag) {
-    posts = posts.filter(p => p.tags && p.tags.includes(tag));
+    sql += ' AND p.tags LIKE ?';
+    params.push(`%"${tag}"%`);
   }
-  // 关键词搜索（标题和内容）
   if (search) {
-    const q = search.toLowerCase();
-    posts = posts.filter(p => p.title.toLowerCase().includes(q) || p.content.toLowerCase().includes(q));
+    sql += ' AND (p.title LIKE ? OR p.content LIKE ?)';
+    params.push(`%${search}%`, `%${search}%`);
   }
 
-  // 置顶帖子优先，其余按创建时间倒序
-  posts.sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return new Date(b.created_at) - new Date(a.created_at);
-  });
+  sql += ' ORDER BY p.pinned DESC, p.created_at DESC';
 
-  // 拼接作者名、头像、称号、头像框、点赞数、评论数
-  const result = posts.map(p => {
-    const author = db.profiles.find(u => u.id === p.author_id);
-    return {
-      ...p,
-      author_name: author ? author.username : '未知',
-      author_avatar_url: author ? author.avatar_url || null : null,
-      author_title: author ? author.title || null : null,
-      author_avatar_frame: author ? author.avatar_frame || null : null,
-      likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
-      comments_count: db.comments.filter(c => c.post_id === p.id).length,
-      bookmarks_count: db.bookmarks.filter(b => b.post_id === p.id).length
-    };
-  });
-  res.json({ posts: result });
+  const rows = db.prepare(sql).all(...params);
+  const posts = rows.map(p => ({
+    ...p,
+    tags: parseJsonField(p.tags, []),
+    images: parseJsonField(p.images, []),
+    pinned: intToBool(p.pinned),
+    author_avatar_url: p.author_avatar_url || null,
+    author_title: p.author_title || null,
+    author_avatar_frame: p.author_avatar_frame || null
+  }));
+  res.json({ posts });
 });
 
-/** 获取单个帖子详情 */
 app.get('/api/posts/:id', (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.id);
-  const post = db.posts.find(p => p.id === pid);
-  if (!post) return res.status(404).json({ error: '帖子不存在' });
+  const p = db.prepare(`
+    SELECT p.*,
+      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
+      (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
+    FROM posts p
+    LEFT JOIN profiles pr ON pr.id = p.author_id
+    WHERE p.id = ?
+  `).get(pid);
+  if (!p) return res.status(404).json({ error: '帖子不存在' });
 
-  const author = db.profiles.find(u => u.id === post.author_id);
   res.json({
     post: {
-      ...post,
-      author_name: author ? author.username : '未知',
-      author_avatar_url: author ? author.avatar_url || null : null,
-      author_title: author ? author.title || null : null,
-      author_avatar_frame: author ? author.avatar_frame || null : null,
-      likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
-      comments_count: db.comments.filter(c => c.post_id === post.id).length,
-      bookmarks_count: db.bookmarks.filter(b => b.post_id === post.id).length
+      ...p,
+      tags: parseJsonField(p.tags, []),
+      images: parseJsonField(p.images, []),
+      pinned: intToBool(p.pinned),
+      author_avatar_url: p.author_avatar_url || null,
+      author_title: p.author_title || null,
+      author_avatar_frame: p.author_avatar_frame || null
     }
   });
 });
 
-/** 发帖（支持多图片 + 标签） */
 app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('images', 30)), (req, res) => {
   const { title, content, category, tags } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
-  const db = loadDB();
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-  // 解析标签：JSON 数组字符串、逗号分隔字符串、或原生数组
   let parsedTags = [];
   if (tags) {
     if (Array.isArray(tags)) {
@@ -381,57 +314,46 @@ app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('
   }
   parsedTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
 
-  const post = {
-    id: db.nextId.posts++,
-    title, content,
-    category: category || 'tech',
-    tags: parsedTags,
-    author_id: req.session.userId,
-    images,
-    pinned: false,
-    created_at: new Date().toISOString(),
-    updated_at: null
-  };
-  db.posts.push(post);
+  const insertPost = db.transaction(() => {
+    const result = db.prepare(`
+      INSERT INTO posts (title, content, category, tags, author_id, images, created_at)
+      VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
+    `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
 
-  // 发帖奖励 5 积分
-  const user = db.profiles.find(p => p.id === req.session.userId);
-  if (user) user.points = (user.points || 0) + 5;
-  saveDB(db);
+    db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
+    const user = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
+    return { postId: result.lastInsertRowid, points: user ? user.points : 0 };
+  });
 
-  res.json({ postId: post.id, points: user ? user.points : 0 });
+  const result = insertPost();
+  res.json({ postId: result.postId, points: result.points });
 });
 
-/** 编辑帖子（支持新增/删除图片 + 标签） */
 app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.array('images', 30)), (req, res) => {
   const { title, content, category, tags, removeImages } = req.body;
   if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
-  const db = loadDB();
   const pid = Number(req.params.id);
-  const post = db.posts.find(p => p.id === pid);
+  const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
   if (!post) return res.status(404).json({ error: '帖子不存在' });
   if (post.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的帖子' });
 
-  // 删除指定的旧图片
+  let currentImages = parseJsonField(post.images, []);
+
   if (removeImages) {
     let removeList;
     try { removeList = JSON.parse(removeImages); }
     catch (e) { return res.status(400).json({ error: 'removeImages 格式错误' }); }
     removeList.forEach(deleteFile);
-    post.images = (post.images || []).filter(u => !removeList.includes(u));
+    currentImages = currentImages.filter(u => !removeList.includes(u));
   }
 
-  // 添加新上传的图片
   if (req.files && req.files.length > 0) {
     const newImages = req.files.map(f => '/uploads/' + f.filename);
-    post.images = [...(post.images || []), ...newImages];
+    currentImages = [...currentImages, ...newImages];
   }
 
-  post.title = title;
-  post.content = content;
-  if (category) post.category = category;
-  // 更新标签
+  let finalTags = parseJsonField(post.tags, []);
   if (tags !== undefined) {
     let parsedTags = [];
     if (Array.isArray(tags)) {
@@ -439,39 +361,37 @@ app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.arra
     } else if (typeof tags === 'string') {
       try { parsedTags = JSON.parse(tags); } catch(e) { parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean); }
     }
-    post.tags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
+    finalTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
   }
-  post.updated_at = new Date().toISOString();
-  saveDB(db);
+
+  db.prepare(`
+    UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, updated_at = datetime('now')
+    WHERE id = ?
+  `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
 
   res.json({ ok: true });
 });
 
-/** 删除帖子（级联删除评论、点赞、图片文件） */
 app.delete('/api/posts/:id', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.id);
-  const idx = db.posts.findIndex(p => p.id === pid);
-  if (idx === -1) return res.status(404).json({ error: '帖子不存在' });
+  const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
+  if (!post) return res.status(404).json({ error: '帖子不存在' });
 
-  const user = db.profiles.find(u => u.id === req.session.userId);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
   const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-  if (db.posts[idx].author_id !== req.session.userId && !isAdmin) {
+  if (post.author_id !== req.session.userId && !isAdmin) {
     return res.status(403).json({ error: '只能删除自己的帖子' });
   }
 
-  // 清理帖子图片
-  deleteImages(db.posts[idx].images);
+  const deletePost = db.transaction(() => {
+    const commentImages = db.prepare('SELECT images FROM comments WHERE post_id = ?').all(pid);
+    commentImages.forEach(c => deleteImages(parseJsonField(c.images, [])));
 
-  // 清理评论图片
-  db.comments.filter(c => c.post_id === pid).forEach(c => deleteImages(c.images));
+    deleteImages(parseJsonField(post.images, []));
 
-  // 删除帖子及关联数据
-  db.posts.splice(idx, 1);
-  db.comments = db.comments.filter(c => c.post_id !== pid);
-  db.post_likes = db.post_likes.filter(l => l.post_id !== pid);
-  db.bookmarks = db.bookmarks.filter(b => b.post_id !== pid);
-  saveDB(db);
+    db.prepare('DELETE FROM posts WHERE id = ?').run(pid);
+  });
+  deletePost();
 
   res.json({ ok: true });
 });
@@ -480,206 +400,143 @@ app.delete('/api/posts/:id', requireAuth, (req, res) => {
 // 评论 API
 // ============================================================
 
-/** 获取帖子评论（支持楼层号、置顶排序） */
 app.get('/api/posts/:id/comments', (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.id);
-  const post = db.posts.find(p => p.id === pid);
-  const commentsRaw = db.comments.filter(c => c.post_id === pid);
+  const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
 
-  // 按时间排序计算楼层号（置顶不影响楼层）
-  const sortedByTime = [...commentsRaw].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+  const commentsRaw = db.prepare(`
+    SELECT c.*,
+      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame
+    FROM comments c
+    LEFT JOIN profiles pr ON pr.id = c.author_id
+    WHERE c.post_id = ?
+    ORDER BY c.created_at ASC
+  `).all(pid);
+
   const floorMap = {};
-  sortedByTime.forEach((c, i) => { floorMap[c.id] = i + 1; });
+  commentsRaw.forEach((c, i) => { floorMap[c.id] = i + 1; });
 
-  // 最终排序：置顶优先，同级按时间
-  const comments = [...commentsRaw].sort((a, b) => {
-    if (a.pinned && !b.pinned) return -1;
-    if (!a.pinned && b.pinned) return 1;
-    return new Date(a.created_at) - new Date(b.created_at);
-  }).map(c => {
-    const author = db.profiles.find(u => u.id === c.author_id);
-    return {
+  const comments = [...commentsRaw]
+    .sort((a, b) => {
+      const ap = intToBool(a.pinned) ? 1 : 0;
+      const bp = intToBool(b.pinned) ? 1 : 0;
+      if (ap !== bp) return bp - ap;
+      return new Date(a.created_at) - new Date(b.created_at);
+    })
+    .map(c => ({
       ...c,
-      author_name: author ? author.username : '未知',
-      author_avatar_url: author ? author.avatar_url || null : null,
-      author_title: author ? author.title || null : null,
-      author_avatar_frame: author ? author.avatar_frame || null : null,
+      images: parseJsonField(c.images, []),
+      pinned: intToBool(c.pinned),
+      author_avatar_url: c.author_avatar_url || null,
+      author_title: c.author_title || null,
+      author_avatar_frame: c.author_avatar_frame || null,
       floor: floorMap[c.id],
       is_post_owner: post ? c.author_id === post.author_id : false
-    };
-  });
+    }));
 
   res.json({ comments, postOwnerId: post ? post.author_id : null });
 });
 
-/** 发表评论（支持图片，最多3张） */
 app.post('/api/posts/:id/comments', requireAuth, requireNotMuted, multerUpload(upload.array('images', 3)), (req, res) => {
   const { content } = req.body;
   if (!content && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ error: '请输入评论内容或上传图片' });
   }
 
-  const db = loadDB();
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-  const comment = {
-    id: db.nextId.comments++,
-    post_id: Number(req.params.id),
-    author_id: req.session.userId,
-    content: content || '',
-    images,
-    pinned: false,
-    created_at: new Date().toISOString()
-  };
-  db.comments.push(comment);
-  saveDB(db);
+  const result = db.prepare(`
+    INSERT INTO comments (post_id, author_id, content, images, created_at)
+    VALUES (?, ?, ?, ?, datetime('now'))
+  `).run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
 
-  res.json({ commentId: comment.id });
+  res.json({ commentId: result.lastInsertRowid });
 });
 
-/** 编辑评论（支持新增/删除图片） */
 app.put('/api/comments/:id', requireAuth, requireNotMuted, multerUpload(upload.array('images', 3)), (req, res) => {
   const { content, removeImages } = req.body;
   if (!content && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ error: '评论不能为空' });
   }
 
-  const db = loadDB();
   const cid = Number(req.params.id);
-  const c = db.comments.find(x => x.id === cid);
+  const c = db.prepare('SELECT * FROM comments WHERE id = ?').get(cid);
   if (!c) return res.status(404).json({ error: '评论不存在' });
   if (c.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的评论' });
 
-  // 删除指定的旧图片
+  let currentImages = parseJsonField(c.images, []);
+
   if (removeImages) {
     let removeList;
     try { removeList = JSON.parse(removeImages); }
     catch (e) { return res.status(400).json({ error: 'removeImages 格式错误' }); }
     removeList.forEach(deleteFile);
-    c.images = (c.images || []).filter(u => !removeList.includes(u));
+    currentImages = currentImages.filter(u => !removeList.includes(u));
   }
 
-  // 添加新上传的图片
   if (req.files && req.files.length > 0) {
     const newImages = req.files.map(f => '/uploads/' + f.filename);
-    c.images = [...(c.images || []), ...newImages];
+    currentImages = [...currentImages, ...newImages];
   }
 
-  if (content) c.content = content;
-  saveDB(db);
+  db.prepare('UPDATE comments SET content = ?, images = ? WHERE id = ?')
+    .run(content || c.content, JSON.stringify(currentImages), cid);
 
   res.json({ ok: true });
 });
 
-/** 删除评论（作者或帖主可操作） */
 app.delete('/api/comments/:id', requireAuth, (req, res) => {
-  const db = loadDB();
   const cid = Number(req.params.id);
-  const idx = db.comments.findIndex(x => x.id === cid);
-  if (idx === -1) return res.status(404).json({ error: '评论不存在' });
+  const c = db.prepare('SELECT * FROM comments WHERE id = ?').get(cid);
+  if (!c) return res.status(404).json({ error: '评论不存在' });
 
-  const c = db.comments[idx];
-  const post = db.posts.find(p => p.id === c.post_id);
+  const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(c.post_id);
   const isPostOwner = post && post.author_id === req.session.userId;
 
-  // 权限校验：评论作者 或 帖主 或 管理员
-  const user = db.profiles.find(u => u.id === req.session.userId);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
   const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
   if (c.author_id !== req.session.userId && !isPostOwner && !isAdmin) {
     return res.status(403).json({ error: '只能删除自己的评论或自己帖子下的评论' });
   }
 
-  deleteImages(c.images);
-  db.comments.splice(idx, 1);
-  saveDB(db);
+  deleteImages(parseJsonField(c.images, []));
+  db.prepare('DELETE FROM comments WHERE id = ?').run(cid);
 
   res.json({ ok: true });
 });
 
-/** 帖主置顶/取消置顶评论 */
 app.put('/api/comments/:id/pin', requireAuth, (req, res) => {
-  const db = loadDB();
   const cid = Number(req.params.id);
-  const c = db.comments.find(x => x.id === cid);
+  const c = db.prepare('SELECT * FROM comments WHERE id = ?').get(cid);
   if (!c) return res.status(404).json({ error: '评论不存在' });
 
-  const post = db.posts.find(p => p.id === c.post_id);
+  const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(c.post_id);
   if (!post || post.author_id !== req.session.userId) {
     return res.status(403).json({ error: '只有帖主可以置顶评论' });
   }
 
-  c.pinned = !c.pinned;
-  saveDB(db);
-  res.json({ ok: true, pinned: c.pinned });
+  const newPinned = intToBool(c.pinned) ? 0 : 1;
+  db.prepare('UPDATE comments SET pinned = ? WHERE id = ?').run(newPinned, cid);
+  res.json({ ok: true, pinned: intToBool(newPinned) });
 });
 
 // ============================================================
-// 签到 API（基于 phppi561 的时区安全实现）
-// 日期统一用 'YYYY-MM-DD' 字符串运算，避免时区偏差
+// 签到 API
 // ============================================================
 
-/** 日期工具函数 */
-function dateStr(d) { return new Date(d).toLocaleDateString('sv-SE'); }
-function todayStr() { return dateStr(new Date()); }
-
-/** 日期加减天数（纯字符串运算，UTC 避免时区问题） */
-function addDays(dateStrIn, n) {
-  const [y, m, d] = dateStrIn.split('-').map(Number);
-  return new Date(Date.UTC(y, m - 1, d + n)).toISOString().slice(0, 10);
-}
-
-/** 两个日期之间的天数差 */
-function daysBetween(a, b) {
-  return Math.floor((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
-}
-
-/**
- * 计算连续签到天数
- * - current：当前连续天数（今天未签则从昨天起算，避免当天未签就断签）
- * - longest：历史最长连续天数
- * - total：累计签到总天数
- */
-function calcStreaks(checkinDates) {
-  if (!checkinDates.length) return { current: 0, longest: 0, total: 0 };
-
-  const sorted = [...checkinDates].sort();
-  const dateSet = new Set(sorted);
-  let current = 0, longest = 0, streak = 0;
-
-  // 当前连续天数
-  const today = todayStr();
-  let d = dateSet.has(today) ? today : addDays(today, -1);
-  while (dateSet.has(d)) { current++; d = addDays(d, -1); }
-
-  // 最长连续天数
-  for (let i = 0; i < sorted.length; i++) {
-    if (i === 0 || daysBetween(sorted[i - 1], sorted[i]) === 1) streak++;
-    else streak = 1;
-    longest = Math.max(longest, streak);
-  }
-
-  return { current, longest, total: sorted.length };
-}
-
-/** 获取今日签到状态 */
 app.get('/api/checkin/today', (req, res) => {
   if (!req.session.userId) return res.json({ checkedIn: false });
-  const db = loadDB();
   const today = todayStr();
-  const found = db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today);
+  const found = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    .get(req.session.userId, today);
   res.json({ checkedIn: !!found });
 });
 
-/**
- * 获取签到历史（365天日历 + 统计 + 可补签日期）
- * 返回：checkinDates, currentStreak, longestStreak, totalDays, missedDays, points
- */
 app.get('/api/checkin/history', (req, res) => {
   const empty = { checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 };
   if (!req.session.userId) return res.json(empty);
 
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user) return res.json(empty);
 
   const today = todayStr();
@@ -687,13 +544,12 @@ app.get('/api/checkin/history', (req, res) => {
   const yearAgo = addDays(today, -364);
   const startDate = regDate > yearAgo ? regDate : yearAgo;
 
-  const userCheckins = db.check_ins.filter(c => c.user_id === req.session.userId).map(c => c.check_in_date);
+  const userCheckins = db.prepare('SELECT check_in_date FROM check_ins WHERE user_id = ?')
+    .all(req.session.userId).map(c => c.check_in_date);
   const checkinSet = new Set(userCheckins);
 
-  // 365天内已签到日期
   const checkinDates = userCheckins.filter(d => d >= yearAgo);
 
-  // 可补签日期：注册日到昨天之间，未签到的日期
   const yesterday = addDays(today, -1);
   const missedDays = [];
   let d = startDate;
@@ -716,90 +572,72 @@ app.get('/api/checkin/history', (req, res) => {
   });
 });
 
-/** 补签（消耗积分补签注册日至昨天的未签日期） */
 app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
   const { date } = req.body;
   if (!date) return res.status(400).json({ error: '请指定补签日期' });
 
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
   const today = todayStr();
   const regDate = dateStr(user.created_at).slice(0, 10);
   const cost = 10;
 
-  // 校验：注册日 ≤ 日期 < 今天
   if (date < regDate || date >= today) {
     return res.status(400).json({ error: '只能补签注册日至昨天的日期' });
   }
-  // 校验：不能重复签到
-  if (db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === date)) {
-    return res.status(400).json({ error: '该日期已签到' });
-  }
-  // 校验：积分是否足够
+  const exists = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    .get(req.session.userId, date);
+  if (exists) return res.status(400).json({ error: '该日期已签到' });
   if ((user.points || 0) < cost) {
     return res.status(400).json({ error: `积分不足，补签需要 ${cost} 积分，当前 ${user.points || 0} 积分` });
   }
 
-  // 扣积分 + 写入签到记录
-  user.points -= cost;
-  db.check_ins.push({
-    id: db.nextId.check_ins++,
-    user_id: req.session.userId,
-    check_in_date: date,
-    retroactive: true,
-    created_at: new Date().toISOString()
+  const doRetroactive = db.transaction(() => {
+    db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(cost, req.session.userId);
+    db.prepare('INSERT INTO check_ins (user_id, check_in_date, retroactive, created_at) VALUES (?, ?, 1, datetime(\'now\'))')
+      .run(req.session.userId, date);
   });
-  saveDB(db);
+  doRetroactive();
 
-  res.json({ ok: true, points: user.points, date });
+  const updatedUser = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
+  res.json({ ok: true, points: updatedUser.points, date });
 });
 
-/** 自动签到（页面加载时静默调用，已签到则跳过） */
 app.post('/api/checkin/auto', requireAuth, (req, res) => {
-  const db = loadDB();
   const today = todayStr();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user) return res.json({ checkedIn: false, points: 0 });
 
-  // 检查今天是否已签到
-  const already = db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today);
+  const already = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    .get(req.session.userId, today);
   if (already) return res.json({ checkedIn: true, points: user.points, newCheckin: false });
 
-  // 新签到：写入记录 + 加积分
-  db.check_ins.push({
-    id: db.nextId.check_ins++,
-    user_id: req.session.userId,
-    check_in_date: today,
-    created_at: new Date().toISOString()
+  const doCheckin = db.transaction(() => {
+    db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
+      .run(req.session.userId, today);
+    db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
   });
-  user.points = (user.points || 0) + 10;
-  saveDB(db);
+  doCheckin();
 
-  res.json({ checkedIn: true, points: user.points, newCheckin: true });
+  const updatedUser = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
+  res.json({ checkedIn: true, points: updatedUser.points, newCheckin: true });
 });
 
-/** 手动签到（保留兼容，主要用 /api/checkin/auto） */
 app.post('/api/checkin', requireAuth, (req, res) => {
-  const db = loadDB();
   const today = todayStr();
+  const exists = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    .get(req.session.userId, today);
+  if (exists) return res.status(400).json({ error: '今天已经签到过了' });
 
-  if (db.check_ins.find(c => c.user_id === req.session.userId && c.check_in_date === today)) {
-    return res.status(400).json({ error: '今天已经签到过了' });
-  }
-
-  db.check_ins.push({
-    id: db.nextId.check_ins++,
-    user_id: req.session.userId,
-    check_in_date: today,
-    created_at: new Date().toISOString()
+  const doCheckin = db.transaction(() => {
+    db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
+      .run(req.session.userId, today);
+    db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
   });
+  doCheckin();
 
-  const user = db.profiles.find(p => p.id === req.session.userId);
-  if (user) user.points = (user.points || 0) + 10;
-  saveDB(db);
-
+  const user = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
   res.json({ ok: true, points: user ? user.points : 0 });
 });
 
@@ -807,40 +645,24 @@ app.post('/api/checkin', requireAuth, (req, res) => {
 // 点赞 API
 // ============================================================
 
-/** 获取当前用户点赞的帖子 ID 列表 */
 app.get('/api/likes', (req, res) => {
   if (!req.session.userId) return res.json({ ids: [] });
-  const db = loadDB();
-  const ids = db.post_likes.filter(l => l.user_id === req.session.userId).map(l => l.post_id);
+  const ids = db.prepare('SELECT post_id FROM post_likes WHERE user_id = ?').all(req.session.userId).map(l => l.post_id);
   res.json({ ids });
 });
 
-/** 点赞帖子 */
 app.post('/api/like/:postId', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.postId);
+  const exists = db.prepare('SELECT id FROM post_likes WHERE post_id = ? AND user_id = ?').get(pid, req.session.userId);
+  if (exists) return res.status(400).json({ error: '已点赞' });
 
-  if (db.post_likes.find(l => l.post_id === pid && l.user_id === req.session.userId)) {
-    return res.status(400).json({ error: '已点赞' });
-  }
-
-  db.post_likes.push({
-    id: db.nextId.post_likes++,
-    post_id: pid,
-    user_id: req.session.userId,
-    created_at: new Date().toISOString()
-  });
-  saveDB(db);
-
+  db.prepare('INSERT INTO post_likes (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))').run(pid, req.session.userId);
   res.json({ ok: true });
 });
 
-/** 取消点赞 */
 app.delete('/api/like/:postId', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.postId);
-  db.post_likes = db.post_likes.filter(l => !(l.post_id === pid && l.user_id === req.session.userId));
-  saveDB(db);
+  db.prepare('DELETE FROM post_likes WHERE post_id = ? AND user_id = ?').run(pid, req.session.userId);
   res.json({ ok: true });
 });
 
@@ -848,66 +670,54 @@ app.delete('/api/like/:postId', requireAuth, (req, res) => {
 // 收藏 API
 // ============================================================
 
-/** 收藏帖子 */
 app.post('/api/bookmark/:postId', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.postId);
-  const post = db.posts.find(p => p.id === pid);
+  const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(pid);
   if (!post) return res.status(404).json({ error: '帖子不存在' });
-  if (db.bookmarks.find(b => b.post_id === pid && b.user_id === req.session.userId)) {
-    return res.status(400).json({ error: '已收藏' });
-  }
-  db.bookmarks.push({
-    id: db.nextId.bookmarks++,
-    post_id: pid,
-    user_id: req.session.userId,
-    created_at: new Date().toISOString()
-  });
-  saveDB(db);
+  const exists = db.prepare('SELECT id FROM bookmarks WHERE post_id = ? AND user_id = ?').get(pid, req.session.userId);
+  if (exists) return res.status(400).json({ error: '已收藏' });
+
+  db.prepare('INSERT INTO bookmarks (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))').run(pid, req.session.userId);
   res.json({ ok: true });
 });
 
-/** 取消收藏 */
 app.delete('/api/bookmark/:postId', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.postId);
-  db.bookmarks = db.bookmarks.filter(b => !(b.post_id === pid && b.user_id === req.session.userId));
-  saveDB(db);
+  db.prepare('DELETE FROM bookmarks WHERE post_id = ? AND user_id = ?').run(pid, req.session.userId);
   res.json({ ok: true });
 });
 
-/** 检查帖子是否已收藏 */
 app.get('/api/bookmark/:postId', requireAuth, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.postId);
-  const isBookmarked = db.bookmarks.some(b => b.post_id === pid && b.user_id === req.session.userId);
-  res.json({ isBookmarked });
+  const found = db.prepare('SELECT id FROM bookmarks WHERE post_id = ? AND user_id = ?').get(pid, req.session.userId);
+  res.json({ isBookmarked: !!found });
 });
 
-/** 获取当前用户收藏列表 */
 app.get('/api/bookmarks', requireAuth, (req, res) => {
-  const db = loadDB();
   const userId = req.session.userId;
-  const userBookmarks = db.bookmarks.filter(b => b.user_id === userId);
-  const posts = userBookmarks
-    .map(b => {
-      const post = db.posts.find(p => p.id === b.post_id);
-      if (!post) return null;
-      const author = db.profiles.find(u => u.id === post.author_id);
-      return {
-        ...post,
-        author_name: author ? author.username : '未知',
-        author_avatar_url: author ? author.avatar_url || null : null,
-        author_title: author ? author.title || null : null,
-        author_avatar_frame: author ? author.avatar_frame || null : null,
-        likes_count: db.post_likes.filter(l => l.post_id === post.id).length,
-        comments_count: db.comments.filter(c => c.post_id === post.id).length,
-        bookmarks_count: db.bookmarks.filter(bk => bk.post_id === post.id).length,
-        bookmarked_at: b.created_at
-      };
-    })
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.bookmarked_at) - new Date(a.bookmarked_at));
+  const rows = db.prepare(`
+    SELECT p.*, b.created_at AS bookmarked_at,
+      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
+      (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
+    FROM bookmarks b
+    JOIN posts p ON p.id = b.post_id
+    LEFT JOIN profiles pr ON pr.id = p.author_id
+    WHERE b.user_id = ?
+    ORDER BY b.created_at DESC
+  `).all(userId);
+
+  const posts = rows.map(p => ({
+    ...p,
+    tags: parseJsonField(p.tags, []),
+    images: parseJsonField(p.images, []),
+    pinned: intToBool(p.pinned),
+    author_avatar_url: p.author_avatar_url || null,
+    author_title: p.author_title || null,
+    author_avatar_frame: p.author_avatar_frame || null
+  }));
   res.json({ posts });
 });
 
@@ -915,144 +725,136 @@ app.get('/api/bookmarks', requireAuth, (req, res) => {
 // 管理员 API
 // ============================================================
 
-/** 用户列表（管理员可看） */
 app.get('/api/admin/users', requireAdmin, (req, res) => {
-  const db = loadDB();
-  const users = db.profiles.map(u => ({
+  const users = db.prepare(`
+    SELECT u.*,
+      (SELECT COUNT(*) FROM posts WHERE author_id = u.id) AS posts_count,
+      (SELECT COUNT(*) FROM comments WHERE author_id = u.id) AS comments_count
+    FROM profiles u
+  `).all().map(u => ({
     id: u.id,
     username: u.username,
     email: u.email,
     points: u.points || 0,
-    muted: !!u.muted,
+    muted: intToBool(u.muted),
     role: u.role || 'user',
     created_at: u.created_at,
-    posts_count: db.posts.filter(p => p.author_id === u.id).length,
-    comments_count: db.comments.filter(c => c.author_id === u.id).length
+    posts_count: u.posts_count,
+    comments_count: u.comments_count
   }));
   res.json({ users });
 });
 
-/** 禁言/取消禁言用户（管理员可操作） */
 app.put('/api/admin/users/:id/mute', requireAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
+  const user = db.prepare('SELECT role, muted FROM profiles WHERE id = ?').get(uid);
   if (!user) return res.status(404).json({ error: '用户不存在' });
-  // 不能禁言超级管理员
   if (user.role === 'super_admin') return res.status(403).json({ error: '不能禁言超级管理员' });
-  user.muted = !user.muted;
-  saveDB(db);
-  res.json({ ok: true, muted: !!user.muted });
+
+  const newMuted = intToBool(user.muted) ? 0 : 1;
+  db.prepare('UPDATE profiles SET muted = ? WHERE id = ?').run(newMuted, uid);
+  res.json({ ok: true, muted: intToBool(newMuted) });
 });
 
-/** 删除用户（管理员可操作，不能删超级管理员） */
 app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const idx = db.profiles.findIndex(u => u.id === uid);
-  if (idx === -1) return res.status(404).json({ error: '用户不存在' });
-  // 不能删除超级管理员
-  if (db.profiles[idx].role === 'super_admin') return res.status(403).json({ error: '不能删除超级管理员' });
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(uid);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+  if (user.role === 'super_admin') return res.status(403).json({ error: '不能删除超级管理员' });
 
-  // 该用户帖子 id 集合
-  const userPostIds = new Set(db.posts.filter(p => p.author_id === uid).map(p => p.id));
+  const deleteUser = db.transaction(() => {
+    const userPosts = db.prepare('SELECT id, images FROM posts WHERE author_id = ?').all(uid);
+    const userPostIds = new Set(userPosts.map(p => p.id));
 
-  // 清理图片文件
-  db.posts.filter(p => p.author_id === uid).forEach(p => deleteImages(p.images));
-  db.comments.forEach(c => {
-    if (c.author_id === uid || userPostIds.has(c.post_id)) deleteImages(c.images);
+    userPosts.forEach(p => deleteImages(parseJsonField(p.images, [])));
+
+    const allComments = db.prepare('SELECT id, images, post_id FROM comments WHERE author_id = ?').all(uid);
+    allComments.forEach(c => deleteImages(parseJsonField(c.images, [])));
+
+    const postRelatedComments = db.prepare('SELECT id, images FROM comments WHERE post_id IN (SELECT id FROM posts WHERE author_id = ?)').all(uid);
+    postRelatedComments.forEach(c => deleteImages(parseJsonField(c.images, [])));
+
+    db.prepare('DELETE FROM posts WHERE author_id = ?').run(uid);
+    db.prepare('DELETE FROM comments WHERE author_id = ?').run(uid);
+    db.prepare('DELETE FROM post_likes WHERE user_id = ?').run(uid);
+    db.prepare('DELETE FROM bookmarks WHERE user_id = ?').run(uid);
+    db.prepare('DELETE FROM check_ins WHERE user_id = ?').run(uid);
+    db.prepare('DELETE FROM profiles WHERE id = ?').run(uid);
   });
+  deleteUser();
 
-  // 删除相关数据
-  db.posts = db.posts.filter(p => p.author_id !== uid);
-  db.comments = db.comments.filter(c => c.author_id !== uid && !userPostIds.has(c.post_id));
-  db.post_likes = db.post_likes.filter(l => l.user_id !== uid && !userPostIds.has(l.post_id));
-  db.bookmarks = db.bookmarks.filter(b => b.user_id !== uid && !userPostIds.has(b.post_id));
-  db.check_ins = db.check_ins.filter(c => c.user_id !== uid);
-  db.profiles.splice(idx, 1);
-  saveDB(db);
   res.json({ ok: true });
 });
 
-/** 置顶/取消置顶帖子（管理员可操作） */
 app.put('/api/posts/:id/pin', requireAdmin, (req, res) => {
-  const db = loadDB();
   const pid = Number(req.params.id);
-  const post = db.posts.find(p => p.id === pid);
+  const post = db.prepare('SELECT pinned FROM posts WHERE id = ?').get(pid);
   if (!post) return res.status(404).json({ error: '帖子不存在' });
-  post.pinned = !post.pinned;
-  saveDB(db);
-  res.json({ ok: true, pinned: !!post.pinned });
+
+  const newPinned = intToBool(post.pinned) ? 0 : 1;
+  db.prepare('UPDATE posts SET pinned = ? WHERE id = ?').run(newPinned, pid);
+  res.json({ ok: true, pinned: intToBool(newPinned) });
 });
 
-/** 设置用户积分（管理员可操作） */
 app.put('/api/admin/users/:id/points', requireAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
+  const user = db.prepare('SELECT id FROM profiles WHERE id = ?').get(uid);
   if (!user) return res.status(404).json({ error: '用户不存在' });
   const points = Number(req.body.points);
   if (!Number.isFinite(points) || points < 0) return res.status(400).json({ error: '积分必须为非负整数' });
   if (points > 1000000) return res.status(400).json({ error: '积分上限为 1,000,000' });
-  user.points = Math.floor(points);
-  saveDB(db);
-  res.json({ ok: true, points: user.points });
+
+  db.prepare('UPDATE profiles SET points = ? WHERE id = ?').run(Math.floor(points), uid);
+  res.json({ ok: true, points: Math.floor(points) });
 });
 
 // ============================================================
-// 分类管理 API（管理员可操作）
+// 分类管理 API
 // ============================================================
 
-/** 获取所有分类（公开） */
 app.get('/api/categories', (req, res) => {
-  const db = loadDB();
-  const cats = db.categories.sort((a, b) => a.order - b.order);
-  res.json({ categories: cats });
+  const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
+  res.json({ categories: cats.map(c => ({ id: c.id, name: c.name, label: c.label, color: c.color, order: c.sort_order })) });
 });
 
-/** 创建分类（管理员） */
 app.post('/api/categories', requireAdmin, (req, res) => {
   const { name, label, color } = req.body;
   if (!name || !label) return res.status(400).json({ error: '请填写分类标识和名称' });
-  const db = loadDB();
-  if (db.categories.find(c => c.name === name)) return res.status(400).json({ error: '分类标识已存在' });
-  const cat = {
-    id: db.nextId.categories++,
-    name: name.slice(0, 20),
-    label,
-    color: color || 'bg-gray-100 text-gray-700',
-    order: db.categories.length + 1
-  };
-  db.categories.push(cat);
-  saveDB(db);
-  res.json({ ok: true, category: cat });
+  const exists = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
+  if (exists) return res.status(400).json({ error: '分类标识已存在' });
+
+  const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM categories').get();
+  const order = (maxOrder.m || 0) + 1;
+
+  const result = db.prepare(`
+    INSERT INTO categories (name, label, color, sort_order) VALUES (?, ?, ?, ?)
+  `).run(name.slice(0, 20), label, color || 'bg-gray-100 text-gray-700', order);
+
+  res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, color: color || 'bg-gray-100 text-gray-700', order } });
 });
 
-/** 编辑分类（管理员） */
 app.put('/api/categories/:id', requireAdmin, (req, res) => {
   const { label, color, order } = req.body;
-  const db = loadDB();
   const cid = Number(req.params.id);
-  const cat = db.categories.find(c => c.id === cid);
+  const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
   if (!cat) return res.status(404).json({ error: '分类不存在' });
-  if (label) cat.label = label;
-  if (color) cat.color = color;
-  if (order !== undefined) cat.order = Number(order);
-  saveDB(db);
-  res.json({ ok: true, category: cat });
+
+  db.prepare('UPDATE categories SET label = ?, color = ?, sort_order = ? WHERE id = ?')
+    .run(label || cat.label, color || cat.color, order !== undefined ? Number(order) : cat.sort_order, cid);
+
+  res.json({ ok: true, category: { id: cid, name: cat.name, label: label || cat.label, color: color || cat.color, order: order !== undefined ? Number(order) : cat.sort_order } });
 });
 
-/** 删除分类（管理员，帖子归为 uncategorized） */
 app.delete('/api/categories/:id', requireAdmin, (req, res) => {
-  const db = loadDB();
   const cid = Number(req.params.id);
-  const idx = db.categories.findIndex(c => c.id === cid);
-  if (idx === -1) return res.status(404).json({ error: '分类不存在' });
-  const catName = db.categories[idx].name;
-  // 删除的分类下帖子归为 'uncategorized'
-  db.posts.forEach(p => { if (p.category === catName) p.category = 'uncategorized'; });
-  db.categories.splice(idx, 1);
-  saveDB(db);
+  const cat = db.prepare('SELECT name FROM categories WHERE id = ?').get(cid);
+  if (!cat) return res.status(404).json({ error: '分类不存在' });
+
+  db.transaction(() => {
+    db.prepare('UPDATE posts SET category = ? WHERE category = ?').run('uncategorized', cat.name);
+    db.prepare('DELETE FROM categories WHERE id = ?').run(cid);
+  })();
+
   res.json({ ok: true });
 });
 
@@ -1060,45 +862,37 @@ app.delete('/api/categories/:id', requireAdmin, (req, res) => {
 // 超级管理员专属 API
 // ============================================================
 
-/** 授予管理员权限（仅超级管理员） */
 app.put('/api/superadmin/grant-admin/:id', requireSuperAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(uid);
   if (!user) return res.status(404).json({ error: '用户不存在' });
   if (user.role === 'super_admin') return res.status(400).json({ error: '不能修改超级管理员角色' });
-  user.role = 'admin';
-  saveDB(db);
+
+  db.prepare('UPDATE profiles SET role = ? WHERE id = ?').run('admin', uid);
   res.json({ ok: true, role: 'admin' });
 });
 
-/** 撤销管理员权限（仅超级管理员） */
 app.put('/api/superadmin/revoke-admin/:id', requireSuperAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(uid);
   if (!user) return res.status(404).json({ error: '用户不存在' });
   if (user.role === 'super_admin') return res.status(400).json({ error: '不能修改超级管理员角色' });
-  user.role = 'user';
-  saveDB(db);
+
+  db.prepare('UPDATE profiles SET role = ? WHERE id = ?').run('user', uid);
   res.json({ ok: true, role: 'user' });
 });
 
-/** 转让超级管理员权限（仅超级管理员，转让后自己降为普通用户） */
 app.put('/api/superadmin/transfer/:id', requireSuperAdmin, (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const target = db.profiles.find(u => u.id === uid);
+  const target = db.prepare('SELECT * FROM profiles WHERE id = ?').get(uid);
   if (!target) return res.status(404).json({ error: '目标用户不存在' });
   if (target.role === 'super_admin') return res.status(400).json({ error: '对方已是超级管理员' });
 
-  // 当前超级管理员降为普通用户
-  const currentAdmin = db.profiles.find(u => u.id === req.session.userId);
-  if (currentAdmin) currentAdmin.role = 'user';
+  db.transaction(() => {
+    db.prepare('UPDATE profiles SET role = ? WHERE id = ?').run('user', req.session.userId);
+    db.prepare('UPDATE profiles SET role = ? WHERE id = ?').run('super_admin', uid);
+  })();
 
-  // 目标用户升级为超级管理员
-  target.role = 'super_admin';
-  saveDB(db);
   res.json({ ok: true, message: `已将超级管理员转让给 ${target.username}` });
 });
 
@@ -1106,14 +900,12 @@ app.put('/api/superadmin/transfer/:id', requireSuperAdmin, (req, res) => {
 // 标签 API
 // ============================================================
 
-/** 获取所有已使用的标签（去重，按使用次数排序） */
 app.get('/api/tags', (req, res) => {
-  const db = loadDB();
+  const rows = db.prepare('SELECT tags FROM posts WHERE tags IS NOT NULL AND tags != \'[]\'').all();
   const tagCount = {};
-  db.posts.forEach(p => {
-    if (p.tags && Array.isArray(p.tags)) {
-      p.tags.forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; });
-    }
+  rows.forEach(r => {
+    const tags = parseJsonField(r.tags, []);
+    tags.forEach(t => { tagCount[t] = (tagCount[t] || 0) + 1; });
   });
   const tags = Object.entries(tagCount)
     .sort((a, b) => b[1] - a[1])
@@ -1125,94 +917,72 @@ app.get('/api/tags', (req, res) => {
 // 积分商店 API
 // ============================================================
 
-/** 获取商品列表 */
 app.get('/api/shop/items', (req, res) => {
-  const db = loadDB();
-  const items = db.shop_items.filter(item => item.enabled);
+  const items = db.prepare('SELECT * FROM shop_items WHERE enabled = 1').all();
   res.json({ items });
 });
 
-/** 获取用户兑换记录 */
 app.get('/api/shop/orders', requireAuth, (req, res) => {
-  const db = loadDB();
   const userId = req.session.userId;
-  const orders = db.shop_orders
-    .filter(o => o.user_id === userId)
-    .map(o => {
-      const item = db.shop_items.find(i => i.id === o.item_id);
-      return {
-        ...o,
-        item_name: item ? item.name : '未知商品',
-        item_icon: item ? item.icon : '❓'
-      };
-    })
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at));
+  const orders = db.prepare(`
+    SELECT o.*, si.name AS item_name, si.icon AS item_icon
+    FROM shop_orders o
+    LEFT JOIN shop_items si ON si.id = o.item_id
+    WHERE o.user_id = ?
+    ORDER BY o.created_at DESC
+  `).all(userId);
   res.json({ orders });
 });
 
-/** 兑换商品 */
 app.post('/api/shop/exchange', requireAuth, (req, res) => {
-  const db = loadDB();
   const userId = req.session.userId;
   const itemId = Number(req.body.itemId);
-
   if (!itemId) return res.status(400).json({ error: '缺少商品 ID' });
 
-  const item = db.shop_items.find(i => i.id === itemId && i.enabled);
+  const item = db.prepare('SELECT * FROM shop_items WHERE id = ? AND enabled = 1').get(itemId);
   if (!item) return res.status(404).json({ error: '商品不存在或已下架' });
   if (item.stock === 0) return res.status(400).json({ error: '商品已售罄' });
 
-  const user = db.profiles.find(u => u.id === userId);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
   if ((user.points || 0) < item.price) {
     return res.status(400).json({ error: `积分不足，需要 ${item.price} 积分，当前 ${user.points || 0} 积分` });
   }
 
-  // 扣积分
-  user.points -= item.price;
+  const doExchange = db.transaction(() => {
+    db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(item.price, userId);
+    if (item.stock > 0) db.prepare('UPDATE shop_items SET stock = stock - 1 WHERE id = ?').run(item.id);
 
-  // 减库存
-  if (item.stock > 0) item.stock--;
+    db.prepare(`
+      INSERT INTO shop_orders (user_id, item_id, item_name, item_type, price, status, created_at)
+      VALUES (?, ?, ?, ?, ?, 'completed', datetime('now'))
+    `).run(userId, item.id, item.name, item.type, item.price);
 
-  // 兑换记录
-  const order = {
-    id: db.nextId.shop_orders++,
-    user_id: userId,
-    item_id: item.id,
-    item_name: item.name,
-    item_type: item.type,
-    price: item.price,
-    status: 'completed',
-    created_at: new Date().toISOString()
-  };
-  db.shop_orders.push(order);
+    if (item.type === 'rename_card') {
+      db.prepare('UPDATE profiles SET rename_chances = rename_chances + 1 WHERE id = ?').run(userId);
+    } else if (item.type === 'title') {
+      db.prepare('UPDATE profiles SET title = ? WHERE id = ?').run(item.value, userId);
+    } else if (item.type === 'avatar_frame') {
+      db.prepare('UPDATE profiles SET avatar_frame = ? WHERE id = ?').run(item.value === 'none' ? null : item.value, userId);
+    }
+  });
+  doExchange();
 
-  // 处理商品效果
-  if (item.type === 'rename_card') {
-    user.rename_chances = (user.rename_chances || 0) + 1;
-  } else if (item.type === 'title') {
-    user.title = item.value;
-  } else if (item.type === 'avatar_frame') {
-    user.avatar_frame = item.value === 'none' ? null : item.value;
-  }
-
-  saveDB(db);
+  const updatedUser = db.prepare('SELECT points, rename_chances, title, avatar_frame FROM profiles WHERE id = ?').get(userId);
   res.json({
     ok: true,
     message: `成功兑换 ${item.name}`,
-    order,
-    points: user.points || 0,
-    rename_chances: user.rename_chances || 0,
-    title: user.title || null,
-    avatar_frame: user.avatar_frame || null
+    order: { item_id: item.id, item_name: item.name, item_type: item.type, price: item.price },
+    points: updatedUser.points || 0,
+    rename_chances: updatedUser.rename_chances || 0,
+    title: updatedUser.title || null,
+    avatar_frame: updatedUser.avatar_frame || null
   });
 });
 
-/** 获取商品详情 */
 app.get('/api/shop/items/:id', (req, res) => {
-  const db = loadDB();
   const itemId = Number(req.params.id);
-  const item = db.shop_items.find(i => i.id === itemId && i.enabled);
+  const item = db.prepare('SELECT * FROM shop_items WHERE id = ? AND enabled = 1').get(itemId);
   if (!item) return res.status(404).json({ error: '商品不存在' });
   res.json({ item });
 });
@@ -1221,20 +991,15 @@ app.get('/api/shop/items/:id', (req, res) => {
 // 个人资料 API
 // ============================================================
 
-/** 获取用户公开资料（支持隐私控制） */
 app.get('/api/users/:id', (req, res) => {
-  const db = loadDB();
   const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(uid);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
   const isOwner = req.session.userId === uid;
-  const isAdmin = (() => {
-    const me = db.profiles.find(p => p.id === req.session.userId);
-    return me && (me.role === 'admin' || me.role === 'super_admin');
-  })();
+  const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
+  const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
 
-  // 基础信息（任何人可见）
   const publicData = {
     id: user.id,
     username: user.username,
@@ -1243,20 +1008,18 @@ app.get('/api/users/:id', (req, res) => {
     title: user.title || null,
     avatar_frame: user.avatar_frame || null,
     created_at: user.created_at,
-    posts_count: db.posts.filter(p => p.author_id === uid).length,
-    comments_count: db.comments.filter(c => c.author_id === uid).length
+    posts_count: db.prepare('SELECT COUNT(*) AS c FROM posts WHERE author_id = ?').get(uid).c,
+    comments_count: db.prepare('SELECT COUNT(*) AS c FROM comments WHERE author_id = ?').get(uid).c
   };
 
-  // 隐私资料（仅本人或管理员可见，或 profile_public 为 true）
-  if (isOwner || isAdmin || user.profile_public !== false) {
+  if (isOwner || isAdmin || intToBool(user.profile_public)) {
     publicData.bio = user.bio || '';
     publicData.location = user.location || '';
     publicData.website = user.website || '';
     publicData.points = user.points || 0;
-    publicData.profile_public = user.profile_public !== false;
+    publicData.profile_public = intToBool(user.profile_public);
   }
 
-  // 本人可见邮箱
   if (isOwner) {
     publicData.email = user.email;
   }
@@ -1264,111 +1027,118 @@ app.get('/api/users/:id', (req, res) => {
   res.json({ user: publicData });
 });
 
-/** 修改个人资料（需登录，支持头像上传） */
 app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req, res) => {
   const { username, bio, location, website, profile_public } = req.body;
-  const db = loadDB();
-  const user = db.profiles.find(p => p.id === req.session.userId);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
-  // 用户名修改（需检查唯一性 + 改名卡）
-  if (username && username !== user.username) {
-    // 校验改名卡
-    if ((user.rename_chances || 0) <= 0) {
-      return res.status(400).json({ error: '改名卡不足，请先在积分商店兑换' });
+  const updateProfile = db.transaction(() => {
+    let newUsername = user.username;
+    let newRenameChances = user.rename_chances || 0;
+
+    if (username && username !== user.username) {
+      if (newRenameChances <= 0) {
+        throw new Error('改名卡不足，请先在积分商店兑换');
+      }
+      const nameExists = db.prepare('SELECT id FROM profiles WHERE username = ? AND id != ?').get(username, user.id);
+      if (nameExists) throw new Error('用户名已被占用');
+      newRenameChances--;
+      newUsername = username;
     }
-    if (db.profiles.find(p => p.username === username && p.id !== user.id)) {
-      return res.status(400).json({ error: '用户名已被占用' });
+
+    const newBio = bio !== undefined ? bio.slice(0, 200) : user.bio;
+    const newLocation = location !== undefined ? location : user.location;
+    const newWebsite = website !== undefined ? website : user.website;
+    const newProfilePublic = profile_public !== undefined ? boolToInt(profile_public === 'true' || profile_public === true) : user.profile_public;
+
+    let newAvatarUrl = user.avatar_url;
+    if (req.file) {
+      if (user.avatar_url) deleteFile(user.avatar_url);
+      newAvatarUrl = '/uploads/' + req.file.filename;
     }
-    user.rename_chances--;
-    user.username = username;
-  }
 
-  // 简介
-  if (bio !== undefined) user.bio = bio.slice(0, 200);
+    db.prepare(`
+      UPDATE profiles SET username = ?, bio = ?, location = ?, website = ?,
+      profile_public = ?, avatar_url = ?, rename_chances = ? WHERE id = ?
+    `).run(newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, user.id);
 
-  // 所在地
-  if (location !== undefined) user.location = location;
-
-  // 个人网站
-  if (website !== undefined) user.website = website;
-
-  // 隐私设置
-  if (profile_public !== undefined) user.profile_public = profile_public === 'true' || profile_public === true;
-
-  // 头像上传
-  if (req.file) {
-    // 删除旧头像
-    if (user.avatar_url) deleteFile(user.avatar_url);
-    user.avatar_url = '/uploads/' + req.file.filename;
-  }
-
-  saveDB(db);
-  res.json({
-    ok: true,
-    user: {
-      id: user.id, username: user.username, email: user.email,
-      avatar_url: user.avatar_url, bio: user.bio,
-      location: user.location, website: user.website,
-      profile_public: user.profile_public, points: user.points || 0,
-      title: user.title || null,
-      avatar_frame: user.avatar_frame || null,
-      rename_chances: user.rename_chances || 0
-    }
+    return { newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances };
   });
-});
 
-/** 获取某用户的帖子列表 */
-app.get('/api/users/:id/posts', (req, res) => {
-  const db = loadDB();
-  const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
-  if (!user) return res.status(404).json({ error: '用户不存在' });
-
-  const posts = db.posts
-    .filter(p => p.author_id === uid)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .map(p => ({
-      ...p,
-      author_name: user.username,
-      author_avatar_url: user.avatar_url || null,
-      author_title: user.title || null,
-      author_avatar_frame: user.avatar_frame || null,
-      likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
-      comments_count: db.comments.filter(c => c.post_id === p.id).length
-    }));
-
-  res.json({ posts });
-});
-
-/** 获取某用户点赞的帖子列表 */
-app.get('/api/users/:id/likes', (req, res) => {
-  const db = loadDB();
-  const uid = Number(req.params.id);
-  const user = db.profiles.find(u => u.id === uid);
-  if (!user) return res.status(404).json({ error: '用户不存在' });
-
-  const likedIds = db.post_likes.filter(l => l.user_id === uid).map(l => l.post_id);
-  const posts = likedIds
-    .map(pid => db.posts.find(p => p.id === pid))
-    .filter(Boolean)
-    .sort((a, b) => new Date(b.created_at) - new Date(a.created_at))
-    .map(p => {
-      const author = db.profiles.find(u => u.id === p.author_id);
-      return {
-        ...p,
-        author_name: author ? author.username : '未知',
-        author_avatar_url: author ? author.avatar_url || null : null,
-        author_title: author ? author.title || null : null,
-        author_avatar_frame: author ? author.avatar_frame || null : null,
-        likes_count: db.post_likes.filter(l => l.post_id === p.id).length,
-        comments_count: db.comments.filter(c => c.post_id === p.id).length
-      };
+  try {
+    const result = updateProfile();
+    const updated = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    res.json({
+      ok: true,
+      user: {
+        id: updated.id, username: updated.username, email: updated.email,
+        avatar_url: updated.avatar_url, bio: updated.bio,
+        location: updated.location, website: updated.website,
+        profile_public: intToBool(updated.profile_public), points: updated.points || 0,
+        title: updated.title || null,
+        avatar_frame: updated.avatar_frame || null,
+        rename_chances: updated.rename_chances || 0
+      }
     });
+  } catch (e) {
+    res.status(400).json({ error: e.message });
+  }
+});
+
+app.get('/api/users/:id/posts', (req, res) => {
+  const uid = Number(req.params.id);
+  const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(uid);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+
+  const posts = db.prepare(`
+    SELECT p.*,
+      (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count
+    FROM posts p
+    WHERE p.author_id = ?
+    ORDER BY p.created_at DESC
+  `).all(uid).map(p => ({
+    ...p,
+    tags: parseJsonField(p.tags, []),
+    images: parseJsonField(p.images, []),
+    pinned: intToBool(p.pinned),
+    author_name: user.username,
+    author_avatar_url: user.avatar_url || null,
+    author_title: user.title || null,
+    author_avatar_frame: user.avatar_frame || null
+  }));
 
   res.json({ posts });
 });
 
+app.get('/api/users/:id/likes', (req, res) => {
+  const uid = Number(req.params.id);
+  const user = db.prepare('SELECT id FROM profiles WHERE id = ?').get(uid);
+  if (!user) return res.status(404).json({ error: '用户不存在' });
+
+  const posts = db.prepare(`
+    SELECT p.*,
+      pr.username AS author_name, pr.avatar_url AS author_avatar_url,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
+      (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count
+    FROM post_likes pl
+    JOIN posts p ON p.id = pl.post_id
+    LEFT JOIN profiles pr ON pr.id = p.author_id
+    WHERE pl.user_id = ?
+    ORDER BY pl.created_at DESC
+  `).all(uid).map(p => ({
+    ...p,
+    tags: parseJsonField(p.tags, []),
+    images: parseJsonField(p.images, []),
+    pinned: intToBool(p.pinned),
+    author_avatar_url: p.author_avatar_url || null,
+    author_title: p.author_title || null,
+    author_avatar_frame: p.author_avatar_frame || null
+  }));
+
+  res.json({ posts });
+});
 
 // ============================================================
 // 服务器启动（端口被占用时自动杀旧进程）
@@ -1402,5 +1172,8 @@ function startServer() {
     }
   });
 }
+
+process.on('SIGINT', () => { closeDb(); process.exit(0); });
+process.on('SIGTERM', () => { closeDb(); process.exit(0); });
 
 startServer();

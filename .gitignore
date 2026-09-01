@@ -1,5 +1,9 @@
 node_modules/
 db.json
+*.db
+*.db-shm
+*.db-wal
+*.sqlite
 uploads/
 webforum-testproject-main/
 webforum-testproject-main.zip

@@ -1,6 +1,6 @@
 # MiForum
 
-Flarum 风格的轻量论坛，Node.js + Express 后端，JSON 文件数据库，开箱即用。
+Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开箱即用。
 
 ## 灵感来源
 
@@ -52,7 +52,7 @@ npm start
 
 - **前端**: HTML + Tailwind CSS (CDN) + 原生 JavaScript
 - **后端**: Node.js + Express.js + bcryptjs + express-session + multer
-- **数据库**: JSON 文件存储（`db.json`，零配置）
+- **数据库**: SQLite（better-sqlite3，单文件存储，支持事务）
 
 ## 项目结构
 
@@ -62,116 +62,44 @@ npm start
 ├── profile.html      # 个人资料页（头像裁剪、编辑资料、TA的帖子/点赞/收藏）
 ├── shop.html         # 积分商店（称号、头像框、改名卡兑换）
 ├── server.js         # 后端 REST API
+├── database.js       # SQLite 数据库模块
+├── migrate.js        # 数据迁移脚本（JSON → SQLite）
+├── tailwind.css      # 本地 Tailwind CSS（27KB）
 ├── package.json      # 依赖声明
-├── schema.sql        # Supabase PostgreSQL schema（备用）
-├── db.json           # 运行时数据库（自动生成，已 gitignore）
+├── API.md            # API 文档
+├── CHANGELOG.md      # 更新日志
+├── data.db           # SQLite 数据库文件（自动生成，已 gitignore）
 ├── uploads/          # 上传的图片（已 gitignore）
 └── .gitignore
 ```
 
 ## API
 
-### 认证
+详见 [API.md](./API.md)
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| POST | `/api/register` | 注册（username, email, password） |
-| POST | `/api/login` | 登录（email, password） |
-| POST | `/api/logout` | 退出 |
-| GET | `/api/me` | 当前用户信息（含 avatar_url, bio, role, title, avatar_frame, rename_chances） |
+**API 概览**
 
-### 个人资料
+| 模块 | 接口数 | 说明 |
+|------|--------|------|
+| 认证 | 4 | 注册、登录、退出、当前用户 |
+| 帖子 | 6 | CRUD、列表、置顶 |
+| 评论 | 5 | CRUD、楼层、置顶 |
+| 签到 | 5 | 自动签到、历史、补签 |
+| 点赞 | 3 | 点赞、取消、列表 |
+| 收藏 | 4 | 收藏、取消、检查、列表 |
+| 标签 | 1 | 热门标签 |
+| 分类 | 4 | CRUD |
+| 用户 | 4 | 资料、修改、帖子、点赞 |
+| 管理员 | 7 | 禁言、删用户、设积分、授权 |
+| 商店 | 3 | 商品、兑换、订单 |
 
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/users/:id` | 用户公开资料（隐私控制） |
-| PUT | `/api/profile` | 修改资料（FormData: avatar, username, bio, location, website, profile_public） |
-| GET | `/api/users/:id/posts` | 用户帖子列表 |
-| GET | `/api/users/:id/likes` | 用户点赞列表 |
-
-### 帖子
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/posts` | 帖子列表（?category=&search=） |
-| GET | `/api/posts/:id` | 单个帖子详情 |
-| POST | `/api/posts` | 发帖（FormData: images[], title, content, category） |
-| PUT | `/api/posts/:id` | 编辑帖子（FormData: images[], removeImages） |
-| DELETE | `/api/posts/:id` | 删除帖子（级联删除评论和图片） |
-| PUT | `/api/posts/:id/pin` | 置顶/取消置顶帖子（管理员） |
-
-### 评论
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/posts/:id/comments` | 评论列表（含楼层号、置顶排序） |
-| POST | `/api/posts/:id/comments` | 发评论（FormData: images[], content） |
-| PUT | `/api/comments/:id` | 编辑评论（FormData: images[], removeImages） |
-| DELETE | `/api/comments/:id` | 删除评论（作者或帖主或管理员） |
-| PUT | `/api/comments/:id/pin` | 置顶/取消置顶评论（仅帖主） |
-
-### 签到
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/checkin/today` | 今日签到状态 |
-| GET | `/api/checkin/history` | 签到历史（365天日历+统计+可补签日期） |
-| POST | `/api/checkin` | 手动签到（+10积分） |
-| POST | `/api/checkin/auto` | 自动签到（页面加载时调用） |
-| POST | `/api/checkin/retroactive` | 补签（body: {date}，-10积分） |
-
-### 点赞与收藏
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/likes` | 当前用户点赞的帖子 ID 列表 |
-| POST | `/api/like/:id` | 点赞 |
-| DELETE | `/api/like/:id` | 取消点赞 |
-| GET | `/api/bookmarks` | 当前用户收藏列表 |
-| GET | `/api/bookmark/:id` | 检查是否已收藏 |
-| POST | `/api/bookmark/:id` | 收藏 |
-| DELETE | `/api/bookmark/:id` | 取消收藏 |
-
-### 标签
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/tags` | 热门标签（按使用次数排序） |
-
-### 分类
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/categories` | 获取所有分类（公开） |
-| POST | `/api/categories` | 创建分类（管理员） |
-| PUT | `/api/categories/:id` | 编辑分类（管理员） |
-| DELETE | `/api/categories/:id` | 删除分类（管理员） |
-
-### 管理员
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/admin/users` | 用户列表 |
-| PUT | `/api/admin/users/:id/mute` | 禁言/取消禁言 |
-| DELETE | `/api/admin/users/:id` | 删除用户（级联删除） |
-| PUT | `/api/admin/users/:id/points` | 设置用户积分（管理员） |
-| PUT | `/api/superadmin/grant-admin/:id` | 授予管理员（超管） |
-| PUT | `/api/superadmin/revoke-admin/:id` | 撤销管理员（超管） |
-| PUT | `/api/superadmin/transfer/:id` | 转让超管（超管） |
-
-### 积分商店
-
-| 方法 | 路径 | 说明 |
-|------|------|------|
-| GET | `/api/shop/items` | 获取商品列表 |
-| POST | `/api/shop/exchange` | 兑换商品（自动设置称号/头像框/改名卡） |
-| GET | `/api/shop/orders` | 兑换记录 |
+**共计 46 个 API 接口**
 
 ## 更新日志
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
-**最新版本 v0.7.0** — 积分商店系统（称号、头像框、改名卡）、头像框预览
+**最新版本 v0.8.0** — SQLite 数据库迁移、Tailwind CSS 本地化
 
 ## 贡献者
 

@@ -4,15 +4,9 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>MiForum - 现代微论坛</title>
-<script src="https://cdn.tailwindcss.com"></script>
-<script>
-tailwind.config = {
-  theme: { extend: { colors: { primary: { 50:'#eef2ff',100:'#e0e7ff',200:'#c7d2fe',300:'#a5b4fc',400:'#818cf8',500:'#6366f1',600:'#4f46e5',700:'#4338ca' } } } }
-}
-</script>
+<link rel="stylesheet" href="tailwind.css">
 <style>
-  @import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
-  *{font-family:'Inter',system-ui,-apple-system,sans-serif}
+  *{font-family:system-ui,-apple-system,"Microsoft YaHei","PingFang SC",sans-serif}
   body{background:#f0f2f5}
   .fade-in{animation:fadeIn .2s ease-out}
   @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
