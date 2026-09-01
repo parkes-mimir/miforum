@@ -142,6 +142,12 @@ npm start
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
+### v0.5.2 (2026-09-01)
+
+- 收藏功能（帖子列表/详情页收藏按钮，TA的收藏 Tab）
+- 收藏 API（POST/DELETE/GET /api/bookmark）
+- Bug 修复（收藏按钮、Tab 结构）
+
 ### v0.5.1 (2026-09-01) — 贡献者: jxwzx
 
 - 收藏功能（帖子列表/详情页收藏按钮，TA的收藏 Tab）
