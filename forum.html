@@ -219,10 +219,10 @@ tailwind.config = {
     <div id="categoryList" class="flex-1 overflow-y-auto space-y-2 mb-4"></div>
     <div class="border-t border-gray-100 pt-4 space-y-2">
       <p class="text-xs font-medium text-gray-500">添加新分类</p>
-      <div class="flex gap-2">
-        <input id="newCatName" type="text" class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标识（英文）">
-        <input id="newCatLabel" type="text" class="flex-1 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="显示名">
-        <button onclick="createCategory()" class="px-3 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">添加</button>
+      <div class="flex gap-2 items-center">
+        <input id="newCatName" type="text" class="w-24 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标识">
+        <input id="newCatLabel" type="text" class="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="显示名">
+        <button onclick="createCategory()" class="shrink-0 px-3 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">添加</button>
       </div>
     </div>
   </div>
@@ -866,7 +866,7 @@ function renderPosts() {
               ${p.comments_count || 0}
             </span>
             <button onclick="event.stopPropagation();toggleBookmark(${p.id})" class="flex items-center gap-1 text-xs ${state.bookmarkedIds.has(p.id) ? 'text-yellow-500' : 'text-gray-400'} hover:text-yellow-500 transition" title="收藏">
-              <svg class="w-4 h-4" fill="${state.bookmarkedIds.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+              <svg class="w-4 h-4" fill="${state.bookmarkedIds.has(p.id) ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
             </button>
           </div>
         </div>
@@ -1252,14 +1252,20 @@ async function deleteCategory(id, name) {
 }
 
 // ============================================================
-// 页面初始化（恢复登录状态 → 加载分类 → 自动签到 → 加载帖子）
+// 页面初始化（恢复登录状态 → 加载分类 → 自动签到 → 加载帖子 → 读取URL筛选参数）
 // ============================================================
 (async () => {
   try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
   renderAuth();
   await loadCategories();
   await loadCheckin();
+  // 读取 URL 参数自动筛选
+  const params = new URLSearchParams(window.location.search);
+  const cat = params.get('category');
+  const tag = params.get('tag');
   await loadPosts();
+  if (cat && CAT_MAP[cat]) filterCategory(cat);
+  if (tag) filterByTag(tag);
 })();
 </script>
 </body>
