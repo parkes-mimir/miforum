@@ -327,10 +327,16 @@ app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('
 
   const db = loadDB();
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-  // 解析标签：JSON 数组字符串或逗号分隔
+  // 解析标签：JSON 数组字符串、逗号分隔字符串、或原生数组
   let parsedTags = [];
-  try { parsedTags = tags ? JSON.parse(tags) : []; } catch(e) { parsedTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []; }
-  parsedTags = [...new Set(parsedTags.map(t => t.slice(0, 20)))].slice(0, 10); // 去重，限长，最多10个
+  if (tags) {
+    if (Array.isArray(tags)) {
+      parsedTags = tags;
+    } else if (typeof tags === 'string') {
+      try { parsedTags = JSON.parse(tags); } catch(e) { parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean); }
+    }
+  }
+  parsedTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
 
   const post = {
     id: db.nextId.posts++,
@@ -385,8 +391,12 @@ app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.arra
   // 更新标签
   if (tags !== undefined) {
     let parsedTags = [];
-    try { parsedTags = tags ? JSON.parse(tags) : []; } catch(e) { parsedTags = tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : []; }
-    post.tags = [...new Set(parsedTags.map(t => t.slice(0, 20)))].slice(0, 10);
+    if (Array.isArray(tags)) {
+      parsedTags = tags;
+    } else if (typeof tags === 'string') {
+      try { parsedTags = JSON.parse(tags); } catch(e) { parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean); }
+    }
+    post.tags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
   }
   post.updated_at = new Date().toISOString();
   saveDB(db);
