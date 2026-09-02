@@ -127,6 +127,7 @@
     <div class="p-5 sm:p-6">
       <h2 class="text-base font-semibold mb-4">评论 <span id="commentCount2" class="text-gray-400 font-normal"></span></h2>
       <div id="commentList" class="space-y-4 mb-6"></div>
+      <div id="commentPagination"></div>
 
       <!-- Comment Form -->
       <div id="commentForm" class="hidden">
@@ -648,19 +649,21 @@ async function togglePinPost() {
 // ============================================================
 
 /** 加载评论列表 */
-async function loadComments(pid) {
-  const { comments, postOwnerId } = await api('/api/posts/' + pid + '/comments');
+async function loadComments(pid, page = 1) {
+  const { comments, postOwnerId, pagination } = await api('/api/posts/' + pid + '/comments?page=' + page + '&limit=50');
   commentsDataCache = comments;
-  renderComments(comments, postOwnerId);
+  renderComments(comments, postOwnerId, pagination);
 }
 
 /** 渲染评论列表（含楼层号、楼主标签、置顶、编辑删除按钮） */
-function renderComments(cl, postOwnerId) {
-  document.getElementById('commentCount').textContent = cl.length;
-  document.getElementById('commentCount2').textContent = '(' + cl.length + ')';
+function renderComments(cl, postOwnerId, pagination) {
+  const total = pagination ? pagination.total : cl.length;
+  document.getElementById('commentCount').textContent = total;
+  document.getElementById('commentCount2').textContent = '(' + total + ')';
 
   if (!cl.length) {
     document.getElementById('commentList').innerHTML = '<p class="text-sm text-gray-400 text-center py-8">暂无评论，快来抢沙发吧</p>';
+    document.getElementById('commentPagination').innerHTML = '';
   } else {
     document.getElementById('commentList').innerHTML = cl.map(c => {
       const own = state.user && c.author_id === state.user.id;
@@ -688,6 +691,29 @@ function renderComments(cl, postOwnerId) {
         </div>
       </div>`;
     }).join('');
+
+    // 翻页控件
+    if (pagination && pagination.pages > 1) {
+      const { page, pages } = pagination;
+      let html = '<div class="flex items-center justify-center gap-2 mt-4">';
+      if (page > 1) {
+        html += `<button onclick="loadComments(${state.post.id}, ${page - 1})" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>`;
+      }
+      for (let i = 1; i <= pages; i++) {
+        if (i === page) {
+          html += `<button class="w-8 h-8 text-sm bg-primary-600 text-white rounded-lg">${i}</button>`;
+        } else {
+          html += `<button onclick="loadComments(${state.post.id}, ${i})" class="w-8 h-8 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">${i}</button>`;
+        }
+      }
+      if (page < pages) {
+        html += `<button onclick="loadComments(${state.post.id}, ${page + 1})" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>`;
+      }
+      html += '</div>';
+      document.getElementById('commentPagination').innerHTML = html;
+    } else {
+      document.getElementById('commentPagination').innerHTML = '';
+    }
   }
 
   // 登录状态显示评论表单

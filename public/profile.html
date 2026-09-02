@@ -150,10 +150,13 @@
     <!-- Tab Content -->
     <div class="p-4 sm:p-5">
       <div id="tabContentPosts" class="space-y-3"></div>
+      <div id="tabContentPostsPagination"></div>
       <div id="tabContentPostsEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无帖子</p></div>
       <div id="tabContentLikes" class="hidden space-y-3"></div>
+      <div id="tabContentLikesPagination"></div>
       <div id="tabContentLikesEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无点赞</p></div>
       <div id="tabContentBookmarks" class="hidden space-y-3"></div>
+      <div id="tabContentBookmarksPagination"></div>
       <div id="tabContentBookmarksEmpty" class="hidden text-center py-10"><p class="text-sm text-gray-400">暂无收藏</p></div>
     </div>
   </div>
@@ -445,14 +448,14 @@ function switchProfileTab(tab) {
   else if (tab === 'bookmarks') loadUserBookmarks(profileUid);
 }
 
-function renderPostCards(posts, containerId, emptyId) {
+function renderPostCards(posts, containerId, emptyId, pagination, uid, type) {
   const el = document.getElementById(containerId);
   const empty = document.getElementById(emptyId);
   if (!posts.length) { el.innerHTML = ''; empty.classList.remove('hidden'); return; }
   empty.classList.add('hidden');
   el.innerHTML = posts.map(p => {
     const hasImgs = p.images && p.images.length > 0;
-    return `<div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" onclick="window.open('/post.html?id=${p.id}','_blank')">
+    return `<div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" onclick="location.href='/post.html?id=${p.id}'">
       <div class="flex items-center gap-2 mb-1 flex-wrap">
         <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
         <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category]||'bg-gray-100 text-gray-600'}">${CAT_MAP[p.category]}</span>
@@ -467,6 +470,32 @@ function renderPostCards(posts, containerId, emptyId) {
       </div>
     </div>`;
   }).join('');
+
+  // 翻页控件
+  const paginationEl = document.getElementById(containerId + 'Pagination');
+  if (!paginationEl) return;
+
+  if (pagination && pagination.pages > 1) {
+    const { page, pages } = pagination;
+    let html = '<div class="flex items-center justify-center gap-2 mt-4">';
+    if (page > 1) {
+      html += `<button onclick="loadUser${type === 'bookmarks' ? 'Bookmarks' : type === 'likes' ? 'Likes' : 'Posts'}(${uid}, ${page - 1})" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>`;
+    }
+    for (let i = 1; i <= pages; i++) {
+      if (i === page) {
+        html += `<button class="w-8 h-8 text-sm bg-primary-600 text-white rounded-lg">${i}</button>`;
+      } else {
+        html += `<button onclick="loadUser${type === 'bookmarks' ? 'Bookmarks' : type === 'likes' ? 'Likes' : 'Posts'}(${uid}, ${i})" class="w-8 h-8 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">${i}</button>`;
+      }
+    }
+    if (page < pages) {
+      html += `<button onclick="loadUser${type === 'bookmarks' ? 'Bookmarks' : type === 'likes' ? 'Likes' : 'Posts'}(${uid}, ${page + 1})" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>`;
+    }
+    html += '</div>';
+    paginationEl.innerHTML = html;
+  } else {
+    paginationEl.innerHTML = '';
+  }
 }
 
 // ===== 渲染等级卡 =====
@@ -598,16 +627,16 @@ function createParticle(container, anchorPct, color) {
 }
 
 // ===== Load User Posts =====
-async function loadUserPosts(uid) {
-  const { posts } = await api('/api/users/' + uid + '/posts');
-  renderPostCards(posts, 'tabContentPosts', 'tabContentPostsEmpty');
+async function loadUserPosts(uid, page = 1) {
+  const { posts, pagination } = await api('/api/users/' + uid + '/posts?page=' + page + '&limit=20');
+  renderPostCards(posts, 'tabContentPosts', 'tabContentPostsEmpty', pagination, uid, 'posts');
 }
 
 // ===== Load User Likes =====
-async function loadUserLikes(uid) {
+async function loadUserLikes(uid, page = 1) {
   try {
-    const { posts } = await api('/api/users/' + uid + '/likes');
-    renderPostCards(posts, 'tabContentLikes', 'tabContentLikesEmpty');
+    const { posts, pagination } = await api('/api/users/' + uid + '/likes?page=' + page + '&limit=20');
+    renderPostCards(posts, 'tabContentLikes', 'tabContentLikesEmpty', pagination, uid, 'likes');
   } catch(e) {
     document.getElementById('tabContentLikes').innerHTML = '';
     document.getElementById('tabContentLikesEmpty').classList.remove('hidden');
@@ -615,10 +644,10 @@ async function loadUserLikes(uid) {
 }
 
 // ===== Load User Bookmarks =====
-async function loadUserBookmarks(uid) {
+async function loadUserBookmarks(uid, page = 1) {
   try {
-    const { posts } = await api('/api/bookmarks');
-    renderPostCards(posts, 'tabContentBookmarks', 'tabContentBookmarksEmpty');
+    const { posts, pagination } = await api('/api/bookmarks?page=' + page + '&limit=20');
+    renderPostCards(posts, 'tabContentBookmarks', 'tabContentBookmarksEmpty', pagination, uid, 'bookmarks');
   } catch(e) {
     document.getElementById('tabContentBookmarks').innerHTML = '';
     document.getElementById('tabContentBookmarksEmpty').classList.remove('hidden');
