@@ -301,7 +301,10 @@
         <input id="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
       </div>
     </div>
-    <button onclick="doChangePassword()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+    <div class="flex gap-3">
+      <button onclick="hideChangePasswordModal()" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">返回</button>
+      <button onclick="doChangePassword()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+    </div>
   </div>
 </div>
 
