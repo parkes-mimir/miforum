@@ -1,7 +1,10 @@
-const { requireAuth, requireAdmin, requireSuperAdmin } = require('../middleware/auth');
+const { requireAuth, requireAdmin: requireAdminFactory, requireSuperAdmin: requireSuperAdminFactory } = require('../middleware/auth');
 const { deleteImages, intToBool, parseJsonField } = require('../utils/helpers');
 
 module.exports = function (app, db) {
+  const requireAdmin = requireAdminFactory(db);
+  const requireSuperAdmin = requireSuperAdminFactory(db);
+
   app.get('/api/admin/status', requireAuth, (req, res) => {
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
     const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
