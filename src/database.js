@@ -182,6 +182,12 @@ function createTables() {
   ensureColumn('profiles', 'title', 'TEXT');
   ensureColumn('profiles', 'avatar_frame', 'TEXT');
   ensureColumn('profiles', 'force_password_change', 'INTEGER DEFAULT 0');
+
+  // 迁移：更新超管 display_id 从 '000' 到 '000000'
+  const admin = db.prepare("SELECT id, display_id FROM profiles WHERE email = 'root@miforum.local'").get();
+  if (admin && admin.display_id === '000') {
+    db.prepare("UPDATE profiles SET display_id = '000000' WHERE id = ?").run(admin.id);
+  }
 }
 
 /**
@@ -202,14 +208,14 @@ function ensureColumn(table, column, definition) {
  * 初始化默认数据
  */
 function initDefaultData() {
-  // 初始化超级管理员（display_id 固定为 '000'，首次登录需改密）
+  // 初始化超级管理员（display_id 固定为 '000000'，首次登录需改密）
   const adminExists = db.prepare('SELECT id FROM profiles WHERE email = ?').get('root@miforum.local');
   if (!adminExists) {
     const hash = bcrypt.hashSync('123456', 10);
     db.prepare(`
       INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, force_password_change)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run('000', '超级管理员', 'root@miforum.local', hash, 'super_admin', 1, 1);
+    `).run('000000', '超级管理员', 'root@miforum.local', hash, 'super_admin', 1, 1);
   }
 
   // 初始化默认商品
@@ -250,22 +256,22 @@ function getDb() {
 }
 
 /**
- * 生成下一个用户 display_id（001-999）
- * @returns {string} 三位数ID
+ * 生成下一个用户 display_id（000001-999999）
+ * @returns {string} 六位数ID
  */
 function getNextDisplayId() {
   const row = db.prepare(`
     SELECT display_id FROM profiles 
-    WHERE display_id != '000' 
+    WHERE display_id != '000000' 
     ORDER BY CAST(display_id AS INTEGER) DESC 
     LIMIT 1
   `).get();
   
-  if (!row) return '001';
+  if (!row) return '000001';
   
   const nextNum = parseInt(row.display_id, 10) + 1;
-  if (nextNum > 999) throw new Error('用户数量已达上限（999）');
-  return String(nextNum).padStart(3, '0');
+  if (nextNum > 999999) throw new Error('用户数量已达上限（999999）');
+  return String(nextNum).padStart(6, '0');
 }
 
 /**
