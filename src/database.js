@@ -187,6 +187,9 @@ function createTables() {
   if (admin && admin.display_id === '000') {
     db.prepare("UPDATE profiles SET display_id = '000000' WHERE id = ?").run(admin.id);
   }
+
+  // 禁用已废弃的「无头像框」商品
+  db.prepare("UPDATE shop_items SET enabled = 0 WHERE value = 'none' AND type = 'avatar_frame'").run();
 }
 
 /**
