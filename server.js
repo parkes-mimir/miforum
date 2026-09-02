@@ -55,13 +55,21 @@ const upload = multer({
 // ============================================================
 // 辅助函数
 // ============================================================
+
+/** 安全删除文件（防止路径遍历攻击） */
 function deleteFile(url) {
+  if (!url || typeof url !== 'string') return;
+  // 只允许删除 uploads 目录下的文件
   const filePath = path.join(__dirname, url);
-  if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
+  const resolved = path.resolve(filePath);
+  const uploadsDir = path.resolve(UPLOADS_DIR);
+  if (!resolved.startsWith(uploadsDir + path.sep)) return;
+  if (fs.existsSync(resolved)) fs.unlinkSync(resolved);
 }
 
+/** 批量删除图片文件 */
 function deleteImages(images) {
-  if (images && images.length > 0) images.forEach(deleteFile);
+  if (images && Array.isArray(images)) images.forEach(deleteFile);
 }
 
 function parseJsonField(val, fallback) {
@@ -82,11 +90,18 @@ app.use('/uploads', express.static(UPLOADS_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
 app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
 
+// Session 配置（安全加固）
+const crypto = require('crypto');
+const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
 app.use(session({
-  secret: 'miforum-' + Math.random().toString(36).slice(2),
+  secret: SESSION_SECRET,
   resave: false,
   saveUninitialized: false,
-  cookie: { maxAge: 7 * 24 * 60 * 60 * 1000 }
+  cookie: {
+    maxAge: 7 * 24 * 60 * 60 * 1000,
+    httpOnly: true,      // 防止 JS 读取
+    sameSite: 'lax'      // 防止 CSRF
+  }
 }));
 
 function requireAuth(req, res, next) {
@@ -114,7 +129,8 @@ function requireSuperAdmin(req, res, next) {
 
 function requireNotMuted(req, res, next) {
   const user = db.prepare('SELECT muted FROM profiles WHERE id = ?').get(req.session.userId);
-  if (user && intToBool(user.muted)) return res.status(403).json({ error: '你已被禁言，暂时无法发布内容' });
+  if (!user) return res.status(401).json({ error: '用户不存在' });
+  if (intToBool(user.muted)) return res.status(403).json({ error: '你已被禁言，暂时无法发布内容' });
   next();
 }
 
@@ -170,6 +186,11 @@ function calcStreaks(checkinDates) {
 app.post('/api/register', async (req, res) => {
   const { username, email, password } = req.body;
   if (!username || !email || !password) return res.status(400).json({ error: '请填写所有字段' });
+  
+  // 输入校验
+  if (username.length < 2 || username.length > 20) return res.status(400).json({ error: '用户名 2-20 字' });
+  if (!/^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/.test(username)) return res.status(400).json({ error: '用户名含非法字符' });
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
   if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
 
   const existsEmail = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
@@ -444,6 +465,10 @@ app.post('/api/posts/:id/comments', requireAuth, requireNotMuted, multerUpload(u
   if (!content && (!req.files || req.files.length === 0)) {
     return res.status(400).json({ error: '请输入评论内容或上传图片' });
   }
+
+  // 检查帖子是否存在
+  const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(Number(req.params.id));
+  if (!post) return res.status(404).json({ error: '帖子不存在' });
 
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
   const result = db.prepare(`
@@ -725,6 +750,13 @@ app.get('/api/bookmarks', requireAuth, (req, res) => {
 // ============================================================
 // 管理员 API
 // ============================================================
+
+/** 获取当前用户管理员状态 */
+app.get('/api/admin/status', requireAuth, (req, res) => {
+  const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
+  const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+  res.json({ isAdmin });
+});
 
 app.get('/api/admin/users', requireAdmin, (req, res) => {
   const users = db.prepare(`
