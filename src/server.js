@@ -16,11 +16,27 @@ const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
+const os = require('os');
 const { execSync } = require('child_process');
 const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { getDb, closeDb } = require('./database');
 const { UPLOADS_DIR } = require('./utils/helpers');
+
+/**
+ * 获取本机局域网 IP
+ */
+function getLocalIp() {
+  const interfaces = os.networkInterfaces();
+  for (const name of Object.keys(interfaces)) {
+    for (const iface of interfaces[name]) {
+      if (iface.family === 'IPv4' && !iface.internal) {
+        return iface.address;
+      }
+    }
+  }
+  return 'localhost';
+}
 
 // ============================================================
 // 创建 Express 应用
@@ -125,7 +141,10 @@ function startServer() {
   registerRoutes(app, db);
 
   const server = app.listen(PORT, '0.0.0.0', () => {
-    console.log(`\n  MiForum 运行在 http://0.0.0.0:${PORT}\n`);
+    const ip = getLocalIp();
+    console.log(`\n  MiForum 运行在:`);
+    console.log(`  本地: http://localhost:${PORT}`);
+    console.log(`  网络: http://${ip}:${PORT}\n`);
   });
 
   server.on('error', (err) => {
