@@ -519,18 +519,31 @@ async function loadProfile() {
 
     // Privacy check
     const isOwner = state.user && state.user.id === user.id;
-    if (user.profile_public === false && !isOwner) {
+    const isPrivate = user.profile_public === false;
+    
+    if (isPrivate && !isOwner) {
+      // 私密资料：隐藏所有详细信息
       document.getElementById('profileBioSection').classList.add('hidden');
       document.getElementById('profileMeta').classList.add('hidden');
       document.getElementById('profileStats').classList.add('hidden');
       document.getElementById('profilePrivate').classList.remove('hidden');
+      document.getElementById('tabLikes').classList.add('hidden');
+      document.getElementById('tabBookmarks').classList.add('hidden');
     } else {
+      // 公开资料或本人查看
       document.getElementById('profilePrivate').classList.add('hidden');
       document.getElementById('profileStats').classList.remove('hidden');
-      // Stats
       document.getElementById('statPosts').textContent = user.posts_count;
       document.getElementById('statComments').textContent = user.comments_count;
       document.getElementById('statPoints').textContent = user.points || 0;
+      // 只有本人可以查看点赞和收藏
+      if (isOwner) {
+        document.getElementById('tabLikes').classList.remove('hidden');
+        document.getElementById('tabBookmarks').classList.remove('hidden');
+      } else {
+        document.getElementById('tabLikes').classList.add('hidden');
+        document.getElementById('tabBookmarks').classList.add('hidden');
+      }
     }
 
     // 活跃度等级 / 经验值
