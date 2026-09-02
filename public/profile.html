@@ -258,7 +258,11 @@
           <button onclick="selectFrame('', this)" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition">无边框</button>
         </div>
         <p class="text-xs text-gray-400 mt-1">在积分商店购买头像框后可在此更换</p>
-      </div>      <button onclick="saveProfile()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
+      </div>
+      <div class="flex gap-2">
+        <button onclick="showChangePasswordModal()" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">修改密码</button>
+        <button onclick="saveProfile()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
+      </div>
     </div>
   </div>
 </div>
@@ -429,8 +433,7 @@ function renderAuth() {
       <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
       <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
       ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
-      <button onclick="showChangePasswordModal()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">修改密码</button>
-      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600">退出</button>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     </div>`;
   } else {
     a.innerHTML = `<a href="/" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</a>`;

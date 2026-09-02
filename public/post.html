@@ -454,8 +454,7 @@ function renderAuth() {
         ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8')}
         <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
       </a>
-      <button onclick="showChangePasswordModal()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">修改密码</button>
-      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600">退出</button>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     </div>`;
   } else {
     a.innerHTML = '<button onclick="showAuthModal()" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>';

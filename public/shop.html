@@ -224,7 +224,6 @@ function renderAuth() {
     area.innerHTML = `
       <span class="text-sm text-gray-600">${esc(state.user.username)}</span>
       <a href="/profile.html?id=${state.user.id}" class="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition">个人中心</a>
-      <button onclick="showChangePasswordModal()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition">修改密码</button>
       <button onclick="logout()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition">退出</button>
     `;
   } else {
