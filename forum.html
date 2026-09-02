@@ -842,6 +842,7 @@ function renderPosts() {
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
+            ${p.author_level_info ? `<span class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none" style="background:${p.author_level_info.badge_bg};" title="活跃度 Lv${p.author_level_info.level} · ${p.author_level_info.stage_name}">${p.author_level_info.icon}Lv${p.author_level_info.level}</span>` : ''}
             <span class="text-xs text-gray-400">#${esc(p.author_display_id)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
             <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'} cursor-pointer hover:opacity-80 transition" onclick="event.stopPropagation();filterCategory('${esc(p.category)}')">${esc(CAT_MAP[p.category] || p.category)}</span>

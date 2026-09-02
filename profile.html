@@ -57,10 +57,13 @@
     <!-- Hero -->
     <div class="bg-gradient-to-br from-primary-500 to-primary-700 p-6 sm:p-8">
       <div class="flex items-end gap-4">
-        <div id="profileAvatar" class="w-20 h-20 rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white border-4 border-white/30"></div>
+        <div id="profileAvatarWrap" class="w-20 h-20 rounded-full p-0.5">
+          <div id="profileAvatar" class="w-full h-full rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white border-4 border-white/30 overflow-hidden"></div>
+        </div>
         <div class="flex-1 min-w-0 pb-1">
           <div class="flex items-center gap-2 flex-wrap">
             <h1 id="profileUsername" class="text-xl font-bold text-white"></h1>
+            <span id="profileTitle" class="text-xs px-2 py-0.5 rounded-full hidden"></span>
             <span id="profileDisplayId" class="text-xs text-white/60"></span>
             <span id="profileRole" class="text-xs px-2 py-0.5 rounded-full hidden"></span>
           </div>
@@ -102,6 +105,35 @@
         <div class="bg-gray-50 rounded-xl p-3 text-center">
           <div id="statPoints" class="text-lg font-bold text-primary-600">0</div>
           <div class="text-xs text-gray-500">积分</div>
+        </div>
+      </div>
+
+      <!-- 活跃度等级 / 经验值 -->
+      <div id="profileLevelCard" class="hidden bg-gray-50 rounded-xl p-3">
+        <div class="flex items-center justify-between mb-2">
+          <div class="flex items-center gap-1.5">
+            <span id="levelBadge" class="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full text-white text-[10px] font-bold leading-none"></span>
+            <span class="text-[11px] text-gray-500">Lv<span id="levelNextText">3</span></span>
+          </div>
+          <div class="text-[10px] text-gray-500">
+            <span id="levelExpCurrent" class="font-bold">0</span>
+            <span>/</span>
+            <span id="levelExpNext">100</span>
+            <span class="text-gray-400">EXP</span>
+          </div>
+        </div>
+        <!-- 进度条：薄轨道 + 渐变填充 + 粒子 -->
+        <div id="levelProgressWrap" style="position:relative;margin-top:10px;">
+          <div id="levelProgressTrack" style="width:100%;height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;position:relative;"></div>
+          <div id="levelProgressBar" style="position:absolute;top:0;left:0;height:6px;border-radius:3px;width:0%;overflow:hidden;">
+            <div id="levelProgressFill" style="width:100%;height:100%;border-radius:3px;"></div>
+            <div id="levelProgressShine" style="position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);border-radius:3px;transform:translateX(-100%);"></div>
+          </div>
+          <div id="levelParticles" style="pointer-events:none;position:absolute;top:-9px;left:0;width:100%;height:24px;overflow:visible;"></div>
+        </div>
+        <div class="flex items-center justify-between mt-2 text-[10px] text-gray-400">
+          <span id="levelHint">还需 <span id="levelRemain">88</span> 经验升级</span>
+          <span id="levelMaxed" class="hidden font-medium">已达最高级</span>
         </div>
       </div>
     </div>
@@ -208,7 +240,22 @@
           <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
         </label>
       </div>
-      <button onclick="saveProfile()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
+      <!-- Title -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-2">称号</label>
+        <div id="titleOptions" class="flex flex-wrap gap-2">
+          <button onclick="selectTitle('', this)" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition">无称号</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">在积分商店购买称号后可在此更换</p>
+      </div>
+      <!-- Avatar Frame -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-2">头像框</label>
+        <div id="frameOptions" class="flex flex-wrap gap-2">
+          <button onclick="selectFrame('', this)" class="px-3 py-1.5 text-xs border border-gray-200 rounded-lg hover:bg-gray-50 transition">无边框</button>
+        </div>
+        <p class="text-xs text-gray-400 mt-1">在积分商店购买头像框后可在此更换</p>
+      </div>      <button onclick="saveProfile()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
     </div>
   </div>
 </div>
@@ -296,10 +343,34 @@ async function loadProfile() {
     // Avatar
     const letter = user.username[0].toUpperCase();
     document.getElementById('profileAvatar').innerHTML = renderAvatar(user.avatar_url, letter, 'w-full h-full', '', 'text-white');
+    // Avatar frame：根据 avatar_frame 值切换外层光环样式（用内联 style 避免依赖 tailwind.css 编译）
+    const frameStyles = {
+      gold:   'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
+      silver: 'linear-gradient(135deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
+      blue:   'linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%)',
+      purple: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #7e22ce 100%)'
+    };
+    const wrapEl = document.getElementById('profileAvatarWrap');
+    if (user.avatar_frame && frameStyles[user.avatar_frame]) {
+      wrapEl.style.background = frameStyles[user.avatar_frame];
+      wrapEl.style.padding = '3px';
+    } else {
+      wrapEl.style.background = '';
+      wrapEl.style.padding = '';
+    }
 
     // Username + role
     document.getElementById('profileUsername').textContent = user.username;
     document.getElementById('profileDisplayId').textContent = '#' + user.display_id;
+    // 称号显示
+    const titleEl = document.getElementById('profileTitle');
+    if (user.title) {
+      titleEl.textContent = user.title;
+      titleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30';
+      titleEl.classList.remove('hidden');
+    } else {
+      titleEl.classList.add('hidden');
+    }
     const roleEl = document.getElementById('profileRole');
     if (user.role === 'super_admin') { roleEl.textContent = '超管'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-red-500 text-white'; roleEl.classList.remove('hidden'); }
     else if (user.role === 'admin') { roleEl.textContent = '管理'; roleEl.className = 'text-xs px-2 py-0.5 rounded-full bg-amber-500 text-white'; roleEl.classList.remove('hidden'); }
@@ -335,6 +406,9 @@ async function loadProfile() {
       document.getElementById('statComments').textContent = user.comments_count;
       document.getElementById('statPoints').textContent = user.points || 0;
     }
+
+    // 活跃度等级 / 经验值
+    renderLevelCard(user.level_info);
 
     // Edit button (only for own profile)
     if (isOwner) document.getElementById('editProfileBtn').classList.remove('hidden');
@@ -395,6 +469,134 @@ function renderPostCards(posts, containerId, emptyId) {
   }).join('');
 }
 
+// ===== 渲染等级卡 =====
+function renderLevelCard(info) {
+  const card = document.getElementById('profileLevelCard');
+  if (!info) { card.classList.add('hidden'); return; }
+  card.classList.remove('hidden');
+  const t = info;
+
+  // 等级徽章
+  const badge = document.getElementById('levelBadge');
+  badge.style.background = t.badge_bg;
+  badge.innerHTML = `<span style="font-size:8px;line-height:1;">${t.icon}</span><span>Lv${t.level}</span>`;
+
+  // 语义化经验数字：本级已得 / 本级所需
+  document.getElementById('levelExpCurrent').textContent = t.have;
+  document.getElementById('levelExpNext').textContent = t.need;
+  document.getElementById('levelExpCurrent').style.color = t.accent_color;
+  // 下一级等级号
+  const nextText = document.getElementById('levelNextText');
+  if (t.level >= t.max_level) {
+    nextText.textContent = 'MAX';
+  } else {
+    nextText.textContent = t.next_level;
+  }
+
+  // 进度条：轨道+填充+流动光泽
+  const track = document.getElementById('levelProgressTrack');
+  const bar = document.getElementById('levelProgressBar');
+  const fill = document.getElementById('levelProgressFill');
+  const shine = document.getElementById('levelProgressShine');
+
+  // 轨道（柔和灰，薄，圆角）
+  track.style.background = '#e5e7eb';
+
+  // 填充（渐变）
+  fill.style.background = t.progress_fill;
+  bar.style.width = t.progress + '%';
+
+  // 流动光泽动画（用 CSS keyframes，注入一次）
+  if (!document.getElementById('level-shine-style')) {
+    const s = document.createElement('style');
+    s.id = 'level-shine-style';
+    s.textContent = `@keyframes level-shine { 0%{transform:translateX(-100%)} 100%{transform:translateX(300%)} }`;
+    document.head.appendChild(s);
+  }
+  shine.style.animation = 'level-shine 2.2s ease-in-out infinite';
+
+  // 粒子特效（横向飞）
+  spawnParticles(t);
+
+  // 底部提示
+  const hint = document.getElementById('levelHint');
+  const maxed = document.getElementById('levelMaxed');
+  if (t.level >= t.max_level) {
+    hint.classList.add('hidden');
+    maxed.classList.remove('hidden');
+    maxed.style.color = t.accent_color;
+  } else {
+    hint.classList.remove('hidden');
+    maxed.classList.add('hidden');
+    document.getElementById('levelRemain').textContent = t.remain;
+  }
+}
+
+// 进度条末端粒子横向喷射特效
+let particleTimer = null;
+function spawnParticles(t) {
+  const container = document.getElementById('levelParticles');
+  if (!container) return;
+  container.innerHTML = '';
+
+  const color = t.accent_color || '#3b82f6';
+  const progress = t.progress;
+  const anchorPct = Math.min(progress, 100);
+
+  if (particleTimer) { clearInterval(particleTimer); particleTimer = null; }
+
+  particleTimer = setInterval(() => {
+    if (!document.getElementById('levelParticles') || document.getElementById('levelParticles').parentElement.classList.contains('hidden')) {
+      clearInterval(particleTimer); particleTimer = null; return;
+    }
+    createParticle(container, anchorPct, color);
+  }, 150);
+}
+
+function createParticle(container, anchorPct, color) {
+  // 粒子容器在 levelProgressWrap 里，和 track 同宽
+  const wrapRect = container.parentElement.getBoundingClientRect();
+  const wrapW = wrapRect.width;
+  const anchorX = (anchorPct / 100) * wrapW;
+
+  // 粒子大小 2-3px
+  const size = 2 + Math.random() * 1.5;
+  // 横向：水平向右 -30°~+30° 微发散
+  const angleDeg = Math.random() * 60 - 30; // -30 到 +30
+  const angleRad = angleDeg * Math.PI / 180;
+  const dist = 14 + Math.random() * 14;
+  const dx = Math.cos(angleRad) * dist; // 正为向右
+  const dy = Math.sin(angleRad) * dist; // 小幅上下
+
+  const p = document.createElement('span');
+  p.style.cssText = `
+    position:absolute;
+    left:${anchorX}px;
+    top:50%;
+    width:${size}px;
+    height:${size}px;
+    border-radius:50%;
+    background:${color};
+    box-shadow:0 0 ${size*2}px ${color};
+    pointer-events:none;
+    will-change: transform, opacity;
+  `;
+  container.appendChild(p);
+
+  // 0~800ms 向右飞出去淡出缩小
+  const start = performance.now();
+  const dur = 800;
+  function step(now) {
+    const t = Math.min(1, (now - start) / dur);
+    const ease = t * t;
+    p.style.transform = `translate(calc(-50% + ${dx * ease}px), calc(-50% + ${dy * ease}px)) scale(${1 - ease * 0.7})`;
+    p.style.opacity = (1 - ease).toFixed(2);
+    if (t < 1) requestAnimationFrame(step);
+    else p.remove();
+  }
+  requestAnimationFrame(step);
+}
+
 // ===== Load User Posts =====
 async function loadUserPosts(uid) {
   const { posts } = await api('/api/users/' + uid + '/posts');
@@ -444,6 +646,10 @@ function showEditModal() {
   document.getElementById('avatarCropperWrap').classList.add('hidden');
   document.getElementById('avatarDisplay').classList.remove('hidden');
   editAvatarFile = null;
+  // 初始化已选称号/头像框为当前值，再拉取已购买列表渲染选项
+  selectedTitle = state.profile.title || '';
+  selectedFrame = state.profile.avatar_frame || '';
+  loadUserItems();
   document.getElementById('editModal').classList.remove('hidden');
   document.getElementById('editModal').classList.add('flex');
 }
@@ -659,6 +865,70 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 });
 
+
+// 称号和头像框选择
+let selectedTitle = '';
+let selectedFrame = '';
+
+function selectTitle(title, el) {
+  selectedTitle = title;
+  // 更新按钮样式
+  document.querySelectorAll('#titleOptions button').forEach(btn => {
+    btn.classList.remove('bg-primary-100', 'text-primary-700', 'border-primary-300');
+    btn.classList.add('border-gray-200');
+  });
+  el.classList.remove('border-gray-200');
+  el.classList.add('bg-primary-100', 'text-primary-700', 'border-primary-300');
+}
+
+function selectFrame(frame, el) {
+  selectedFrame = frame;
+  // 更新按钮样式
+  document.querySelectorAll('#frameOptions button').forEach(btn => {
+    btn.classList.remove('bg-primary-100', 'text-primary-700', 'border-primary-300');
+    btn.classList.add('border-gray-200');
+  });
+  el.classList.remove('border-gray-200');
+  el.classList.add('bg-primary-100', 'text-primary-700', 'border-primary-300');
+}
+
+async function loadUserItems() {
+  try {
+    const { orders } = await api('/api/shop/orders');
+    
+    // 获取拥有的称号：用 item_value 作为值，item_name 作为显示名
+    const titles = orders
+      .filter(o => o.item_type === 'title' && o.status === 'completed')
+      .map(o => ({ name: o.item_name, value: o.item_value || o.item_name }));
+    const titleOptions = document.getElementById('titleOptions');
+    if (titles.length > 0) {
+      titleOptions.innerHTML = `<button onclick="selectTitle('', this)" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition ${selectedTitle === '' ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200'}">无称号</button>`;
+      titles.forEach(t => {
+        const active = selectedTitle === t.value ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200';
+        titleOptions.innerHTML += `<button onclick="selectTitle('${t.value}', this)" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition ${active}">${t.name}</button>`;
+      });
+    } else {
+      titleOptions.innerHTML = '<span class="text-xs text-gray-400">暂无称号，前往积分商店兑换</span>';
+    }
+
+    // 获取拥有的头像框：用 item_value 作为值，item_name 作为显示名
+    const frames = orders
+      .filter(o => o.item_type === 'avatar_frame' && o.status === 'completed')
+      .map(o => ({ name: o.item_name, value: o.item_value || o.item_name }));
+    const frameOptions = document.getElementById('frameOptions');
+    if (frames.length > 0) {
+      frameOptions.innerHTML = `<button onclick="selectFrame('', this)" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition ${selectedFrame === '' ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200'}">无边框</button>`;
+      frames.forEach(f => {
+        const active = selectedFrame === f.value ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200';
+        frameOptions.innerHTML += `<button onclick="selectFrame('${f.value}', this)" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition ${active}">${f.name}</button>`;
+      });
+    } else {
+      frameOptions.innerHTML = '<span class="text-xs text-gray-400">暂无头像框，前往积分商店兑换</span>';
+    }
+  } catch (e) {
+    console.error('加载用户物品失败:', e);
+  }
+}
 async function saveProfile() {
   const username = document.getElementById('editUsername').value.trim();
   const bio = document.getElementById('editBio').value.trim();
@@ -675,6 +945,8 @@ async function saveProfile() {
     fd.append('location', location);
     fd.append('website', website);
     fd.append('profile_public', profile_public);
+    fd.append('title', selectedTitle || '');
+    fd.append('avatar_frame', selectedFrame || '');
     // If avatar was cropped, use the cropped blob
     if (editAvatarFile) {
       const cropperVisible = !document.getElementById('avatarCropperWrap').classList.contains('hidden');
@@ -709,3 +981,10 @@ async function saveProfile() {
 </script>
 </body>
 </html>
+
+
+
+
+
+
+

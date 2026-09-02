@@ -56,6 +56,7 @@
         <div>
           <div class="flex items-center gap-2">
             <span id="postAuthor" class="text-sm font-semibold"></span>
+            <span id="postAuthorLevel" class="hidden inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
             <span id="postAuthorId" class="text-xs text-gray-400"></span>
             <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" onclick="window.open('/?category='+encodeURIComponent('${esc(state.post ? state.post.category : '')}'),'_blank')"></span>
             <span id="postTags"></span>
@@ -327,6 +328,19 @@ async function loadPage() {
     document.getElementById('postAvatarLink').href = '/profile.html?id=' + post.author_id;
     document.getElementById('postAuthor').textContent = post.author_name;
     document.getElementById('postAuthorId').textContent = '#' + post.author_display_id;
+    // 作者等级角标
+    const lvlBadge = document.getElementById('postAuthorLevel');
+    if (lvlBadge) {
+      const li = post.author_level_info;
+      if (li) {
+        lvlBadge.style.background = li.badge_bg;
+        lvlBadge.innerHTML = `${li.icon}Lv${li.level}`;
+        lvlBadge.title = `活跃度 Lv${li.level} · ${li.stage_name}`;
+        lvlBadge.classList.remove('hidden');
+      } else {
+        lvlBadge.classList.add('hidden');
+      }
+    }
     document.getElementById('postCategory').className = 'text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition ' + (CAT_COLORS[post.category] || 'bg-gray-100 text-gray-600');
     document.getElementById('postCategory').textContent = CAT_MAP[post.category];
     document.getElementById('postCategory').onclick = () => window.open('/?category=' + encodeURIComponent(post.category), '_blank');

@@ -408,7 +408,7 @@ async function confirmExchange() {
 // ============================================================
 function esc(str) {
   if (!str) return '';
-  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  return str.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#x27;');
 }
 
 function relTime(dateStr) {
@@ -444,3 +444,4 @@ function relTime(dateStr) {
 </script>
 </body>
 </html>
+

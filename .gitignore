@@ -1,8 +1,9 @@
-node_modules/
-db.json
+cookies.txt
 *.db
+db.json
 *.db-shm
 *.db-wal
+node_modules/
 *.sqlite
 uploads/
 webforum-testproject-main/

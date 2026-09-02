@@ -82,10 +82,152 @@ function boolToInt(v) { return v ? 1 : 0; }
 function intToBool(v) { return v === 1 || v === true; }
 
 // ============================================================
+// 活跃度等级 / 经验值
+// ============================================================
+// 升级所需累计经验（索引即等级，level 0 占位，1~10 真实阈值）
+const EXP_LEVELS = [0, 0, 50, 150, 300, 600, 1000, 1500, 2200, 3000, 5000];
+const MAX_LEVEL = 10;
+
+// 各行为获得的经验值
+const EXP_REWARDS = {
+  register: 50,      // 注册
+  signin: 10,        // 签到
+  retroactive: 5,    // 补签
+  post: 20,          // 发帖
+  comment: 5,         // 评论
+  receive_like: 3,    // 收到点赞
+  receive_comment: 2, // 收到评论
+  bookmark: 2        // 收藏帖子
+};
+
+/**
+ * 由累计经验值计算等级（1~10）
+ */
+function getLevel(exp) {
+  let lv = 1;
+  for (let i = 1; i <= MAX_LEVEL; i++) {
+    if (exp >= EXP_LEVELS[i]) lv = i;
+  }
+  return lv;
+}
+
+/**
+ * 等级对应的图标（参考 QQ 星星/月亮/太阳/皇冠）
+ * 1-3：⭐ 星 / 4-6：🌙 月亮 / 7-9：☀️ 太阳 / 10：👑 皇冠
+ */
+function getLevelIcon(level) {
+  if (level >= 10) return '👑';
+  if (level >= 7) return '☀️';
+  if (level >= 4) return '🌙';
+  return '⭐';
+}
+
+/**
+ * 等级阶段配色（不同阶段不同颜色）
+ */
+function getLevelTheme(level) {
+  if (level >= 10) {
+    return {
+      stage: 'crown', stageName: '皇冠',
+      icon: '👑',
+      badgeBg: 'linear-gradient(90deg, #fbbf24 0%, #ef4444 50%, #f59e0b 100%)',
+      badgeText: '#ffffff',
+      cardBg: 'linear-gradient(135deg, #fef3c7 0%, #fee2e2 100%)',
+      cardBorder: '#fcd34d',
+      progressBg: 'rgba(255,255,255,0.7)',
+      progressFill: 'linear-gradient(90deg, #fbbf24 0%, #ef4444 50%, #f59e0b 100%)',
+      accentColor: '#d97706'
+    };
+  }
+  if (level >= 7) {
+    return {
+      stage: 'sun', stageName: '太阳',
+      icon: '☀️',
+      badgeBg: 'linear-gradient(90deg, #fbbf24 0%, #f97316 100%)',
+      badgeText: '#ffffff',
+      cardBg: 'linear-gradient(135deg, #fef3c7 0%, #ffedd5 100%)',
+      cardBorder: '#fcd34d',
+      progressBg: 'rgba(255,255,255,0.7)',
+      progressFill: 'linear-gradient(90deg, #fbbf24 0%, #f97316 100%)',
+      accentColor: '#d97706'
+    };
+  }
+  if (level >= 4) {
+    return {
+      stage: 'moon', stageName: '月亮',
+      icon: '🌙',
+      badgeBg: 'linear-gradient(90deg, #a78bfa 0%, #6366f1 100%)',
+      badgeText: '#ffffff',
+      cardBg: 'linear-gradient(135deg, #ede9fe 0%, #e0e7ff 100%)',
+      cardBorder: '#c4b5fd',
+      progressBg: 'rgba(255,255,255,0.7)',
+      progressFill: 'linear-gradient(90deg, #a78bfa 0%, #6366f1 100%)',
+      accentColor: '#7c3aed'
+    };
+  }
+  return {
+    stage: 'star', stageName: '星星',
+    icon: '⭐',
+    badgeBg: 'linear-gradient(90deg, #93c5fd 0%, #3b82f6 100%)',
+    badgeText: '#ffffff',
+    cardBg: 'linear-gradient(135deg, #dbeafe 0%, #e0f2fe 100%)',
+    cardBorder: '#93c5fd',
+    progressBg: 'rgba(255,255,255,0.7)',
+    progressFill: 'linear-gradient(90deg, #93c5fd 0%, #3b82f6 100%)',
+    accentColor: '#2563eb'
+  };
+}
+
+/**
+ * 计算等级信息：等级、图标、当前等级区间、距下一级差值、进度百分比
+ */
+function getLevelInfo(exp) {
+  const level = getLevel(exp);
+  const curBase = EXP_LEVELS[level];
+  const nextBase = level >= MAX_LEVEL ? EXP_LEVELS[MAX_LEVEL] : EXP_LEVELS[level + 1];
+  const nextLevel = level >= MAX_LEVEL ? MAX_LEVEL : level + 1;
+  const need = nextBase - curBase;           // 当前等级升下一级所需经验
+  const have = exp - curBase;                // 当前等级已得经验
+  const remain = Math.max(0, need - have);   // 距下一级还差多少
+  const progress = need > 0 ? Math.min(100, Math.round(have / need * 100)) : 100;
+  const theme = getLevelTheme(level);
+  return {
+    level, icon: theme.icon,
+    exp, cur_base: curBase, next_base: nextBase, next_level: nextLevel,
+    need, have, remain, progress,
+    max_level: MAX_LEVEL,
+    stage: theme.stage, stage_name: theme.stageName,
+    badge_bg: theme.badgeBg, badge_text: theme.badgeText,
+    card_bg: theme.cardBg, card_border: theme.cardBorder,
+    progress_bg: theme.progressBg, progress_fill: theme.progressFill,
+    accent_color: theme.accentColor
+  };
+}
+
+/**
+ * 给用户增加经验值，返回新经验值
+ */
+function addExp(userId, amount) {
+  if (!Number.isFinite(amount) || amount === 0) return null;
+  db.prepare('UPDATE profiles SET exp = MAX(0, exp + ?) WHERE id = ?').run(amount, userId);
+  const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
+  return u ? u.exp : 0;
+}
+
+// ============================================================
 // 中间件
 // ============================================================
 app.use(express.json());
-app.use(express.static(path.join(__dirname)));
+// HTML 文件禁用缓存，避免浏览器缓存旧版本导致看不到最新修改
+app.use((req, res, next) => {
+  if (req.path.endsWith('.html') || req.path === '/' || req.path === '/shop') {
+    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+    res.setHeader('Pragma', 'no-cache');
+    res.setHeader('Expires', '0');
+  }
+  next();
+});
+app.use(express.static(path.join(__dirname), { etag: false, lastModified: false }));
 app.use('/uploads', express.static(UPLOADS_DIR));
 app.get('/', (req, res) => res.sendFile(path.join(__dirname, 'forum.html')));
 app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, 'shop.html')));
@@ -206,7 +348,10 @@ app.post('/api/register', async (req, res) => {
   `).run(displayId, username, email, hash);
 
   req.session.userId = result.lastInsertRowid;
-  res.json({ user: { id: result.lastInsertRowid, display_id: displayId, username, email, points: 0 } });
+  // 注册送经验
+  addExp(result.lastInsertRowid, EXP_REWARDS.register);
+  const info = getLevelInfo(EXP_REWARDS.register);
+  res.json({ user: { id: result.lastInsertRowid, display_id: displayId, username, email, points: 0, exp: info.exp, level_info: info } });
 });
 
 app.post('/api/login', async (req, res) => {
@@ -242,7 +387,9 @@ app.get('/api/me', (req, res) => {
     points: u.points || 0, muted: intToBool(u.muted), role: u.role || 'user',
     title: u.title || null,
     avatar_frame: u.avatar_frame || null,
-    rename_chances: u.rename_chances || 0
+    rename_chances: u.rename_chances || 0,
+    exp: u.exp || 0,
+    level_info: getLevelInfo(u.exp || 0)
   } });
 });
 
@@ -250,12 +397,35 @@ app.get('/api/me', (req, res) => {
 // 帖子 API
 // ============================================================
 
+// 等级排行榜（前 20 名）
+app.get('/api/leaderboard/level', (req, res) => {
+  const rows = db.prepare(`
+    SELECT id, display_id, username, avatar_url, title, avatar_frame, exp, role
+    FROM profiles
+    WHERE muted = 0
+    ORDER BY exp DESC, id ASC
+    LIMIT 20
+  `).all();
+  res.json({ leaderboard: rows.map((r, i) => ({
+    rank: i + 1,
+    id: r.id,
+    display_id: r.display_id,
+    username: r.username,
+    avatar_url: r.avatar_url || null,
+    title: r.title || null,
+    avatar_frame: r.avatar_frame || null,
+    exp: r.exp || 0,
+    role: r.role || 'user',
+    level_info: getLevelInfo(r.exp || 0)
+  })) });
+});
+
 app.get('/api/posts', (req, res) => {
   const { category, search, tag } = req.query;
   let sql = `
     SELECT p.*,
       pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
-      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame, pr.exp AS author_exp,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
       (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
@@ -288,7 +458,8 @@ app.get('/api/posts', (req, res) => {
     pinned: intToBool(p.pinned),
     author_avatar_url: p.author_avatar_url || null,
     author_title: p.author_title || null,
-    author_avatar_frame: p.author_avatar_frame || null
+    author_avatar_frame: p.author_avatar_frame || null,
+    author_level_info: getLevelInfo(p.author_exp || 0)
   }));
   res.json({ posts });
 });
@@ -298,7 +469,7 @@ app.get('/api/posts/:id', (req, res) => {
   const p = db.prepare(`
     SELECT p.*,
       pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
-      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
+      pr.title AS author_title, pr.avatar_frame AS author_avatar_frame, pr.exp AS author_exp,
       (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count,
       (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
@@ -316,7 +487,8 @@ app.get('/api/posts/:id', (req, res) => {
       pinned: intToBool(p.pinned),
       author_avatar_url: p.author_avatar_url || null,
       author_title: p.author_title || null,
-      author_avatar_frame: p.author_avatar_frame || null
+      author_avatar_frame: p.author_avatar_frame || null,
+      author_level_info: getLevelInfo(p.author_exp || 0)
     }
   });
 });
@@ -343,12 +515,13 @@ app.post('/api/posts', requireAuth, requireNotMuted, multerUpload(upload.array('
     `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
 
     db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
-    const user = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
-    return { postId: result.lastInsertRowid, points: user ? user.points : 0 };
+    addExp(req.session.userId, EXP_REWARDS.post);
+    const user = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
+    return { postId: result.lastInsertRowid, points: user ? user.points : 0, exp: user ? user.exp : 0, level_info: getLevelInfo(user ? user.exp : 0) };
   });
 
   const result = insertPost();
-  res.json({ postId: result.postId, points: result.points });
+  res.json({ postId: result.postId, points: result.points, exp: result.exp, level_info: result.level_info });
 });
 
 app.put('/api/posts/:id', requireAuth, requireNotMuted, multerUpload(upload.array('images', 30)), (req, res) => {
@@ -467,7 +640,7 @@ app.post('/api/posts/:id/comments', requireAuth, requireNotMuted, multerUpload(u
   }
 
   // 检查帖子是否存在
-  const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(Number(req.params.id));
+  const post = db.prepare('SELECT id, author_id FROM posts WHERE id = ?').get(Number(req.params.id));
   if (!post) return res.status(404).json({ error: '帖子不存在' });
 
   const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
@@ -475,6 +648,12 @@ app.post('/api/posts/:id/comments', requireAuth, requireNotMuted, multerUpload(u
     INSERT INTO comments (post_id, author_id, content, images, created_at)
     VALUES (?, ?, ?, ?, datetime('now'))
   `).run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
+
+  // 评论者获得经验，帖子作者获得「被评论」经验
+  addExp(req.session.userId, EXP_REWARDS.comment);
+  if (post.author_id && post.author_id !== req.session.userId) {
+    addExp(post.author_id, EXP_REWARDS.receive_comment);
+  }
 
   res.json({ commentId: result.lastInsertRowid });
 });
@@ -623,11 +802,12 @@ app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
     db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(cost, req.session.userId);
     db.prepare('INSERT INTO check_ins (user_id, check_in_date, retroactive, created_at) VALUES (?, ?, 1, datetime(\'now\'))')
       .run(req.session.userId, date);
+    addExp(req.session.userId, EXP_REWARDS.retroactive);
   });
   doRetroactive();
 
-  const updatedUser = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
-  res.json({ ok: true, points: updatedUser.points, date });
+  const updatedUser = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
+  res.json({ ok: true, points: updatedUser.points, exp: updatedUser.exp, level_info: getLevelInfo(updatedUser.exp), date });
 });
 
 app.post('/api/checkin/auto', requireAuth, (req, res) => {
@@ -643,11 +823,12 @@ app.post('/api/checkin/auto', requireAuth, (req, res) => {
     db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
       .run(req.session.userId, today);
     db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
+    addExp(req.session.userId, EXP_REWARDS.signin);
   });
   doCheckin();
 
-  const updatedUser = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
-  res.json({ checkedIn: true, points: updatedUser.points, newCheckin: true });
+  const updatedUser = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
+  res.json({ checkedIn: true, points: updatedUser.points, newCheckin: true, exp: updatedUser.exp, level_info: getLevelInfo(updatedUser.exp) });
 });
 
 app.post('/api/checkin', requireAuth, (req, res) => {
@@ -660,11 +841,12 @@ app.post('/api/checkin', requireAuth, (req, res) => {
     db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
       .run(req.session.userId, today);
     db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
+    addExp(req.session.userId, EXP_REWARDS.signin);
   });
   doCheckin();
 
-  const user = db.prepare('SELECT points FROM profiles WHERE id = ?').get(req.session.userId);
-  res.json({ ok: true, points: user ? user.points : 0 });
+  const user = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
+  res.json({ ok: true, points: user ? user.points : 0, exp: user ? user.exp : 0, level_info: getLevelInfo(user ? user.exp : 0) });
 });
 
 // ============================================================
@@ -683,6 +865,11 @@ app.post('/api/like/:postId', requireAuth, (req, res) => {
   if (exists) return res.status(400).json({ error: '已点赞' });
 
   db.prepare('INSERT INTO post_likes (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))').run(pid, req.session.userId);
+  // 帖子作者获得「被点赞」经验
+  const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
+  if (post && post.author_id && post.author_id !== req.session.userId) {
+    addExp(post.author_id, EXP_REWARDS.receive_like);
+  }
   res.json({ ok: true });
 });
 
@@ -704,6 +891,8 @@ app.post('/api/bookmark/:postId', requireAuth, (req, res) => {
   if (exists) return res.status(400).json({ error: '已收藏' });
 
   db.prepare('INSERT INTO bookmarks (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))').run(pid, req.session.userId);
+  // 收藏行为获得经验
+  addExp(req.session.userId, EXP_REWARDS.bookmark);
   res.json({ ok: true });
 });
 
@@ -959,7 +1148,7 @@ app.get('/api/shop/items', (req, res) => {
 app.get('/api/shop/orders', requireAuth, (req, res) => {
   const userId = req.session.userId;
   const orders = db.prepare(`
-    SELECT o.*, si.name AS item_name, si.icon AS item_icon
+    SELECT o.*, si.name AS item_name, si.icon AS item_icon, si.value AS item_value
     FROM shop_orders o
     LEFT JOIN shop_items si ON si.id = o.item_id
     WHERE o.user_id = ?
@@ -981,6 +1170,15 @@ app.post('/api/shop/exchange', requireAuth, (req, res) => {
   if (!user) return res.status(404).json({ error: '用户不存在' });
   if ((user.points || 0) < item.price) {
     return res.status(400).json({ error: `积分不足，需要 ${item.price} 积分，当前 ${user.points || 0} 积分` });
+  }
+
+  // 检查永久物品是否已拥有（头像框、称号不可重复购买）
+  if (item.type === 'title' || item.type === 'avatar_frame') {
+    const hasOwned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_type = ? AND status = ?').get(userId, item.type, 'completed');
+    if (hasOwned) {
+      const typeName = item.type === 'title' ? '称号' : '头像框';
+      return res.status(400).json({ error: `你已经拥有${typeName}，不可重复购买` });
+    }
   }
 
   const doExchange = db.transaction(() => {
@@ -1014,6 +1212,42 @@ app.post('/api/shop/exchange', requireAuth, (req, res) => {
   });
 });
 
+// 装备/切换称号或头像框（无需购买，直接装备已拥有或商城现有）
+app.post('/api/shop/equip', requireAuth, (req, res) => {
+  const userId = req.session.userId;
+  const { itemId } = req.body;
+  if (!itemId) return res.status(400).json({ error: '缺少商品 ID' });
+
+  const item = db.prepare('SELECT * FROM shop_items WHERE id = ? AND enabled = 1').get(Number(itemId));
+  if (!item) return res.status(404).json({ error: '商品不存在或已下架' });
+
+  if (item.type !== 'title' && item.type !== 'avatar_frame') {
+    return res.status(400).json({ error: '只有称号和头像框可以装备' });
+  }
+
+  // 检查是否已拥有（免费的"无头像框"和用户已购买的都算可装备）
+  const owned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?').get(userId, item.id, 'completed');
+  if (!owned && item.price > 0) {
+    return res.status(403).json({ error: '你还没有购买此商品' });
+  }
+
+  const value = item.value === 'none' ? null : item.value;
+  const field = item.type === 'title' ? 'title' : 'avatar_frame';
+  db.prepare(`UPDATE profiles SET ${field} = ? WHERE id = ?`).run(value, userId);
+
+  const updated = db.prepare('SELECT title, avatar_frame FROM profiles WHERE id = ?').get(userId);
+  res.json({ ok: true, message: `已装备 ${item.name}`, [field]: updated[field] });
+});
+
+// 卸下称号或头像框
+app.post('/api/shop/unequip', requireAuth, (req, res) => {
+  const userId = req.session.userId;
+  const { type } = req.body;
+  if (type !== 'title' && type !== 'avatar_frame') return res.status(400).json({ error: '参数错误' });
+  const field = type === 'title' ? 'title' : 'avatar_frame';
+  db.prepare(`UPDATE profiles SET ${field} = NULL WHERE id = ?`).run(userId);
+  res.json({ ok: true, [field]: null });
+});
 app.get('/api/shop/items/:id', (req, res) => {
   const itemId = Number(req.params.id);
   const item = db.prepare('SELECT * FROM shop_items WHERE id = ? AND enabled = 1').get(itemId);
@@ -1043,6 +1277,8 @@ app.get('/api/users/:id', (req, res) => {
     title: user.title || null,
     avatar_frame: user.avatar_frame || null,
     created_at: user.created_at,
+    exp: user.exp || 0,
+    level_info: getLevelInfo(user.exp || 0),
     posts_count: db.prepare('SELECT COUNT(*) AS c FROM posts WHERE author_id = ?').get(uid).c,
     comments_count: db.prepare('SELECT COUNT(*) AS c FROM comments WHERE author_id = ?').get(uid).c
   };
@@ -1063,7 +1299,7 @@ app.get('/api/users/:id', (req, res) => {
 });
 
 app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req, res) => {
-  const { username, bio, location, website, profile_public } = req.body;
+  const { username, bio, location, website, profile_public, title, avatar_frame } = req.body;
   const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
   if (!user) return res.status(404).json({ error: '用户不存在' });
 
@@ -1092,12 +1328,45 @@ app.put('/api/profile', requireAuth, multerUpload(upload.single('avatar')), (req
       newAvatarUrl = '/uploads/' + req.file.filename;
     }
 
+    // 称号/头像框：必须为用户已购买过的商品 value，校验订单 -> 商品 -> value 链
+    let newTitle = user.title || null;
+    let newFrame = user.avatar_frame || null;
+    if (title !== undefined) {
+      if (title === '' || title === null) {
+        newTitle = null;
+      } else {
+        // 通过订单 join 商品表，校验该用户购买的称号对应商品的 value 是否匹配
+        const owned = db.prepare(`
+          SELECT s.value FROM shop_orders o
+          JOIN shop_items s ON s.id = o.item_id
+          WHERE o.user_id = ? AND o.item_type = 'title' AND o.status = 'completed'
+            AND s.value = ?
+        `).get(user.id, title);
+        if (!owned) throw new Error('未拥有该称号');
+        newTitle = title;
+      }
+    }
+    if (avatar_frame !== undefined) {
+      if (avatar_frame === '' || avatar_frame === null) {
+        newFrame = null;
+      } else {
+        const owned = db.prepare(`
+          SELECT s.value FROM shop_orders o
+          JOIN shop_items s ON s.id = o.item_id
+          WHERE o.user_id = ? AND o.item_type = 'avatar_frame' AND o.status = 'completed'
+            AND s.value = ?
+        `).get(user.id, avatar_frame);
+        if (!owned) throw new Error('未拥有该头像框');
+        newFrame = avatar_frame === 'none' ? null : avatar_frame;
+      }
+    }
+
     db.prepare(`
       UPDATE profiles SET username = ?, bio = ?, location = ?, website = ?,
-      profile_public = ?, avatar_url = ?, rename_chances = ? WHERE id = ?
-    `).run(newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, user.id);
+      profile_public = ?, avatar_url = ?, rename_chances = ?, title = ?, avatar_frame = ? WHERE id = ?
+    `).run(newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, newTitle, newFrame, user.id);
 
-    return { newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances };
+    return { newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, newTitle, newFrame };
   });
 
   try {
@@ -1213,3 +1482,9 @@ process.on('SIGINT', () => { closeDb(); process.exit(0); });
 process.on('SIGTERM', () => { closeDb(); process.exit(0); });
 
 startServer();
+
+
+
+
+
+

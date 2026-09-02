@@ -67,6 +67,7 @@ function createTables() {
       website TEXT DEFAULT '',
       profile_public INTEGER DEFAULT 1,
       points INTEGER DEFAULT 0,
+      exp INTEGER DEFAULT 0,
       muted INTEGER DEFAULT 0,
       role TEXT DEFAULT 'user',
       title TEXT,
@@ -173,6 +174,26 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
     CREATE INDEX IF NOT EXISTS idx_shop_orders_user ON shop_orders(user_id);
   `);
+
+  // 字段迁移：旧库没有的列自动补上
+  ensureColumn('profiles', 'exp', 'INTEGER DEFAULT 0');
+  ensureColumn('profiles', 'rename_chances', 'INTEGER DEFAULT 0');
+  ensureColumn('profiles', 'title', 'TEXT');
+  ensureColumn('profiles', 'avatar_frame', 'TEXT');
+}
+
+/**
+ * 字段迁移：若表中不存在指定列则 ALTER ADD
+ * @param {string} table 表名
+ * @param {string} column 列名
+ * @param {string} definition 列定义（如 'INTEGER DEFAULT 0'）
+ */
+function ensureColumn(table, column, definition) {
+  const cols = db.prepare(`PRAGMA table_info(${table})`).all();
+  if (!cols.some(c => c.name === column)) {
+    db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
+    console.log(`  ✓ 已为 ${table} 表添加字段 ${column}`);
+  }
 }
 
 /**
