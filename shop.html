@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MiForum">
+<meta name="format-detection" content="telephone=no">
 <title>积分商店 - MiForum</title>
 <link rel="stylesheet" href="tailwind.css">
 <style>
@@ -15,6 +20,15 @@
   .item-card:hover{box-shadow:0 4px 24px rgba(0,0,0,.08);transform:translateY(-2px)}
   .item-card{transition:all .2s ease}
   ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+  /* 移动端优化 */
+  @media (max-width: 639px) {
+    .item-card:hover{box-shadow:none;transform:none}
+    .item-card:active{box-shadow:0 4px 24px rgba(0,0,0,.08);transform:scale(0.98)}
+  }
+  @media (hover: none) {
+    .item-card:hover{box-shadow:none;transform:none}
+    .item-card:active{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  }
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
@@ -33,25 +47,25 @@
   </div>
 </header>
 
-<div class="max-w-4xl mx-auto px-4 py-8">
+<div class="max-w-4xl mx-auto px-4 py-6 sm:py-8">
   <!-- 用户积分显示 -->
-  <div class="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-6 mb-8 text-white">
+  <div class="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white">
     <div class="flex items-center justify-between">
       <div>
-        <h1 class="text-2xl font-bold mb-2">积分商店</h1>
-        <p class="text-primary-100">用积分兑换精美礼品和特权</p>
+        <h1 class="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">积分商店</h1>
+        <p class="text-sm sm:text-base text-primary-100">用积分兑换精美礼品和特权</p>
       </div>
       <div class="text-right">
-        <p class="text-sm text-primary-200">我的积分</p>
-        <p id="userPoints" class="text-4xl font-bold">0</p>
+        <p class="text-xs sm:text-sm text-primary-200">我的积分</p>
+        <p id="userPoints" class="text-2xl sm:text-4xl font-bold">0</p>
       </div>
     </div>
   </div>
 
   <!-- 商品列表 -->
-  <div class="mb-8">
-    <h2 class="text-lg font-semibold mb-4">🎁 商品列表</h2>
-    <div id="itemList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+  <div class="mb-6 sm:mb-8">
+    <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">🎁 商品列表</h2>
+    <div id="itemList" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
       <!-- 商品卡片将在这里动态生成 -->
     </div>
     <div id="emptyState" class="hidden text-center py-12">
@@ -62,7 +76,7 @@
 
   <!-- 兑换记录 -->
   <div>
-    <h2 class="text-lg font-semibold mb-4">📋 兑换记录</h2>
+    <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">📋 兑换记录</h2>
     <div id="orderList" class="space-y-3">
       <!-- 兑换记录将在这里动态生成 -->
     </div>
@@ -216,15 +230,15 @@ function renderItems() {
   empty.classList.add('hidden');
   
   list.innerHTML = state.items.map(item => `
-    <div class="item-card bg-white rounded-xl border border-gray-100 p-5 cursor-pointer" onclick="showExchangeModal(${item.id})">
-      <div class="flex items-start justify-between mb-3">
-        <span class="text-4xl">${item.icon}</span>
+    <div class="item-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer" onclick="showExchangeModal(${item.id})">
+      <div class="flex items-start justify-between mb-2 sm:mb-3">
+        <span class="text-3xl sm:text-4xl">${item.icon}</span>
         ${item.stock >= 0 && item.stock <= 5 ? `<span class="text-xs px-2 py-1 bg-red-50 text-red-500 rounded-full">仅剩${item.stock}件</span>` : ''}
       </div>
       <h3 class="font-semibold text-gray-900 mb-1">${esc(item.name)}</h3>
-      <p class="text-sm text-gray-500 mb-4">${esc(item.description)}</p>
+      <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4">${esc(item.description)}</p>
       <div class="flex items-center justify-between">
-        <span class="text-lg font-bold text-primary-600">${item.price} 积分</span>
+        <span class="text-base sm:text-lg font-bold text-primary-600">${item.price} 积分</span>
         <button class="px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition">兑换</button>
       </div>
     </div>
@@ -258,16 +272,16 @@ function renderOrders() {
   empty.classList.add('hidden');
   
   list.innerHTML = state.orders.map(order => `
-    <div class="bg-white rounded-xl border border-gray-100 p-4 flex items-center justify-between">
-      <div class="flex items-center gap-3">
-        <span class="text-2xl">${order.item_icon}</span>
+    <div class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex items-center justify-between">
+      <div class="flex items-center gap-2 sm:gap-3">
+        <span class="text-xl sm:text-2xl">${order.item_icon}</span>
         <div>
-          <p class="font-medium text-gray-900">${esc(order.item_name)}</p>
+          <p class="text-sm sm:text-base font-medium text-gray-900">${esc(order.item_name)}</p>
           <p class="text-xs text-gray-400">${relTime(order.created_at)}</p>
         </div>
       </div>
       <div class="text-right">
-        <p class="text-sm font-medium text-red-500">-${order.price} 积分</p>
+        <p class="text-xs sm:text-sm font-medium text-red-500">-${order.price} 积分</p>
         <p class="text-xs text-green-500">${order.status === 'completed' ? '已完成' : '处理中'}</p>
       </div>
     </div>

@@ -2,7 +2,12 @@
 <html lang="zh-CN">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="default">
+<meta name="apple-mobile-web-app-title" content="MiForum">
+<meta name="format-detection" content="telephone=no">
 <title>MiForum - 现代微论坛</title>
 <link rel="stylesheet" href="tailwind.css">
 <style>
@@ -29,6 +34,20 @@
   .cal-cell.missed:hover::after{color:rgba(239,68,68,.25)}
   .cal-cell.missed span{position:relative;z-index:1}
   .cal-cell.today{outline:2px solid #6366f1;outline-offset:1px;font-weight:700}
+  /* 移动端优化 */
+  @media (max-width: 639px) {
+    .cal-month{gap:2px}
+    .cal-cell{font-size:12px}
+    .cal-head{font-size:10px;padding:2px 0}
+    .streak-num{font-size:1.25rem}
+    .post-card:active{transform:scale(0.98)}
+    .sidebar-link:active{background:#eef2ff}
+  }
+  /* 触摸优化 */
+  @media (hover: none) {
+    .post-card:hover{box-shadow:none}
+    .post-card:active{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  }
 </style>
 </head>
 <body class="min-h-screen text-gray-800">
