@@ -5,6 +5,9 @@ node_modules/
 data.db
 data.db-shm
 data.db-wal
+src/data.db
+src/data.db-shm
+src/data.db-wal
 *.sqlite
 db.json
 
