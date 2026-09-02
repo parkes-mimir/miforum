@@ -24,18 +24,19 @@ const { getDb, closeDb } = require('./database');
 const { UPLOADS_DIR } = require('./utils/helpers');
 
 /**
- * 获取本机局域网 IP
+ * 获取本机所有局域网 IP
  */
-function getLocalIp() {
+function getLocalIps() {
   const interfaces = os.networkInterfaces();
+  const ips = [];
   for (const name of Object.keys(interfaces)) {
     for (const iface of interfaces[name]) {
       if (iface.family === 'IPv4' && !iface.internal) {
-        return iface.address;
+        ips.push({ name: name, address: iface.address });
       }
     }
   }
-  return 'localhost';
+  return ips;
 }
 
 // ============================================================
@@ -141,10 +142,13 @@ function startServer() {
   registerRoutes(app, db);
 
   const server = app.listen(PORT, '0.0.0.0', () => {
-    const ip = getLocalIp();
+    const ips = getLocalIps();
     console.log(`\n  MiForum 运行在:`);
     console.log(`  本地: http://localhost:${PORT}`);
-    console.log(`  网络: http://${ip}:${PORT}\n`);
+    ips.forEach(({ name, address }) => {
+      console.log(`  ${name}: http://${address}:${PORT}`);
+    });
+    console.log('');
   });
 
   server.on('error', (err) => {
