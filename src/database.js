@@ -203,16 +203,13 @@ function ensureColumn(table, column, definition) {
  */
 function initDefaultData() {
   // 初始化超级管理员（display_id 固定为 '000'，首次登录需改密）
-  const adminExists = db.prepare('SELECT id, force_password_change FROM profiles WHERE email = ?').get('root@miforum.local');
+  const adminExists = db.prepare('SELECT id FROM profiles WHERE email = ?').get('root@miforum.local');
   if (!adminExists) {
     const hash = bcrypt.hashSync('123456', 10);
     db.prepare(`
       INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, force_password_change)
       VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run('000', '超级管理员', 'root@miforum.local', hash, 'super_admin', 1, 1);
-  } else if (!adminExists.force_password_change) {
-    // 旧库升级：给超管设置强制改密（只要还没改过密码）
-    db.prepare('UPDATE profiles SET force_password_change = 1 WHERE id = ?').run(adminExists.id);
   }
 
   // 初始化默认商品
