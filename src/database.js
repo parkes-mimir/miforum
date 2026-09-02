@@ -22,8 +22,7 @@ const DEFAULT_SHOP_ITEMS = [
   { name: '金色光环', description: '头像金色光圈', icon: '🟡', type: 'avatar_frame', value: 'gold', price: 150, stock: -1, enabled: 1 },
   { name: '银色边框', description: '头像银色边框', icon: '⚪', type: 'avatar_frame', value: 'silver', price: 80, stock: -1, enabled: 1 },
   { name: '蓝色冰晶', description: '头像蓝色光晕', icon: '🔵', type: 'avatar_frame', value: 'blue', price: 200, stock: -1, enabled: 1 },
-  { name: '紫色星光', description: '头像紫色光晕', icon: '🟣', type: 'avatar_frame', value: 'purple', price: 250, stock: -1, enabled: 1 },
-  { name: '无头像框', description: '移除头像框', icon: '⬜', type: 'avatar_frame', value: 'none', price: 0, stock: -1, enabled: 1 }
+  { name: '紫色星光', description: '头像紫色光晕', icon: '🟣', type: 'avatar_frame', value: 'purple', price: 250, stock: -1, enabled: 1 }
 ];
 
 // 默认分类
