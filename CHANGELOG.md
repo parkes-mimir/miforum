@@ -4,6 +4,23 @@
 
 ---
 
+## [0.8.2] - 2026-09-01 - 贡献者：parkes-mimir
+
+### 新增
+
+- PWA meta 标签：theme-color、apple-mobile-web-app-capable
+- 移动端触摸优化：:active 状态反馈
+- 触摸设备优化：@media (hover: none) 媒体查询
+- 禁用双击缩放：user-scalable=no
+
+### 改进
+
+- shop.html 移动端布局优化（响应式间距、字体大小）
+- forum.html 移动端日历优化（缩小间距和字体）
+- 商品卡片和兑换记录响应式优化
+
+---
+
 ## [0.8.1] - 2026-09-01 - 贡献者：parkes-mimir
 
 ### 新增

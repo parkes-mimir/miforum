@@ -99,7 +99,7 @@ npm start
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
-**最新版本 v0.8.1** — 用户 display_id 系统（三位数用户标识）
+**最新版本 v0.8.2** — 多端多浏览器适配、PWA支持
 
 ## 贡献者
 
