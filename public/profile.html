@@ -263,6 +263,44 @@
   </div>
 </div>
 
+<!-- 修改密码弹窗 -->
+<div id="changePasswordModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="text-center mb-5">
+      <div class="w-16 h-16 mx-auto mb-3 bg-primary-100 rounded-full flex items-center justify-center">
+        <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900 mb-1">修改密码</h3>
+    </div>
+    <div class="space-y-3 mb-5">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label>
+        <input id="oldPassword" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
+        <input id="newPassword" type="password" placeholder="至少6位" oninput="checkPasswordStrength(this.value, 'new')" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div id="new-strength" class="mt-2 hidden">
+          <div class="flex gap-1 mb-1">
+            <div id="new-bar-1" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-2" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-3" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-4" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+          </div>
+          <p id="new-text" class="text-xs text-gray-400"></p>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label>
+        <input id="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+    </div>
+    <button onclick="doChangePassword()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+  </div>
+</div>
+
 <!-- Toast -->
 <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
 
@@ -301,6 +339,83 @@ async function api(url, opts) {
   return data;
 }
 
+// ===== 密码强度检测 =====
+function getPasswordStrength(password) {
+  if (!password) return { score: 0, label: '', color: 'bg-gray-200' };
+  let score = 0;
+  const checks = {
+    length: password.length >= 8,
+    long: password.length >= 12,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    numbers: /[0-9]/.test(password),
+    symbols: /[^a-zA-Z0-9]/.test(password)
+  };
+  if (checks.length) score++;
+  if (checks.long) score++;
+  const types = [checks.lowercase, checks.uppercase, checks.numbers, checks.symbols].filter(Boolean).length;
+  if (types >= 2) score++;
+  if (types >= 3) score++;
+  score = Math.min(4, score);
+  const levels = [
+    { label: '非常弱', color: '#ef4444' },
+    { label: '弱', color: '#f97316' },
+    { label: '一般', color: '#eab308' },
+    { label: '强', color: '#22c55e' },
+    { label: '非常强', color: '#10b981' }
+  ];
+  return { score, ...levels[score] };
+}
+function checkPasswordStrength(password, prefix) {
+  const el = document.getElementById(prefix + '-strength');
+  if (!password) { el.classList.add('hidden'); return; }
+  el.classList.remove('hidden');
+  const { score, label, color } = getPasswordStrength(password);
+  for (let i = 1; i <= 4; i++) {
+    document.getElementById(prefix + '-bar-' + i).style.backgroundColor = i <= score ? color : '#e5e7eb';
+  }
+  const textEl = document.getElementById(prefix + '-text');
+  textEl.textContent = label;
+  textEl.style.color = color;
+}
+
+// ===== 修改密码 =====
+function showChangePasswordModal() {
+  document.getElementById('oldPassword').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('confirmPassword').value = '';
+  document.getElementById('new-strength').classList.add('hidden');
+  document.getElementById('changePasswordModal').classList.remove('hidden');
+  document.getElementById('changePasswordModal').classList.add('flex');
+}
+function hideChangePasswordModal() {
+  document.getElementById('changePasswordModal').classList.add('hidden');
+  document.getElementById('changePasswordModal').classList.remove('flex');
+}
+async function doChangePassword() {
+  const oldPassword = document.getElementById('oldPassword').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+  if (!oldPassword || !newPassword || !confirmPassword) { toast('请填写所有字段'); return; }
+  if (newPassword.length < 6) { toast('新密码至少6位'); return; }
+  if (newPassword !== confirmPassword) { toast('两次输入的密码不一致'); return; }
+  if (oldPassword === newPassword) { toast('新密码不能与旧密码相同'); return; }
+  try {
+    await api('/api/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPassword, new_password: newPassword }) });
+    hideChangePasswordModal();
+    toast('密码修改成功！');
+  } catch (e) { toast(e.message); }
+}
+
+// ===== 退出登录 =====
+async function doLogout() {
+  await api('/api/logout', { method: 'POST' });
+  state.user = null;
+  renderAuth();
+  toast('已退出');
+  location.href = '/';
+}
+
 // ===== Auth =====
 function renderAuth() {
   const a = document.getElementById('authArea');
@@ -314,6 +429,8 @@ function renderAuth() {
       <div class="w-8 h-8 rounded-full bg-primary-600 text-white flex items-center justify-center text-xs font-bold">${esc(state.user.username[0].toUpperCase())}</div>
       <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
       ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
+      <button onclick="showChangePasswordModal()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">修改密码</button>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600">退出</button>
     </div>`;
   } else {
     a.innerHTML = `<a href="/" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</a>`;

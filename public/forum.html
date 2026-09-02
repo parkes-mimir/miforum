@@ -710,7 +710,8 @@ function renderAuth() {
       </a>
       ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
       ${state.user.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">禁言中</span>' : ''}
-      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
+      <button onclick="showChangePasswordModal()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">修改密码</button>
+      <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600">退出</button>
     </div>`;
     // 管理员入口
     if (isAdmin) {
