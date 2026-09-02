@@ -41,6 +41,12 @@
 - `addExp` 函数改为接收 `db` 参数，避免循环依赖
 - 修复 `likes.js` 使用 ESM 语法问题（改为 CommonJS）
 
+### Bug 修复
+
+- 修复管理员中间件调用（`requireAdmin` 需传 `db` 参数）
+- 修复 `tailwind.css` 路径（改为 `css/tailwind.css`）
+- 删除重复的 `docs/README.md`
+
 ---
 
 ## [0.9.1] - 2026-09-02 - 贡献者：parkes-mimir
