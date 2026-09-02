@@ -4,6 +4,24 @@
 
 ---
 
+## [0.8.3] - 2026-09-01 - 贡献者：parkes-mimir
+
+### 安全修复
+
+- 路径遍历漏洞：`deleteFile` 限制只能删除 uploads 目录下的文件
+- Session 安全：使用 `crypto.randomBytes` 生成密钥，添加 `httpOnly`/`sameSite` 属性
+- 输入校验：注册时校验用户名长度（2-20字）、字符合法性、邮箱格式
+- `requireNotMuted` 中间件：验证用户是否存在
+
+### 功能修复
+
+- 添加 `/api/admin/status` 端点（管理员状态检查）
+- 删除重复的 `resetPostForm` 定义（修复发帖后标签不重置）
+- 删除重复的 `adminPanelModal` HTML（修复无效 HTML）
+- 评论前检查帖子是否存在（返回友好错误信息）
+
+---
+
 ## [0.8.2] - 2026-09-01 - 贡献者：parkes-mimir
 
 ### 新增
