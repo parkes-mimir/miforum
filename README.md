@@ -144,7 +144,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v0.9.3** — 环境变量、分页加载、安全加固、单元测试
+**最新版本 v0.9.6** — display_id统一六位、移除无头像框、隐私保护
 
 ## 贡献者
 
