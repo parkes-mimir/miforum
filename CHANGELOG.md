@@ -4,6 +4,20 @@
 
 ---
 
+## [0.9.1] - 2026-09-02 - 贡献者：parkes-mimir
+
+### Bug 修复
+
+- 修复 `selectTitle`/`selectFrame` 使用隐式 `event` 对象（改为参数传递 `el`）
+- 修复 `shop.html` 的 `esc()` 缺少单引号转义
+- 删除测试遗留的 `cookies.txt`
+
+### 安全
+
+- `.gitignore` 添加 `cookies.txt` 防止泄露 session
+
+---
+
 ## [0.9.0] - 2026-09-02 - 贡献者：jxwzx
 
 ### 活跃度等级系统（完整实现）

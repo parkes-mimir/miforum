@@ -102,7 +102,7 @@ npm start
 
 详见 [CHANGELOG.md](./CHANGELOG.md)
 
-**最新版本 v0.8.3** — 安全修复、代码审查
+**最新版本 v0.9.1** — Bug 修复与代码审查
 
 ## 贡献者
 
