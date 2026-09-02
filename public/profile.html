@@ -536,14 +536,9 @@ async function loadProfile() {
       document.getElementById('statPosts').textContent = user.posts_count;
       document.getElementById('statComments').textContent = user.comments_count;
       document.getElementById('statPoints').textContent = user.points || 0;
-      // 只有本人可以查看点赞和收藏
-      if (isOwner) {
-        document.getElementById('tabLikes').classList.remove('hidden');
-        document.getElementById('tabBookmarks').classList.remove('hidden');
-      } else {
-        document.getElementById('tabLikes').classList.add('hidden');
-        document.getElementById('tabBookmarks').classList.add('hidden');
-      }
+      // 公开资料或本人都可以看点赞和收藏
+      document.getElementById('tabLikes').classList.remove('hidden');
+      document.getElementById('tabBookmarks').classList.remove('hidden');
     }
 
     // 活跃度等级 / 经验值
