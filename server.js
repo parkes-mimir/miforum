@@ -1159,8 +1159,8 @@ function killPort(port) {
 }
 
 function startServer() {
-  const server = app.listen(PORT, () => {
-    console.log(`\n  MiForum 运行在 http://localhost:${PORT}\n`);
+  const server = app.listen(PORT, '0.0.0.0', () => {
+    console.log(`\n  MiForum 运行在 http://0.0.0.0:${PORT}\n`);
   });
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
