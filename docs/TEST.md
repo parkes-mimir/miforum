@@ -22,16 +22,18 @@ npm test
 |------|--------|------|------|
 | 认证 API | 10 | 10 | 0 |
 | 签到 API | 4 | 4 | 0 |
-| 帖子 API | 6 | 6 | 0 |
-| 评论 API | 3 | 3 | 0 |
+| 帖子 API | 8 | 8 | 0 |
+| 评论 API | 6 | 6 | 0 |
 | 点赞/收藏 API | 8 | 8 | 0 |
-| 商店 API | 4 | 4 | 0 |
+| 商店 API | 8 | 8 | 0 |
 | 用户资料 API | 4 | 4 | 0 |
 | 排行榜/标签/分类 | 3 | 3 | 0 |
 | 管理员 API | 8 | 8 | 0 |
 | 修改密码 API | 4 | 4 | 0 |
+| 称号/头像框装备 | 4 | 4 | 0 |
+| 速率限制 | 1 | 1 | 0 |
 | 安全测试 | 2 | 2 | 0 |
-| **总计** | **56** | **56** | **0** |
+| **总计** | **70** | **70** | **0** |
 
 ---
 
@@ -63,7 +65,7 @@ npm test
 
 ---
 
-## 帖子 API（6 个）
+## 帖子 API（8 个）
 
 | 测试 | 接口 | 方法 | 预期 | 结果 |
 |------|------|------|------|------|
@@ -73,16 +75,21 @@ npm test
 | 帖子不存在 | /api/posts/:id | GET | 404 | ✅ |
 | 发帖校验 | /api/posts | POST | 400, "请填写标题和正文" | ✅ |
 | 分页参数 | /api/posts?page=1&limit=2 | GET | 200, 正确分页 | ✅ |
+| 编辑帖子 | /api/posts/:id | PUT | 200, ok: true | ✅ |
+| 删除帖子 | /api/posts/:id | DELETE | 200, ok: true | ✅ |
 
 ---
 
-## 评论 API（3 个）
+## 评论 API（6 个）
 
 | 测试 | 接口 | 方法 | 预期 | 结果 |
 |------|------|------|------|------|
 | 发评论 | /api/posts/:id/comments | POST | 200, 返回 commentId | ✅ |
 | 评论列表 | /api/posts/:id/comments | GET | 200, comments + pagination | ✅ |
 | 评论不存在帖子 | /api/posts/:id/comments | POST | 404 | ✅ |
+| 编辑评论 | /api/comments/:id | PUT | 200, ok: true | ✅ |
+| 置顶评论 | /api/comments/:id/pin | PUT | 200, pinned: true | ✅ |
+| 删除评论 | /api/comments/:id | DELETE | 200, ok: true | ✅ |
 
 ---
 
@@ -101,14 +108,29 @@ npm test
 
 ---
 
-## 商店 API（4 个）
+## 商店 API（8 个）
 
 | 测试 | 接口 | 方法 | 预期 | 结果 |
 |------|------|------|------|------|
 | 商品列表 | /api/shop/items | GET | 200, items 数组 | ✅ |
 | 商品详情 | /api/shop/items/:id | GET | 200, 返回商品信息 | ✅ |
 | 商品不存在 | /api/shop/exchange | POST | 404 | ✅ |
+| 兑换改名卡 | /api/shop/exchange | POST | 200, rename_chances +1 | ✅ |
+| 兑换称号 | /api/shop/exchange | POST | 200, title 设置 | ✅ |
+| 兑换头像框 | /api/shop/exchange | POST | 200, avatar_frame 设置 | ✅ |
 | 兑换记录 | /api/shop/orders | GET | 200, orders 数组 | ✅ |
+| 积分不足 | /api/shop/exchange | POST | 400, "积分不足" | ✅ |
+
+---
+
+## 称号/头像框装备（4 个）
+
+| 测试 | 接口 | 方法 | 预期 | 结果 |
+|------|------|------|------|------|
+| 装备称号 | /api/shop/equip | POST | 200, title 设置 | ✅ |
+| 卸下称号 | /api/shop/unequip | POST | 200, title: null | ✅ |
+| 装备头像框 | /api/shop/equip | POST | 200, avatar_frame 设置 | ✅ |
+| 卸下头像框 | /api/shop/unequip | POST | 200, avatar_frame: null | ✅ |
 
 ---
 
@@ -159,6 +181,14 @@ npm test
 
 ---
 
+## 速率限制（1 个）
+
+| 测试 | 接口 | 方法 | 预期 | 结果 |
+|------|------|------|------|------|
+| 登录限制 | /api/login | POST | 429, "登录尝试过于频繁" | ✅ |
+
+---
+
 ## 安全测试（2 个）
 
 | 测试 | 验证点 | 结果 |
@@ -167,7 +197,6 @@ npm test
 | 安全头 | X-Content-Type-Options: nosniff | ✅ |
 | 安全头 | X-Frame-Options: SAMEORIGIN | ✅ |
 | 安全头 | Strict-Transport-Security | ✅ |
-| 速率限制 | 登录接口 10次/15分钟 | ✅ |
 
 ---
 
@@ -191,16 +220,3 @@ Tests:       16 passed, 16 total
 Snapshots:   0 total
 Time:        ~2s
 ```
-
----
-
-## 待补充测试
-
-- [ ] 图片上传测试
-- [ ] 补签 API 测试
-- [ ] 评论编辑/删除/置顶测试
-- [ ] 帖子编辑/删除测试
-- [ ] 商品兑换完整流程
-- [ ] 称号/头像框装备测试
-- [ ] 速率限制触发测试
-- [ ] 并发请求测试
