@@ -188,8 +188,12 @@ function createTables() {
     db.prepare("UPDATE profiles SET display_id = '000000' WHERE id = ?").run(admin.id);
   }
 
-  // 禁用已废弃的「无头像框」商品
-  db.prepare("UPDATE shop_items SET enabled = 0 WHERE value = 'none' AND type = 'avatar_frame'").run();
+  // 删除已废弃的「无头像框」商品（先删订单再删商品）
+  const noneItem = db.prepare("SELECT id FROM shop_items WHERE value = 'none' AND type = 'avatar_frame'").get();
+  if (noneItem) {
+    db.prepare("DELETE FROM shop_orders WHERE item_id = ?").run(noneItem.id);
+    db.prepare("DELETE FROM shop_items WHERE id = ?").run(noneItem.id);
+  }
 }
 
 /**
