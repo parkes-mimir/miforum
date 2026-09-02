@@ -8,6 +8,11 @@
 
 ### 新增
 
+- **强制修改密码**：超管首次登录弹窗提示修改默认密码
+  - `POST /api/change-password` — 修改密码接口
+  - 登录/页面加载时检测 `force_password_change` 字段
+  - 修改成功后标记 `force_password_change = 0`
+  - 兼容旧数据库：自动补上字段并设置超管强制改密
 - **环境变量管理**：使用 `dotenv` 管理配置
   - `.env.example` 示例文件
   - 支持 `PORT`、`SESSION_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`、`NODE_ENV`

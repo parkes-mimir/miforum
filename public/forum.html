@@ -224,6 +224,37 @@
   <img id="lightboxImg" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" onclick="event.stopPropagation()">
 </div>
 
+<!-- 强制修改密码弹窗 -->
+<div id="changePasswordModal" class="fixed inset-0 z-[70] hidden items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="text-center mb-5">
+      <div class="w-16 h-16 mx-auto mb-3 bg-amber-100 rounded-full flex items-center justify-center">
+        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900 mb-1">安全提示</h3>
+      <p class="text-sm text-gray-500">检测到您正在使用默认密码，为了账号安全，请立即修改密码</p>
+    </div>
+    <div class="space-y-3 mb-5">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label>
+        <input id="oldPassword" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
+        <input id="newPassword" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label>
+        <input id="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+    </div>
+    <button onclick="doChangePassword()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+    <p class="text-xs text-gray-400 text-center mt-3">修改后此提示将不再出现</p>
+  </div>
+</div>
+
 <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
 
 <!-- Category Management Modal -->
@@ -465,6 +496,10 @@ async function doLogin() {
     await loadCheckin();
     await loadPosts();
     toast('登录成功！');
+    // 检查是否需要强制修改密码
+    if (user.force_password_change) {
+      setTimeout(() => showChangePasswordModal(), 500);
+    }
   } catch (e) { toast(e.message); }
 }
 
@@ -495,6 +530,58 @@ async function doLogout() {
   renderAuth();
   renderCheckin(false);
   toast('已退出');
+}
+
+/** 显示修改密码弹窗 */
+function showChangePasswordModal() {
+  document.getElementById('oldPassword').value = '';
+  document.getElementById('newPassword').value = '';
+  document.getElementById('confirmPassword').value = '';
+  document.getElementById('changePasswordModal').classList.remove('hidden');
+  document.getElementById('changePasswordModal').classList.add('flex');
+}
+
+/** 隐藏修改密码弹窗 */
+function hideChangePasswordModal() {
+  document.getElementById('changePasswordModal').classList.add('hidden');
+  document.getElementById('changePasswordModal').classList.remove('flex');
+}
+
+/** 执行修改密码 */
+async function doChangePassword() {
+  const oldPassword = document.getElementById('oldPassword').value;
+  const newPassword = document.getElementById('newPassword').value;
+  const confirmPassword = document.getElementById('confirmPassword').value;
+
+  if (!oldPassword || !newPassword || !confirmPassword) {
+    toast('请填写所有字段');
+    return;
+  }
+  if (newPassword.length < 6) {
+    toast('新密码至少6位');
+    return;
+  }
+  if (newPassword !== confirmPassword) {
+    toast('两次输入的密码不一致');
+    return;
+  }
+  if (oldPassword === newPassword) {
+    toast('新密码不能与旧密码相同');
+    return;
+  }
+
+  try {
+    await api('/api/change-password', {
+      method: 'POST',
+      body: JSON.stringify({ old_password: oldPassword, new_password: newPassword })
+    });
+    // 更新本地状态
+    state.user.force_password_change = false;
+    hideChangePasswordModal();
+    toast('密码修改成功！');
+  } catch (e) {
+    toast(e.message);
+  }
 }
 
 /** 渲染头像（有图片用 img，否则用首字母） */
@@ -1263,6 +1350,10 @@ async function deleteCategory(id, name) {
   await loadPosts();
   if (cat && CAT_MAP[cat]) filterCategory(cat);
   if (tag) filterByTag(tag);
+  // 检查是否需要强制修改密码
+  if (state.user && state.user.force_password_change) {
+    setTimeout(() => showChangePasswordModal(), 1000);
+  }
 })();
 </script>
 </body>

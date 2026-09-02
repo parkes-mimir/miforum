@@ -1,5 +1,5 @@
 /**
- * auth.js - 认证控制器（注册、登录、登出、用户信息）
+ * auth.js - 认证控制器（注册、登录、登出、用户信息、修改密码）
  */
 
 const bcrypt = require('bcryptjs');
@@ -66,7 +66,17 @@ function authRoutes(app, db) {
     if (!ok) return res.status(400).json({ error: '邮箱或密码错误' });
 
     req.session.userId = user.id;
-    res.json({ user: { id: user.id, display_id: user.display_id, username: user.username, email: user.email, points: user.points, role: user.role } });
+    res.json({
+      user: {
+        id: user.id,
+        display_id: user.display_id,
+        username: user.username,
+        email: user.email,
+        points: user.points,
+        role: user.role,
+        force_password_change: intToBool(user.force_password_change)
+      }
+    });
   });
 
   // 登出
@@ -92,8 +102,36 @@ function authRoutes(app, db) {
       avatar_frame: u.avatar_frame || null,
       rename_chances: u.rename_chances || 0,
       exp: u.exp || 0,
-      level_info: getLevelInfo(u.exp || 0)
+      level_info: getLevelInfo(u.exp || 0),
+      force_password_change: intToBool(u.force_password_change)
     } });
+  });
+
+  // 修改密码
+  app.post('/api/change-password', requireAuth, async (req, res) => {
+    const { old_password, new_password } = req.body;
+
+    if (!old_password || !new_password) {
+      return res.status(400).json({ error: '请填写旧密码和新密码' });
+    }
+    if (new_password.length < 6) {
+      return res.status(400).json({ error: '新密码至少6位' });
+    }
+    if (old_password === new_password) {
+      return res.status(400).json({ error: '新密码不能与旧密码相同' });
+    }
+
+    const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    if (!user) return res.status(404).json({ error: '用户不存在' });
+
+    const ok = await bcrypt.compare(old_password, user.password_hash);
+    if (!ok) return res.status(400).json({ error: '旧密码错误' });
+
+    const hash = await bcrypt.hash(new_password, 10);
+    db.prepare('UPDATE profiles SET password_hash = ?, force_password_change = 0 WHERE id = ?')
+      .run(hash, user.id);
+
+    res.json({ ok: true, message: '密码修改成功' });
   });
 }
 
