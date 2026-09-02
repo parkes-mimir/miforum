@@ -199,7 +199,16 @@
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
-        <input id="newPassword" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <input id="newPassword" type="password" placeholder="至少6位" oninput="checkPasswordStrength(this.value, 'new')" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div id="new-strength" class="mt-2 hidden">
+          <div class="flex gap-1 mb-1">
+            <div id="new-bar-1" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-2" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-3" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+            <div id="new-bar-4" class="h-1 flex-1 rounded-full bg-gray-200 transition-all duration-300"></div>
+          </div>
+          <p id="new-text" class="text-xs text-gray-400"></p>
+        </div>
       </div>
       <div>
         <label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label>
@@ -257,6 +266,61 @@ function relTime(iso) {
 
 /** HTML 转义 */
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+
+/**
+ * 密码强度检测
+ * 返回 { score: 0-4, label: string, color: string }
+ */
+function getPasswordStrength(password) {
+  if (!password) return { score: 0, label: '', color: 'bg-gray-200' };
+
+  let score = 0;
+  const checks = {
+    length: password.length >= 8,
+    long: password.length >= 12,
+    lowercase: /[a-z]/.test(password),
+    uppercase: /[A-Z]/.test(password),
+    numbers: /[0-9]/.test(password),
+    symbols: /[^a-zA-Z0-9]/.test(password)
+  };
+
+  if (checks.length) score++;
+  if (checks.long) score++;
+  const types = [checks.lowercase, checks.uppercase, checks.numbers, checks.symbols].filter(Boolean).length;
+  if (types >= 2) score++;
+  if (types >= 3) score++;
+  score = Math.min(4, score);
+
+  const levels = [
+    { label: '非常弱', color: '#ef4444' },
+    { label: '弱', color: '#f97316' },
+    { label: '一般', color: '#eab308' },
+    { label: '强', color: '#22c55e' },
+    { label: '非常强', color: '#10b981' }
+  ];
+
+  return { score, ...levels[score] };
+}
+
+/**
+ * 检查密码强度并更新 UI
+ */
+function checkPasswordStrength(password, prefix) {
+  const el = document.getElementById(prefix + '-strength');
+  if (!password) { el.classList.add('hidden'); return; }
+
+  el.classList.remove('hidden');
+  const { score, label, color } = getPasswordStrength(password);
+
+  for (let i = 1; i <= 4; i++) {
+    const bar = document.getElementById(prefix + '-bar-' + i);
+    bar.style.backgroundColor = i <= score ? color : '#e5e7eb';
+  }
+
+  const textEl = document.getElementById(prefix + '-text');
+  textEl.textContent = label;
+  textEl.style.color = color;
+}
 
 /** 渲染头像（有图片用 img，否则用首字母） */
 function avatarHtml(url, letter, size) {
