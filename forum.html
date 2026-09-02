@@ -1097,7 +1097,8 @@ function renderAdminUsers(users) {
           ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
           ${u.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>' : ''}
         </div>
-        <div class="text-xs text-gray-400 truncate">${esc(u.email)} · ${u.points} 积分 · ${u.posts_count} 帖 · ${u.comments_count} 评论</div>
+        <div class="text-xs text-gray-400 break-all sm:truncate">${esc(u.email)}</div>
+        <div class="text-xs text-gray-400">${u.points} 积分 · ${u.posts_count} 帖 · ${u.comments_count} 评论</div>
       </div>
       <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
         ${isSuperAdmin && !isSuperAdminUser ? `
