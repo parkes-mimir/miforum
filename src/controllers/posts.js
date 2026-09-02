@@ -39,9 +39,35 @@ function multerUpload(middleware) {
 }
 
 module.exports = function (app, db) {
+  /** 获取帖子列表（支持分页、分类、标签、搜索） */
   app.get('/api/posts', (req, res) => {
     const { category, search, tag } = req.query;
-    let sql = `
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    let whereSql = ' WHERE 1=1';
+    const params = [];
+
+    if (category && category !== 'all') {
+      whereSql += ' AND p.category = ?';
+      params.push(category);
+    }
+    if (tag) {
+      whereSql += ' AND p.tags LIKE ?';
+      params.push(`%"${tag}"%`);
+    }
+    if (search) {
+      whereSql += ' AND (p.title LIKE ? OR p.content LIKE ?)';
+      params.push(`%${search}%`, `%${search}%`);
+    }
+
+    // 查询总数
+    const countSql = `SELECT COUNT(*) AS total FROM posts p${whereSql}`;
+    const { total } = db.prepare(countSql).get(...params);
+
+    // 查询当前页数据
+    const sql = `
       SELECT p.*,
         pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
         pr.title AS author_title, pr.avatar_frame AS author_avatar_frame, pr.exp AS author_exp,
@@ -50,26 +76,12 @@ module.exports = function (app, db) {
         (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
       FROM posts p
       LEFT JOIN profiles pr ON pr.id = p.author_id
-      WHERE 1=1
+      ${whereSql}
+      ORDER BY p.pinned DESC, p.created_at DESC
+      LIMIT ? OFFSET ?
     `;
-    const params = [];
 
-    if (category && category !== 'all') {
-      sql += ' AND p.category = ?';
-      params.push(category);
-    }
-    if (tag) {
-      sql += ' AND p.tags LIKE ?';
-      params.push(`%"${tag}"%`);
-    }
-    if (search) {
-      sql += ' AND (p.title LIKE ? OR p.content LIKE ?)';
-      params.push(`%${search}%`, `%${search}%`);
-    }
-
-    sql += ' ORDER BY p.pinned DESC, p.created_at DESC';
-
-    const rows = db.prepare(sql).all(...params);
+    const rows = db.prepare(sql).all(...params, limit, offset);
     const posts = rows.map(p => ({
       ...p,
       tags: parseJsonField(p.tags, []),
@@ -80,7 +92,16 @@ module.exports = function (app, db) {
       author_avatar_frame: p.author_avatar_frame || null,
       author_level_info: getLevelInfo(p.author_exp || 0)
     }));
-    res.json({ posts });
+
+    res.json({
+      posts,
+      pagination: {
+        page,
+        limit,
+        total,
+        pages: Math.ceil(total / limit)
+      }
+    });
   });
 
   app.get('/api/posts/:id', (req, res) => {

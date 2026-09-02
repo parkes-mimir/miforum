@@ -4,6 +4,36 @@
 
 ---
 
+## [0.9.3] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 新增
+
+- **环境变量管理**：使用 `dotenv` 管理配置
+  - `.env.example` 示例文件
+  - 支持 `PORT`、`SESSION_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`、`NODE_ENV`
+- **分页加载**：所有列表 API 支持分页
+  - `GET /api/posts?page=1&limit=20`
+  - `GET /api/posts/:id/comments?page=1&limit=50`
+  - `GET /api/bookmarks?page=1&limit=20`
+  - `GET /api/users/:id/posts?page=1&limit=20`
+  - `GET /api/users/:id/likes?page=1&limit=20`
+  - 响应包含 `pagination: { page, limit, total, pages }`
+- **安全加固**：
+  - `helmet`：设置安全 HTTP 头
+  - `express-rate-limit`：API 速率限制（100次/15分钟）
+  - 登录/注册速率限制（10次/15分钟，防暴力破解）
+- **单元测试**：`jest` + `supertest`
+  - 认证 API 测试（注册/登录/退出/用户信息）
+  - 帖子 API 测试（创建/列表/详情）
+  - 商店 API 测试（商品列表/排行榜）
+
+### 改进
+
+- `server.js` 重构：分离 `createApp()` 和 `registerRoutes()`，支持测试
+- `server.js` 导出 `createApp` 和 `registerRoutes` 供测试使用
+
+---
+
 ## [0.9.2] - 2026-09-02 - 贡献者：parkes-mimir
 
 ### 重大变更

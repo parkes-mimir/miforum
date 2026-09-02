@@ -11,6 +11,11 @@ db.json
 # Uploads
 uploads/
 
+# Environment
+.env
+.env.local
+.env.*.local
+
 # Cookies (security)
 cookies.txt
 

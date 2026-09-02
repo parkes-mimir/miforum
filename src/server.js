@@ -8,78 +8,101 @@
  * - 服务器启动
  */
 
+// 加载环境变量（必须在最前面）
+require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+
 const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
 const fs = require('fs');
 const { execSync } = require('child_process');
+const helmet = require('helmet');
+const rateLimit = require('express-rate-limit');
 const { getDb, closeDb } = require('./database');
 const { UPLOADS_DIR } = require('./utils/helpers');
 
 // ============================================================
-// 常量
+// 创建 Express 应用
 // ============================================================
-const app = express();
-const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+function createApp() {
+  const app = express();
 
-// 确保上传目录存在
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
+  // 安全 HTTP 头
+  app.use(helmet({
+    contentSecurityPolicy: false,
+    crossOriginEmbedderPolicy: false
+  }));
 
-// 初始化数据库
-const db = getDb();
+  // 速率限制
+  const apiLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 100,
+    message: { error: '请求过于频繁，请稍后再试' }
+  });
+
+  const authLimiter = rateLimit({
+    windowMs: 15 * 60 * 1000,
+    max: 10,
+    message: { error: '登录尝试过于频繁，请15分钟后再试' }
+  });
+
+  app.use('/api/', apiLimiter);
+  app.use('/api/login', authLimiter);
+  app.use('/api/register', authLimiter);
+
+  // Body 解析
+  app.use(express.json());
+  app.use(express.urlencoded({ extended: true }));
+
+  // HTML 文件禁用缓存
+  app.use((req, res, next) => {
+    if (req.path.endsWith('.html') || req.path === '/' || req.path === '/shop') {
+      res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+      res.setHeader('Pragma', 'no-cache');
+      res.setHeader('Expires', '0');
+    }
+    next();
+  });
+
+  // 静态文件
+  app.use(express.static(path.join(__dirname, '../public'), { etag: false, lastModified: false }));
+  app.use('/uploads', express.static(UPLOADS_DIR));
+
+  // 页面路由
+  app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/forum.html')));
+  app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, '../public/shop.html')));
+
+  // Session 配置
+  const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+  app.use(session({
+    secret: SESSION_SECRET,
+    resave: false,
+    saveUninitialized: false,
+    cookie: {
+      maxAge: 7 * 24 * 60 * 60 * 1000,
+      httpOnly: true,
+      sameSite: 'lax'
+    }
+  }));
+
+  return app;
+}
 
 // ============================================================
-// 中间件配置
+// 注册路由
 // ============================================================
-
-// Body 解析
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
-
-// HTML 文件禁用缓存
-app.use((req, res, next) => {
-  if (req.path.endsWith('.html') || req.path === '/' || req.path === '/shop') {
-    res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
-    res.setHeader('Pragma', 'no-cache');
-    res.setHeader('Expires', '0');
-  }
-  next();
-});
-
-// 静态文件（前端）
-app.use(express.static(path.join(__dirname, '../public'), { etag: false, lastModified: false }));
-app.use('/uploads', express.static(UPLOADS_DIR));
-
-// 页面路由
-app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/forum.html')));
-app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, '../public/shop.html')));
-
-// Session 配置
-app.use(session({
-  secret: SESSION_SECRET,
-  resave: false,
-  saveUninitialized: false,
-  cookie: {
-    maxAge: 7 * 24 * 60 * 60 * 1000,
-    httpOnly: true,
-    sameSite: 'lax'
-  }
-}));
-
-// ============================================================
-// 注册各模块路由
-// ============================================================
-require('./controllers/auth')(app, db);
-require('./controllers/posts')(app, db);
-require('./controllers/comments')(app, db);
-require('./controllers/checkin')(app, db);
-require('./controllers/likes')(app, db);
-require('./controllers/shop')(app, db);
-require('./controllers/level')(app, db);
-require('./controllers/profile')(app, db);
-require('./controllers/admin')(app, db);
+function registerRoutes(app, db) {
+  require('./controllers/auth')(app, db);
+  require('./controllers/posts')(app, db);
+  require('./controllers/comments')(app, db);
+  require('./controllers/checkin')(app, db);
+  require('./controllers/likes')(app, db);
+  require('./controllers/shop')(app, db);
+  require('./controllers/level')(app, db);
+  require('./controllers/profile')(app, db);
+  require('./controllers/admin')(app, db);
+}
 
 // ============================================================
 // 服务器启动
@@ -96,9 +119,15 @@ function killPort(port) {
 }
 
 function startServer() {
+  const PORT = process.env.PORT || 3000;
+  const db = getDb();
+  const app = createApp();
+  registerRoutes(app, db);
+
   const server = app.listen(PORT, '0.0.0.0', () => {
     console.log(`\n  MiForum 运行在 http://0.0.0.0:${PORT}\n`);
   });
+
   server.on('error', (err) => {
     if (err.code === 'EADDRINUSE') {
       console.log(`  端口 ${PORT} 被占用，尝试自动关闭旧进程...`);
@@ -112,10 +141,18 @@ function startServer() {
       throw err;
     }
   });
+
+  // 优雅退出
+  process.on('SIGINT', () => { closeDb(); process.exit(0); });
+  process.on('SIGTERM', () => { closeDb(); process.exit(0); });
 }
 
-// 优雅退出
-process.on('SIGINT', () => { closeDb(); process.exit(0); });
-process.on('SIGTERM', () => { closeDb(); process.exit(0); });
+// ============================================================
+// 导出（供测试使用）
+// ============================================================
+module.exports = { createApp, registerRoutes };
 
-startServer();
+// 直接运行时启动服务器
+if (require.main === module) {
+  startServer();
+}

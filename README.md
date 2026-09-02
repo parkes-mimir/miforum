@@ -34,6 +34,10 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 等级排行榜
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - PWA 支持（theme-color、apple-mobile-web-app）
+- 分页加载（帖子/评论/收藏列表）
+- 安全加固（helmet、速率限制）
+- 单元测试（jest + supertest）
+- 环境变量管理（dotenv）
 - 端口占用自动杀旧进程重启
 
 ## 快速开始
@@ -140,7 +144,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v0.9.2** — 项目结构重构、模块化架构
+**最新版本 v0.9.3** — 环境变量、分页加载、安全加固、单元测试
 
 ## 贡献者
 

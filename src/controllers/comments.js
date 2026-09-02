@@ -40,10 +40,18 @@ function multerUpload(middleware) {
 
 module.exports = function (app, db) {
 
+  /** 获取帖子评论（支持分页） */
   app.get('/api/posts/:id/comments', (req, res) => {
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
+    const offset = (page - 1) * limit;
 
+    // 查询总数
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM comments WHERE post_id = ?').get(pid);
+
+    // 查询当前页数据
     const commentsRaw = db.prepare(`
       SELECT c.*,
         pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
@@ -52,10 +60,11 @@ module.exports = function (app, db) {
       LEFT JOIN profiles pr ON pr.id = c.author_id
       WHERE c.post_id = ?
       ORDER BY c.created_at ASC
-    `).all(pid);
+      LIMIT ? OFFSET ?
+    `).all(pid, limit, offset);
 
     const floorMap = {};
-    commentsRaw.forEach((c, i) => { floorMap[c.id] = i + 1; });
+    commentsRaw.forEach((c, i) => { floorMap[c.id] = offset + i + 1; });
 
     const comments = [...commentsRaw]
       .sort((a, b) => {
@@ -75,7 +84,11 @@ module.exports = function (app, db) {
         is_post_owner: post ? c.author_id === post.author_id : false
       }));
 
-    res.json({ comments, postOwnerId: post ? post.author_id : null });
+    res.json({
+      comments,
+      postOwnerId: post ? post.author_id : null,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
   });
 
   app.post('/api/posts/:id/comments', requireAuth, requireNotMuted(db), multerUpload(upload.array('images', 3)), (req, res) => {

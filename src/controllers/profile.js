@@ -167,10 +167,17 @@ module.exports = function (app, db) {
     }
   });
 
+  /** 获取用户帖子列表（支持分页） */
   app.get('/api/users/:id/posts', (req, res) => {
     const uid = Number(req.params.id);
     const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(uid);
     if (!user) return res.status(404).json({ error: '用户不存在' });
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM posts WHERE author_id = ?').get(uid);
 
     const posts = db.prepare(`
       SELECT p.*,
@@ -179,7 +186,8 @@ module.exports = function (app, db) {
       FROM posts p
       WHERE p.author_id = ?
       ORDER BY p.created_at DESC
-    `).all(uid).map(p => ({
+      LIMIT ? OFFSET ?
+    `).all(uid, limit, offset).map(p => ({
       ...p,
       tags: parseJsonField(p.tags, []),
       images: parseJsonField(p.images, []),
@@ -191,13 +199,23 @@ module.exports = function (app, db) {
       author_avatar_frame: user.avatar_frame || null
     }));
 
-    res.json({ posts });
+    res.json({
+      posts,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
   });
 
+  /** 获取用户点赞列表（支持分页） */
   app.get('/api/users/:id/likes', (req, res) => {
     const uid = Number(req.params.id);
     const user = db.prepare('SELECT id FROM profiles WHERE id = ?').get(uid);
     if (!user) return res.status(404).json({ error: '用户不存在' });
+
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM post_likes WHERE user_id = ?').get(uid);
 
     const posts = db.prepare(`
       SELECT p.*,
@@ -210,7 +228,8 @@ module.exports = function (app, db) {
       LEFT JOIN profiles pr ON pr.id = p.author_id
       WHERE pl.user_id = ?
       ORDER BY pl.created_at DESC
-    `).all(uid).map(p => ({
+      LIMIT ? OFFSET ?
+    `).all(uid, limit, offset).map(p => ({
       ...p,
       tags: parseJsonField(p.tags, []),
       images: parseJsonField(p.images, []),
@@ -220,6 +239,9 @@ module.exports = function (app, db) {
       author_avatar_frame: p.author_avatar_frame || null
     }));
 
-    res.json({ posts });
+    res.json({
+      posts,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
   });
 };

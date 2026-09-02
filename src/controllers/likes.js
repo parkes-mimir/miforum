@@ -77,9 +77,17 @@ module.exports = function(app, db) {
     res.json({ isBookmarked: !!found });
   });
 
-  /** 获取当前用户收藏列表 */
+  /** 获取当前用户收藏列表（支持分页） */
   app.get('/api/bookmarks', requireAuth, (req, res) => {
     const userId = req.session.userId;
+    const page = Math.max(1, parseInt(req.query.page) || 1);
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
+    const offset = (page - 1) * limit;
+
+    // 查询总数
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM bookmarks WHERE user_id = ?').get(userId);
+
+    // 查询当前页数据
     const rows = db.prepare(`
       SELECT p.*, b.created_at AS bookmarked_at,
         pr.display_id AS author_display_id, pr.username AS author_name,
@@ -93,7 +101,8 @@ module.exports = function(app, db) {
       LEFT JOIN profiles pr ON pr.id = p.author_id
       WHERE b.user_id = ?
       ORDER BY b.created_at DESC
-    `).all(userId);
+      LIMIT ? OFFSET ?
+    `).all(userId, limit, offset);
 
     const posts = rows.map(p => ({
       ...p,
@@ -104,6 +113,10 @@ module.exports = function(app, db) {
       author_title: p.author_title || null,
       author_avatar_frame: p.author_avatar_frame || null
     }));
-    res.json({ posts });
+
+    res.json({
+      posts,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
   });
 };
