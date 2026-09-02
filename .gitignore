@@ -1,10 +1,21 @@
-cookies.txt
-*.db
-db.json
-*.db-shm
-*.db-wal
+# Dependencies
 node_modules/
+
+# Database
+data.db
+data.db-shm
+data.db-wal
 *.sqlite
+db.json
+
+# Uploads
 uploads/
+
+# Cookies (security)
+cookies.txt
+
+# Legacy
 webforum-testproject-main/
 webforum-testproject-main.zip
+server.js.backup-json
+db.json.backup-*

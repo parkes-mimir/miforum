@@ -1,9 +1,13 @@
 {
   "name": "miforum",
-  "version": "0.9.1",
+  "version": "0.9.2",
   "private": true,
   "scripts": {
-    "start": "node server.js"
+    "start": "node src/server.js",
+    "dev": "node --watch src/server.js",
+    "lint": "eslint src/",
+    "lint:fix": "eslint src/ --fix",
+    "migrate": "node src/migrate.js"
   },
   "dependencies": {
     "bcryptjs": "^2.4.3",
@@ -11,5 +15,8 @@
     "express": "^4.21.2",
     "express-session": "^1.18.1",
     "multer": "^1.4.5-lts.1"
+  },
+  "devDependencies": {
+    "eslint": "^8.50.0"
   }
 }
