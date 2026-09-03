@@ -1083,6 +1083,28 @@ PUT /api/admin/users/:id/points
 { "ok": true, "points": 500 }
 ```
 
+### 增加用户积分
+
+```
+PUT /api/admin/users/:id/points/add
+```
+
+**权限**：管理员
+
+**请求体**
+```json
+{ "amount": 100, "reason": "反馈bug奖励" }
+```
+
+**响应**
+```json
+{ "ok": true, "points": 600, "message": "已奖励 100 积分：反馈bug奖励" }
+```
+
+**说明**
+- `amount` 必须为正数，最大 10000
+- `reason` 可选，用于记录奖励原因
+
 ### 授予管理员
 
 ```
