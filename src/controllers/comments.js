@@ -2,10 +2,9 @@ const multer = require('multer');
 const path = require('path');
 const fs = require('fs');
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
-const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
+const { deleteImages, deleteFile, parseJsonField, intToBool, UPLOADS_DIR } = require('../utils/helpers');
 const { addExp, EXP_REWARDS } = require('./level');
 
-const UPLOADS_DIR = path.join(__dirname, '../../uploads');
 if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const storage = multer.diskStorage({
@@ -13,7 +12,7 @@ const storage = multer.diskStorage({
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname).toLowerCase();
     const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const name = 'webforum' + date + '-' + Date.now() + ext;
+    const name = 'comment' + date + '-' + Date.now() + ext;
     cb(null, name);
   }
 });
