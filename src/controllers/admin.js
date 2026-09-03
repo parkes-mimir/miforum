@@ -252,4 +252,93 @@ module.exports = function (app, db) {
       res.status(400).json({ error: `连接失败: ${err.message}` });
     }
   });
+
+  // ============================================================
+  // 版本信息与更新 API
+  // ============================================================
+
+  /** 获取当前版本信息 */
+  app.get('/api/admin/version', requireAdmin, (req, res) => {
+    const pkg = require('../../package.json');
+    res.json({
+      name: pkg.name,
+      version: pkg.version,
+      description: pkg.description || 'Flarum 风格的轻量论坛',
+      repository: 'https://github.com/parkes-mimir/miforum',
+      author: 'parkes-mimir',
+      license: pkg.license || 'MIT'
+    });
+  });
+
+  /** 检查更新（从 GitHub API 获取最新版本） */
+  app.get('/api/admin/check-update', requireAdmin, async (req, res) => {
+    try {
+      const pkg = require('../../package.json');
+      const currentVersion = pkg.version;
+      
+      const response = await fetch('https://api.github.com/repos/parkes-mimir/miforum/releases/latest', {
+        headers: { 'User-Agent': 'MiForum' }
+      });
+      
+      if (!response.ok) {
+        return res.json({ hasUpdate: false, message: '无法获取最新版本信息' });
+      }
+      
+      const data = await response.json();
+      const latestVersion = data.tag_name.replace('v', '');
+      
+      // 简单版本比较
+      const current = currentVersion.split('.').map(Number);
+      const latest = latestVersion.split('.').map(Number);
+      
+      let hasUpdate = false;
+      for (let i = 0; i < 3; i++) {
+        if (latest[i] > current[i]) {
+          hasUpdate = true;
+          break;
+        } else if (latest[i] < current[i]) {
+          break;
+        }
+      }
+      
+      res.json({
+        hasUpdate,
+        currentVersion,
+        latestVersion,
+        releaseUrl: data.html_url,
+        releaseNotes: data.body || '',
+        publishedAt: data.published_at
+      });
+    } catch (err) {
+      res.json({ hasUpdate: false, message: '检查更新失败: ' + err.message });
+    }
+  });
+
+  /** 执行更新（从 GitHub 拉取最新代码） */
+  app.post('/api/admin/update', requireSuperAdmin, async (req, res) => {
+    try {
+      const { execSync } = require('child_process');
+      
+      // 备份当前版本
+      const backupDir = path.join(__dirname, '../../backups');
+      if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
+      const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
+      execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: path.join(__dirname, '../..') });
+      
+      // 拉取最新代码
+      execSync('git fetch origin main', { cwd: path.join(__dirname, '../..') });
+      execSync('git reset --hard origin/main', { cwd: path.join(__dirname, '../..') });
+      
+      // 安装依赖
+      execSync('npm install --omit=dev', { cwd: path.join(__dirname, '../..') });
+      
+      res.json({ 
+        ok: true, 
+        message: '更新成功，需要重启服务器才能生效',
+        backup: backupName
+      });
+    } catch (err) {
+      res.status(500).json({ error: '更新失败: ' + err.message });
+    }
+  });
 };
