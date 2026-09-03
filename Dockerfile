@@ -6,8 +6,8 @@ FROM docker.m.daocloud.io/library/node:22-slim
 # 配置 Debian 国内镜像源
 RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
 
-# 安装编译依赖
-RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ && rm -rf /var/lib/apt/lists/*
+# 安装编译依赖和 git（更新功能需要）
+RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
