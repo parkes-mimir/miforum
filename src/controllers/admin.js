@@ -1,3 +1,5 @@
+const path = require('path');
+const fs = require('fs');
 const { requireAuth, requireAdmin: requireAdminFactory, requireSuperAdmin: requireSuperAdminFactory } = require('../middleware/auth');
 const { deleteImages, intToBool, parseJsonField } = require('../utils/helpers');
 
