@@ -4,183 +4,82 @@
 
 ---
 
-## [0.9.7] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 新增
-
-- **Docker 支持**：
-  - `Dockerfile`：基于 node:20-alpine 的轻量化镜像
-  - `docker-compose.yml`：一键启动，支持环境变量配置
-  - 数据库和上传目录持久化（`./data/`）
-  - 端口可配置（默认 3000）
-  - 健康检查
-- **CI/CD**：
-  - `.github/workflows/ci.yml`：push/PR 自动测试 + lint
-  - `.github/workflows/docker.yml`：tag 推送自动构建 Docker 镜像
-  - 镜像推送到 GitHub Container Registry (ghcr.io)
-- **环境变量支持**：
-  - `DB_PATH`：数据库文件路径
-  - `UPLOADS_PATH`：上传目录路径
-
-### 改进
-
-- `database.js` 数据库路径支持环境变量配置
-- `helpers.js` 上传目录支持环境变量配置
-
----
-
-## [0.9.6] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 修复
-
-- 统一 `display_id` 为六位数（000000-999999）
-  - 超管：`#000000`
-  - 普通用户：`#000001` 起
-  - 旧数据库自动迁移超管 display_id
-- 移除商店「无头像框」商品（先删订单再删商品）
-- 更新 `.gitignore` 忽略 `src/data.db`
-
----
-
-## [0.9.5] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 隐私保护
-
-- 点赞和收藏仅本人可见
-- 公开资料关闭后，其他人不能查看点赞和收藏
-- 公开资料开启时，其他人可正常查看
-
----
-
-## [0.9.4] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 新增
-
-- **分页翻页**：帖子列表、评论列表、收藏列表、用户帖子/点赞
-  - 每页条数：帖子20条、评论50条、收藏20条
-  - 翻页控件：页码 + 上一页/下一页 + 总数
-  - 点击帖子从新标签页改为当前页跳转
-- **显示本机 IP**：服务器启动时显示所有网卡 IP 地址
-- **密码强度指示器**：注册和修改密码时显示密码强度
-  - 4档强度：非常弱(红)、弱(橙)、一般(黄)、强(绿)、非常强(深绿)
-  - 进度条 + 文字实时反馈
-- **修改密码入口**：编辑资料弹窗添加「修改密码」按钮
-
-### 修复
-
-- 修复 `tailwind.css` 缺失 `h-1` 等类（重新生成 CSS）
-- 修复强制改密标志被服务器重启重置的问题
-- 开发环境放宽速率限制（500次/分钟）
-
----
-
-## [0.9.3] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 新增
-
-- **环境变量管理**：使用 `dotenv` 管理配置
-  - `.env.example` 示例文件
-  - 支持 `PORT`、`SESSION_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`、`NODE_ENV`
-- **分页加载**：所有列表 API 支持分页
-  - `GET /api/posts?page=1&limit=20`
-  - `GET /api/posts/:id/comments?page=1&limit=50`
-  - `GET /api/bookmarks?page=1&limit=20`
-  - `GET /api/users/:id/posts?page=1&limit=20`
-  - `GET /api/users/:id/likes?page=1&limit=20`
-  - 响应包含 `pagination: { page, limit, total, pages }`
-- **安全加固**：
-  - `helmet`：设置安全 HTTP 头
-  - `express-rate-limit`：API 速率限制
-  - 登录/注册速率限制（防暴力破解）
-- **强制修改密码**：超管首次登录弹窗提示修改默认密码
-  - `POST /api/change-password` — 修改密码接口
-  - 登录/页面加载时检测 `force_password_change` 字段
-  - 修改成功后标记 `force_password_change = 0`
-- **单元测试**：`jest` + `supertest`
-  - 16 个测试用例全部通过
-
-### 改进
-
-- `server.js` 重构：分离 `createApp()` 和 `registerRoutes()`，支持测试
-
----
-
-## [0.9.2] - 2026-09-02 - 贡献者：parkes-mimir
-
-### 重大变更
-
-- **项目结构重构**：采用 NodeBB 风格的模块化架构
-  - `src/server.js` — 主入口（Express 配置 + 路由注册）
-  - `src/controllers/` — 业务模块（9 个独立控制器）
-  - `src/middleware/` — 中间件（认证、权限）
-  - `src/utils/` — 工具函数
-  - `public/` — 前端静态文件
-  - `docs/` — 文档
-
-### 模块拆分
-
-| 控制器 | 文件 | 负责人 | API数 |
-|--------|------|--------|-------|
-| auth | src/controllers/auth.js | parkes | 4 |
-| posts | src/controllers/posts.js | parkes | 5 |
-| comments | src/controllers/comments.js | parkes | 5 |
-| checkin | src/controllers/checkin.js | phppi561 | 5 |
-| likes | src/controllers/likes.js | jxwzx | 7 |
-| shop | src/controllers/shop.js | parkes | 6 |
-| level | src/controllers/level.js | jxwzx | 1 |
-| profile | src/controllers/profile.js | parkes | 4 |
-| admin | src/controllers/admin.js | phppi561 | 16 |
-
-### 新增
-
-- ESLint 代码规范配置（`.eslintrc.json`）
-- `npm run lint` / `npm run lint:fix` 命令
-- `npm run dev` 开发模式（自动重启）
-
-### 改进
-
-- `addExp` 函数改为接收 `db` 参数，避免循环依赖
-- 修复 `likes.js` 使用 ESM 语法问题（改为 CommonJS）
-
-### Bug 修复
-
-- 修复管理员中间件调用（`requireAdmin` 需传 `db` 参数）
-- 修复 `tailwind.css` 路径（改为 `css/tailwind.css`）
-- 删除重复的 `docs/README.md`
-
----
-
-## [0.9.1] - 2026-09-02 - 贡献者：parkes-mimir
-
-### Bug 修复
-
-- 修复 `selectTitle`/`selectFrame` 使用隐式 `event` 对象
-- 修复 `shop.html` 的 `esc()` 缺少单引号转义
-- 删除测试遗留的 `cookies.txt`
-
----
-
 ## [0.9.0] - 2026-09-02 - 贡献者：jxwzx
 
-### 活跃度等级系统
+### 活跃度等级系统（完整实现）
 
-- 等级体系：Lv1 ~ Lv10，四阶段图标（⭐星星 / 🌙月亮 / ☀️太阳 / 👑皇冠）
-- 经验值获取：注册+50、签到+10、发帖+20、评论+5、点赞+3、收藏+2
-- 等级排行榜 `/api/leaderboard/level`
-- 装备系统 `/api/shop/equip`、`/api/shop/unequip`
-- 个人资料页等级卡片（进度条+粒子特效）
-- 称号/头像框选择切换
+- 等级体系：Lv1 ~ Lv10，四阶段图标（⭐星星 Lv1-3 / 🌙月亮 Lv4-6 / ☀️太阳 Lv7-9 / 👑皇冠 Lv10）
+- 经验值获取规则（参考 QQ 等级设计）：
+  - 注册 +50 / 每日签到 +10 / 补签 +5
+  - 发帖 +20 / 评论 +5
+  - 收到点赞 +3 / 收到评论 +2
+  - 收藏帖子 +2
+- 等级进度条：薄轨道 + 渐变填充 + 流动光泽 + 末端横向喷射粒子特效
+- 等级徽章按阶段配色：星星蓝 / 月亮紫 / 太阳橙 / 皇冠金红
+- 个人资料页等级卡片：徽章 + 当前经验/升级经验 + 距下一级提示
+
+### API 变更
+
+- 新增 `/api/leaderboard/level` — 活跃度等级排行榜
+- `/api/me`、`/api/users/:id`、`/api/posts`、`/api/posts/:id`、`/api/comments` 全部返回 `exp` 和 `level_info` 字段
+- 发帖 / 评论 / 点赞 / 收藏 API 自动累加经验
+
+### 积分商店增强
+
+- 新增装备/卸下接口：`POST /api/shop/equip`、`POST /api/shop/unequip`
+- 称号和头像框可在编辑资料弹窗中选择装备
+- 头像框改用内联 style 实现渐变光环（gold/silver/blue/purple），不再依赖 Tailwind 编译类
+
+### 数据库
+
+- `profiles` 表新增 `exp` 字段（默认 0），自动迁移旧库
+- `ensureColumn()` 迁移机制，启动时检查并补全缺失列
+
+### 修复
+
+- 修复 Tailwind 预编译 CSS 缺少动态渐变类导致头像框/等级徽章不显示
+- 修复浏览器缓存旧 HTML 导致修改不生效（HTML 文件加 no-cache 响应头）
+- 修复等级徽章字体白色在白色背景上不可见
 
 ---
 
+## [0.8.4] - 2026-09-02 - 贡献者：jxwzx
+
+### 积分商店优化
+
+- 称号和头像框不可重复购买（永久物品限制）
+- 商店页面显示已拥有商品状态（灰色显示 + "已拥有"标签）
+- 已拥有商品不可点击购买
+
+### 个人资料增强
+
+- 编辑资料新增称号选择（显示已拥有的称号列表）
+- 编辑资料新增头像框选择（显示已拥有的头像框列表）
+- 个人主页显示当前称号标签
+- 头像框 CSS 效果（金/银/蓝/紫光环）
+
+### 修复
+
+- 修复编辑资料无法保存称号和头像框的问题
+- 清理重复的购买记录
+- 修复 loadUserItems 函数未被调用的问题
+
+---
 ## [0.8.3] - 2026-09-01 - 贡献者：parkes-mimir
 
 ### 安全修复
 
-- 路径遍历漏洞：`deleteFile` 限制只能删除 uploads 目录
-- Session 安全：使用 `crypto.randomBytes` 生成密钥
-- 输入校验：注册时校验用户名长度、字符、邮箱格式
-- `requireNotMuted` 中间件验证用户存在
+- 路径遍历漏洞：`deleteFile` 限制只能删除 uploads 目录下的文件
+- Session 安全：使用 `crypto.randomBytes` 生成密钥，添加 `httpOnly`/`sameSite` 属性
+- 输入校验：注册时校验用户名长度（2-20字）、字符合法性、邮箱格式
+- `requireNotMuted` 中间件：验证用户是否存在
+
+### 功能修复
+
+- 添加 `/api/admin/status` 端点（管理员状态检查）
+- 删除重复的 `resetPostForm` 定义（修复发帖后标签不重置）
+- 删除重复的 `adminPanelModal` HTML（修复无效 HTML）
+- 评论前检查帖子是否存在（返回友好错误信息）
 
 ---
 
@@ -188,9 +87,16 @@
 
 ### 新增
 
-- PWA meta 标签（theme-color、apple-mobile-web-app）
-- 移动端触摸优化（:active 状态、@media hover:none）
-- 禁用双击缩放（user-scalable=no）
+- PWA meta 标签：theme-color、apple-mobile-web-app-capable
+- 移动端触摸优化：:active 状态反馈
+- 触摸设备优化：@media (hover: none) 媒体查询
+- 禁用双击缩放：user-scalable=no
+
+### 改进
+
+- shop.html 移动端布局优化（响应式间距、字体大小）
+- forum.html 移动端日历优化（缩小间距和字体）
+- 商品卡片和兑换记录响应式优化
 
 ---
 
@@ -199,7 +105,26 @@
 ### 新增
 
 - 用户 display_id 系统：三位数用户标识（000-999）
-- 前端显示 display_id（帖子列表、评论、个人资料、管理员列表）
+  - 超级管理员固定为 `000`
+  - 普通用户从 `001` 开始自动生成
+  - 所有用户相关 API 返回 `display_id` 字段
+  - 帖子/评论 API 返回 `author_display_id` 字段
+- 前端显示 display_id
+  - 帖子列表显示作者 display_id
+  - 帖子详情和评论显示 display_id
+  - 个人资料显示 display_id
+  - 管理员用户列表显示 display_id
+
+### API 变更
+
+- 注册响应新增 `display_id` 字段
+- 登录响应新增 `display_id` 字段
+- `/api/me` 响应新增 `display_id` 字段
+- `/api/users/:id` 响应新增 `display_id` 字段
+- `/api/admin/users` 响应新增 `display_id` 字段
+- `/api/profile` 响应新增 `display_id` 字段
+- 帖子列表/详情响应新增 `author_display_id` 字段
+- 评论列表响应新增 `author_display_id` 字段
 
 ---
 
@@ -207,22 +132,77 @@
 
 ### 重大变更
 
-- 数据库迁移：JSON 文件 → SQLite（better-sqlite3）
+- 数据库迁移：JSON 文件存储 → SQLite（better-sqlite3）
+  - 支持事务，解决并发读写问题
+  - 单文件存储（data.db），部署简单
+  - 使用 WAL 模式提升并发性能
+  - 提供迁移脚本（migrate.js），自动迁移现有数据
+
+### 新增
+
 - Tailwind CSS 本地化：移除外部 CDN 依赖
+  - 生成本地 tailwind.css（27KB）
+  - 使用系统字体替代 Google Fonts
+  - 国内网络环境下可正常访问
+
+### 修复
+
+- 修复 JSON 数据库并发读写导致的数据丢失问题
+- 修复点赞/收藏/签到重复写入问题
+- 修复积分操作竞态条件
+
+### 技术改进
+
+- 数据库模块化（database.js），便于维护
+- 使用 UNIQUE 约束防止重复数据
+- 使用外键约束保证数据一致性
+- 事务包裹多步操作，保证原子性
 
 ---
 
 ## [0.7.1] - 2026-09-01 - 贡献者：parkes-mimir
 
-- 头像框预览：兑换前可看到当前头像 + 框体效果
-- 称号预览：兑换前可看到用户名 + 称号标签
+### 新增
+
+- 头像框预览：兑换前可看到当前头像 + 框体效果对比
+- 称号预览：兑换前可看到用户名 + 称号标签效果
+
+### 文档
+
+- CHANGELOG.md 添加 v0.7.0 更新日志
+- README.md 更新 API 表（商店API）、功能列表、项目结构
 
 ---
 
 ## [0.7.0] - 2026-09-01 - 贡献者：parkes-mimir, jxwzx
 
-- 积分商店系统：称号、头像框、改名卡
-- 称号/头像框系统
+### 新增
+
+- 积分商店系统：称号（永久生效）、头像框（CSS样式）、改名卡
+- 商店页面 `shop.html`：商品展示、兑换确认弹窗、头像框/称号预览、兑换记录
+- 称号系统：发帖/评论/个人资料显示称号标签
+- 头像框系统：CSS-based（金/银/蓝/紫），头像圆形区域外的框体
+- 改名卡：兑换后获得 `rename_chances`，改名消耗一张，无卡不能改名
+- 帖子/评论/收藏 API 返回 `author_title` 和 `author_avatar_frame`
+- 管理员设置积分 API：`PUT /api/admin/users/:id/points`
+
+### 移除
+
+- 普通用户发帖置顶（移除 `pin_card` 商品）
+- 顶置次数字段（移除 `pinned_count`/`pin_chances`）
+
+### 修复
+
+- `loadDB()` 补充 `shop_items`/`shop_orders` 初始化（兼容已有数据库）
+- `shop.html` 修复引用已删除变量 `pin_card`/`pin_chances`
+- 添加 `/shop` 路由
+
+### API
+
+- `GET /api/shop/items` — 获取商店商品
+- `POST /api/shop/exchange` — 兑换商品（自动设置称号/头像框/改名卡）
+- `GET /api/shop/orders` — 兑换记录
+- `PUT /api/admin/users/:id/points` — 管理员设置积分
 
 ---
 
@@ -399,3 +379,5 @@
 - 每日签到 +10 积分
 - 搜索 + 分类筛选
 - Flarum 风格响应式 UI
+
+
