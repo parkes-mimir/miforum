@@ -228,35 +228,174 @@
 
 ## [0.6.0] - 2026-09-01 - 贡献者：parkes-mimir
 
-- 帖子标签系统
-- 动态分类管理
+### 新增
+
+- 帖子标签系统：发帖/编辑支持添加标签（最多10个，每标签20字）
+- 标签 API：`GET /api/tags` 获取热门标签，`GET /api/posts?tag=` 按标签筛选
+- 动态分类管理：分类存储到数据库，管理员可增删改分类
+- 分类 API：`GET /api/categories`、`POST/PUT/DELETE /api/categories/:id`
+- 帖子分类/标签可点击跳转主页筛选（URL 参数 `?category=` `?tag=`）
+- 收藏图标改为五角星（★），已收藏变黄色
+- 登录/注册后自动刷新分类列表
+
+### 修复
+
+- 标签解析支持原生数组（JSON body）
+- 分类管理添加按钮布局溢出
+- 侧边栏分类不显示
 
 ---
 
-## [0.5.x] - 2026-08-31
+## [0.5.2] - 2026-09-01 - 贡献者：parkes-mimir, jxwzx
 
-- 个人资料页、头像裁剪、收藏功能
+### 新增
+
+- 收藏功能：帖子列表/详情页收藏按钮（书签图标），个人资料「TA的收藏」Tab
+- 收藏 API：`POST/DELETE /api/bookmark/:postId`、`GET /api/bookmarks`、`GET /api/bookmark/:postId`
+- 帖子 API 返回 `bookmarks_count` 字段
+
+### 修复
+
+- 修复 post.html 收藏按钮函数位置错误
+- 修复 profile.html 收藏 Tab 结构问题
+- CHANGELOG.md 独立文件，README 更新日志精简
+
+---
+
+## [0.5.1] - 2026-09-01 - 贡献者：jxwzx
+
+### 新增
+
+- 帖子列表页添加收藏按钮（书签图标）
+- 帖子详情页添加收藏按钮
+- 个人中心「TA的收藏」标签页，展示用户收藏的帖子
+
+### API
+
+- `POST /api/bookmark/:postId` — 收藏帖子
+- `DELETE /api/bookmark/:postId` — 取消收藏
+- `GET /api/bookmarks` — 当前用户收藏列表
+- `GET /api/bookmark/:postId` — 检查是否已收藏
+- 帖子列表和详情 API 新增 `bookmarks_count` 字段
+
+---
+
+## [0.5.0] - 2026-08-31 - 贡献者：parkes-mimir
+
+### 新增
+
+- 个人资料页（`profile.html`）：英雄区 + 简介 + 统计 + 帖子/点赞/收藏 Tab
+- 头像上传 + 裁剪预览（canvas 渲染，拖动定位，滚轮/按钮/双指缩放 100%-4000%）
+- 个人简介（最多 200 字）、所在地、个人网站、隐私开关
+- 点击头像/用户名跳转个人资料页
+- 帖子/评论 API 返回 `author_avatar_url`
+
+### API
+
+- `GET /api/users/:id` — 用户公开资料（含隐私控制）
+- `PUT /api/profile` — 修改资料（FormData: avatar, username, bio, location, website, profile_public）
+- `GET /api/users/:id/posts` — 用户帖子列表
+- `GET /api/users/:id/likes` — 用户点赞列表
+
+### Bug 修复
+
+- 修复 renderAuth 函数声明缺失导致页面崩溃
+- 修复 Tab 切换空指针错误
+- 头像裁剪改用 canvas 渲染，大圆圈和小预览完全一致
+- 头像缩放限制最低 100%、最高 4000%
 
 ---
 
 ## [0.4.0] - 2026-08-31 - 贡献者：parkes-mimir, phppi561
 
-- 三级角色权限系统
+### 新增
+
+- 三级角色：超级管理员 / 管理员 / 普通用户
+- 超级管理员账号 `root@miforum.local` / `123456`（首次启动自动创建）
+- 超级管理员可授予/撤销管理员权限、转让超管角色
+- 帖子置顶（管理员）、禁言/解禁用户
+- 前端显示角色标签（超管/管理）
+
+### API
+
+- `PUT /api/superadmin/grant-admin/:id`
+- `PUT /api/superadmin/revoke-admin/:id`
+- `PUT /api/superadmin/transfer/:id`
+- `GET /api/admin/users`
+- `PUT /api/admin/users/:id/mute`
+- `DELETE /api/admin/users/:id`
+- `PUT /api/posts/:id/pin`
 
 ---
 
-## [0.3.x] - 2026-08-30
+## [0.3.1] - 2026-08-30 - 贡献者：parkes-mimir
 
-- 帖子新标签页、评论图片、签到日历
+- 全部代码添加中文注释
+- 提取 `deleteFile()` / `deleteImages()` 辅助函数
+- 函数级 JSDoc 注释、变量说明、区块分隔
 
 ---
 
-## [0.2.x] - 2026-08-29
+## [0.3.0] - 2026-08-30 - 贡献者：parkes-mimir
 
-- 签到系统、365天日历
+### 帖子系统
+
+- 帖子新标签页打开（`post.html`）
+- 图片 lightbox 弹窗预览
+- 帖子编辑支持增删图片
+- 帖子删除级联清理评论图片
+- `GET /api/posts/:id` 单帖子接口
+
+### 评论系统
+
+- 评论支持多图片上传（最多 3 张）
+- 楼层号、楼主标签、帖主置顶评论
+- 评论编辑/删除（作者、帖主、管理员）
+
+### 签到系统
+
+- 打开网页自动签到
+- 补签后正确刷新状态
+- 签到日历月份选择器修复
+
+### Bug 修复
+
+- multer Unexpected field 错误处理
+- JSON.parse 加 try-catch 防崩溃
+- 删除帖子时清理评论图片文件
+
+---
+
+## [0.2.1] - 2026-08-29 - 贡献者：phppi561
+
+### 签到 API 时区修复
+
+- `addDays` 改用 UTC 避免时区/DST 偏差
+- `daysBetween` 统一使用 `T00:00:00Z`
+- `calcStreaks` 今天未签到时从昨天起算，避免断签
+- 补签限制为注册日至昨天
+
+---
+
+## [0.2.0] - 2026-08-29 - 贡献者：parkes-mimir
+
+### 签到系统
+
+- 365 天签到日历（月历视图、左右翻页、月份选择器、今天按钮）
+- 已签到：左上角绿色圆角三角 + 白色对勾
+- 可补签：背景大字浅红色「补」
+- 侧边栏显示连续/累计签到天数
+- 端口占用自动杀旧进程重启
 
 ---
 
 ## [0.1.0] - 2026-08-28 - 贡献者：parkes-mimir
 
 - 初始版本
+- 用户注册 / 登录 / 退出
+- 帖子 CRUD（技术 / 生活 / 公告分类）
+- 评论 CRUD
+- 点赞 toggle
+- 每日签到 +10 积分
+- 搜索 + 分类筛选
+- Flarum 风格响应式 UI
