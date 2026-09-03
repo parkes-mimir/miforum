@@ -53,7 +53,7 @@ function createApp() {
   // 速率限制（开发环境放宽，测试环境禁用）
   const isDev = (process.env.NODE_ENV || 'development') === 'development';
   const isTest = process.env.NODE_ENV === 'test';
-  
+
   const apiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
     max: isTest ? 10000 : (isDev ? 500 : 100),
