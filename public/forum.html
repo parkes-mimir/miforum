@@ -1584,28 +1584,29 @@ function renderAdminUsers(users) {
         <a href="/profile.html?id=${u.id}" class="flex-shrink-0">${avatarHtml(u.avatar_url, u.username[0].toUpperCase(), 'w-9 h-9')}</a>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
-            <span class="text-sm font-semibold text-gray-900">${esc(u.username)}</span>
+            <span class="text-sm font-semibold text-gray-900 truncate">${esc(u.username)}</span>
             <span class="text-xs text-gray-400">#${esc(u.display_id)}</span>
             ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
             ${u.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>' : ''}
           </div>
-          <div class="text-xs text-gray-400 mt-0.5">${esc(u.email)}</div>
-        </div>
-        <div class="flex items-center gap-1.5 flex-shrink-0 flex-wrap justify-end">
-          ${isSuperAdmin && !isSuperAdminUser ? `
-            ${isAdminUser
-              ? `<button onclick="revokeAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>`
-              : `<button onclick="grantAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">设为管理</button>`
-            }
-            <button onclick="transferSuperAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
-          ` : ''}
-          ${!isSuperAdminUser ? `
-            <button onclick="rewardPoints(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">奖励</button>
-            <button onclick="toggleMute(${u.id})" class="text-xs px-2 py-1 rounded-lg ${u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition">${u.muted ? '解禁' : '禁言'}</button>
-            <button onclick="adminDeleteUser(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
-          ` : ''}
+          <div class="text-xs text-gray-400 mt-0.5">${esc(u.email)} · ${u.points}积分</div>
         </div>
       </div>
+      <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+        ${isSuperAdmin && !isSuperAdminUser ? `
+          ${isAdminUser
+            ? `<button onclick="revokeAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>`
+            : `<button onclick="grantAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">设为管理</button>`
+          }
+          <button onclick="transferSuperAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
+        ` : ''}
+        ${!isSuperAdminUser ? `
+          <button onclick="rewardPoints(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">奖励积分</button>
+          <button onclick="toggleMute(${u.id})" class="text-xs px-2 py-1 rounded-lg ${u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition">${u.muted ? '解禁' : '禁言'}</button>
+          <button onclick="adminDeleteUser(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
+        ` : ''}
+      </div>
+    </div>`;
       <div class="flex items-center gap-4 mt-2 ml-12 text-xs text-gray-500">
         <span>${u.points} 积分</span>
         <span>${u.posts_count} 帖</span>
