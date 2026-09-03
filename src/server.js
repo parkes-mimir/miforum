@@ -63,7 +63,8 @@ function createApp() {
       }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: false
+    crossOriginResourcePolicy: false,
+    hsts: false  // 禁用 HSTS，本地 HTTP 访问
   }));
 
   // CORS 配置（允许局域网访问）
