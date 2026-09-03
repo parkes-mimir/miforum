@@ -8,8 +8,8 @@ const path = require('path');
 const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
-// 数据库文件路径（不带项目名，方便后续改名）
-const DB_FILE = path.join(__dirname, 'data.db');
+// 数据库文件路径（支持环境变量配置，默认为当前目录下的 data.db）
+const DB_FILE = process.env.DB_PATH || path.join(__dirname, 'data.db');
 
 // 默认商品
 const DEFAULT_SHOP_ITEMS = [

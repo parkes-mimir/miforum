@@ -4,6 +4,31 @@
 
 ---
 
+## [0.9.7] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 新增
+
+- **Docker 支持**：
+  - `Dockerfile`：基于 node:20-alpine 的轻量化镜像
+  - `docker-compose.yml`：一键启动，支持环境变量配置
+  - 数据库和上传目录持久化（`./data/`）
+  - 端口可配置（默认 3000）
+  - 健康检查
+- **CI/CD**：
+  - `.github/workflows/ci.yml`：push/PR 自动测试 + lint
+  - `.github/workflows/docker.yml`：tag 推送自动构建 Docker 镜像
+  - 镜像推送到 GitHub Container Registry (ghcr.io)
+- **环境变量支持**：
+  - `DB_PATH`：数据库文件路径
+  - `UPLOADS_PATH`：上传目录路径
+
+### 改进
+
+- `database.js` 数据库路径支持环境变量配置
+- `helpers.js` 上传目录支持环境变量配置
+
+---
+
 ## [0.9.6] - 2026-09-02 - 贡献者：parkes-mimir
 
 ### 修复

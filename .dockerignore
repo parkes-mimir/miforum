@@ -3,12 +3,9 @@ node_modules/
 
 # Database
 data/
-data.db
-data.db-shm
-data.db-wal
-src/data.db
-src/data.db-shm
-src/data.db-wal
+*.db
+*.db-shm
+*.db-wal
 *.sqlite
 db.json
 
@@ -20,11 +17,30 @@ uploads/
 .env.local
 .env.*.local
 
-# Cookies (security)
-cookies.txt
+# Git
+.git/
+.gitignore
+
+# CI/CD
+.github/
+
+# Tests
+tests/
+
+# Documentation
+*.md
+docs/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Legacy
 webforum-testproject-main/
-webforum-testproject-main.zip
 server.js.backup-json
 db.json.backup-*
+cookies.txt

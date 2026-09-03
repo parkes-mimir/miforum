@@ -5,7 +5,8 @@
 const fs = require('fs');
 const path = require('path');
 
-const UPLOADS_DIR = path.join(__dirname, '../../uploads');
+// 上传目录路径（支持环境变量配置）
+const UPLOADS_DIR = process.env.UPLOADS_PATH || path.join(__dirname, '../../uploads');
 
 /**
  * 安全删除文件（防止路径遍历攻击）

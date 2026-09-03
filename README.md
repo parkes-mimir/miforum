@@ -38,9 +38,13 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 安全加固（helmet、速率限制）
 - 单元测试（jest + supertest）
 - 环境变量管理（dotenv）
+- Docker 支持（一键部署）
+- CI/CD（GitHub Actions）
 - 端口占用自动杀旧进程重启
 
 ## 快速开始
+
+### 方式一：直接运行
 
 ```bash
 # 安装依赖
@@ -53,9 +57,38 @@ npm start
 npm run dev
 ```
 
+### 方式二：Docker 部署
+
+```bash
+# 构建镜像
+docker build -t miforum .
+
+# 运行容器
+docker run -d \
+  -p 3000:3000 \
+  -v ./data:/data \
+  -e SESSION_SECRET=your-secret \
+  miforum
+```
+
+### 方式三：Docker Compose
+
+```bash
+# 创建 .env 文件
+echo "SESSION_SECRET=your-secret" > .env
+
+# 启动
+docker-compose up -d
+
+# 停止
+docker-compose down
+```
+
 浏览器打开 http://localhost:3000
 
 超级管理员：`root@miforum.local` / `123456`
+
+**首次登录请立即修改密码！**
 
 ## 技术栈
 
@@ -94,10 +127,17 @@ npm run dev
 │
 ├── docs/                       # 文档
 │   ├── API.md
-│   └── CHANGELOG.md
+│   ├── CHANGELOG.md
+│   └── TEST.md
 │
-├── data.db                     # SQLite 数据库（gitignore）
-├── uploads/                    # 上传文件（gitignore）
+├── .github/                    # CI/CD
+│   └── workflows/
+│       ├── ci.yml              # 测试 CI
+│       └── docker.yml          # Docker 构建
+│
+├── Dockerfile                  # Docker 镜像
+├── .dockerignore               # Docker 排除文件
+├── docker-compose.yml          # Docker Compose
 ├── .eslintrc.json              # ESLint 配置
 ├── .gitignore
 ├── README.md
@@ -144,7 +184,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v0.9.6** — display_id统一六位、移除无头像框、隐私保护
+**最新版本 v0.9.7** — Docker 支持、CI/CD、环境变量路径配置
 
 ## 贡献者
 
