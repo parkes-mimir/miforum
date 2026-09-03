@@ -233,7 +233,7 @@ module.exports = function (app, db) {
     const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
     const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
     const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
-    
+
     if (!host || !user || !pass) {
       return res.status(400).json({ error: '请先配置 SMTP 信息' });
     }

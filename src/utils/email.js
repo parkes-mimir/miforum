@@ -46,7 +46,7 @@ function getSmtpConfig(db) {
 function getTransporter(db) {
   const config = getSmtpConfig(db);
   const configKey = JSON.stringify(config);
-  
+
   if (!transporter || lastConfig !== configKey) {
     if (!config.auth.user || !config.auth.pass) {
       throw new Error('SMTP 未配置，请在管理面板配置或设置环境变量');
