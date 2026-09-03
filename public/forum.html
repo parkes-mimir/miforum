@@ -1600,6 +1600,7 @@ function renderAdminUsers(users) {
             <button onclick="transferSuperAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
           ` : ''}
           ${!isSuperAdminUser ? `
+            <button onclick="rewardPoints(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">奖励</button>
             <button onclick="toggleMute(${u.id})" class="text-xs px-2 py-1 rounded-lg ${u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition">${u.muted ? '解禁' : '禁言'}</button>
             <button onclick="adminDeleteUser(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
           ` : ''}
@@ -1612,6 +1613,23 @@ function renderAdminUsers(users) {
       </div>
     </div>`;
   }).join('');
+}
+
+/** 奖励积分 */
+function rewardPoints(uid) {
+  const u = adminUsersCache.find(x => x.id === uid);
+  const amount = prompt(`奖励「${u ? u.username : ''}」多少积分？`, '100');
+  if (!amount) return;
+  const num = parseInt(amount, 10);
+  if (!Number.isFinite(num) || num <= 0 || num > 10000) { toast('积分必须为1-10000'); return; }
+  const reason = prompt('奖励原因（可选）', '反馈bug奖励') || '';
+  api('/api/admin/users/' + uid + '/points/add', {
+    method: 'PUT',
+    body: JSON.stringify({ amount: num, reason })
+  }).then(data => {
+    toast(data.message || '奖励成功');
+    loadAdminUsers();
+  }).catch(e => toast(e.message));
 }
 
 /** 禁言/解禁用户 */

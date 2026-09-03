@@ -236,8 +236,7 @@ const CAT_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-
 let state = { user: null, post: null, liked: false, isAdmin: false };
 let commentImages = [];           // 新评论选中的图片
 let commentsDataCache = [];       // 评论数据缓存（编辑时查找用）
-let editCommentRemoveImages = []; // 编辑评论时待删除的图片 URL
-let editCommentNewImages = [];    // 编辑评论时新增的图片文件
+let editCommentState = {}; // { [cid]: { removeImages: [], newImages: [] } }
 
 // ============================================================
 // 工具函数
@@ -837,7 +836,7 @@ function startEditComment(cid) {
   if (!el) return;
   const c = commentsDataCache.find(x => x.id === cid);
   if (!c) return;
-  editCommentRemoveImages = []; editCommentNewImages = [];
+  editCommentState[cid] = { removeImages: [], newImages: [] };
 
   const contentEl = el.querySelector('.comment-content');
   const oldContent = contentEl ? contentEl.textContent : '';
@@ -862,34 +861,51 @@ function startEditComment(cid) {
 function renderEditCImgs(cid, existing) {
   const grid = document.getElementById(`editCommentImgGrid-${cid}`);
   if (!grid) return;
+  const state = editCommentState[cid] || { removeImages: [], newImages: [] };
   let html = '';
   existing.forEach(url => {
-    const removed = editCommentRemoveImages.includes(url);
+    const removed = state.removeImages.includes(url);
     html += `<div class="relative w-14 h-14 rounded overflow-hidden ${removed ? 'opacity-40' : ''}"><img src="${url}" class="w-full h-full object-cover">${removed ? `<button onclick="undoRemoveCImg('${url}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>` : `<button onclick="markRemoveCImg('${url}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
   });
-  editCommentNewImages.forEach((f, i) => {
+  state.newImages.forEach((f, i) => {
     const url = URL.createObjectURL(f);
     html += `<div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400"><img src="${url}" class="w-full h-full object-cover"><button onclick="removeEditCNewImg(${i},${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button></div>`;
   });
   grid.innerHTML = html;
 }
 
-function markRemoveCImg(url, cid) { editCommentRemoveImages.push(url); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
-function undoRemoveCImg(url, cid) { editCommentRemoveImages = editCommentRemoveImages.filter(u => u !== url); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
+function markRemoveCImg(url, cid) {
+  if (!editCommentState[cid]) editCommentState[cid] = { removeImages: [], newImages: [] };
+  editCommentState[cid].removeImages.push(url);
+  const c = commentsDataCache.find(x => x.id === cid);
+  renderEditCImgs(cid, c ? c.images || [] : []);
+}
+function undoRemoveCImg(url, cid) {
+  if (!editCommentState[cid]) return;
+  editCommentState[cid].removeImages = editCommentState[cid].removeImages.filter(u => u !== url);
+  const c = commentsDataCache.find(x => x.id === cid);
+  renderEditCImgs(cid, c ? c.images || [] : []);
+}
 function handleEditCImgSelect(input, cid) {
   const files = Array.from(input.files);
+  if (!editCommentState[cid]) editCommentState[cid] = { removeImages: [], newImages: [] };
   const c = commentsDataCache.find(x => x.id === cid);
-  const existing = (c ? (c.images || []).length : 0) - editCommentRemoveImages.length;
-  if (existing + editCommentNewImages.length + files.length > 3) { toast('最多3张'); input.value = ''; return; }
-  editCommentNewImages.push(...files);
+  const existing = (c ? (c.images || []).length : 0) - editCommentState[cid].removeImages.length;
+  if (existing + editCommentState[cid].newImages.length + files.length > 3) { toast('最多3张'); input.value = ''; return; }
+  editCommentState[cid].newImages.push(...files);
   renderEditCImgs(cid, c ? c.images || [] : []);
   input.value = '';
 }
-function removeEditCNewImg(i, cid) { editCommentNewImages.splice(i, 1); const c = commentsDataCache.find(x => x.id === cid); renderEditCImgs(cid, c ? c.images || [] : []); }
+function removeEditCNewImg(i, cid) {
+  if (!editCommentState[cid]) return;
+  editCommentState[cid].newImages.splice(i, 1);
+  const c = commentsDataCache.find(x => x.id === cid);
+  renderEditCImgs(cid, c ? c.images || [] : []);
+}
 
 /** 取消编辑评论 */
 function cancelEditC(cid) {
-  editCommentRemoveImages = []; editCommentNewImages = [];
+  delete editCommentState[cid];
   loadComments(state.post.id);
 }
 
@@ -899,16 +915,17 @@ async function saveEditC(cid) {
   if (!el) return;
   const textarea = el.querySelector('textarea');
   const text = textarea ? textarea.value.trim() : '';
-  if (!text && editCommentNewImages.length === 0) { toast('评论不能为空'); return; }
+  const st = editCommentState[cid] || { removeImages: [], newImages: [] };
+  if (!text && st.newImages.length === 0) { toast('评论不能为空'); return; }
   try {
     const fd = new FormData();
     if (text) fd.append('content', text);
-    if (editCommentRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editCommentRemoveImages));
-    editCommentNewImages.forEach(f => fd.append('images', f));
+    if (st.removeImages.length > 0) fd.append('removeImages', JSON.stringify(st.removeImages));
+    st.newImages.forEach(f => fd.append('images', f));
     const res = await fetch('/api/comments/' + cid, { method: 'PUT', body: fd });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '修改失败');
-    editCommentRemoveImages = []; editCommentNewImages = [];
+    delete editCommentState[cid];
     await loadComments(state.post.id); toast('已更新');
   } catch (e) { toast(e.message); }
 }
