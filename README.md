@@ -34,6 +34,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 经验值系统（注册+50、签到+10、发帖+20、评论+5）
 - 装备系统（称号/头像框切换）
 - 等级排行榜
+- 关于页面（版本信息、检查更新、自动更新）
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - PWA 支持（theme-color、apple-mobile-web-app）
 - 分页加载（帖子/评论/收藏列表）
