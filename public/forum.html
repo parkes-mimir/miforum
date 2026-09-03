@@ -1592,7 +1592,7 @@ function renderAdminUsers(users) {
           <div class="text-xs text-gray-400 mt-0.5">${esc(u.email)} · ${u.points}积分</div>
         </div>
       </div>
-      <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+       <div class="flex items-center gap-1.5 mt-2 flex-wrap">
         ${isSuperAdmin && !isSuperAdminUser ? `
           ${isAdminUser
             ? `<button onclick="revokeAdmin(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>`
@@ -1605,12 +1605,6 @@ function renderAdminUsers(users) {
           <button onclick="toggleMute(${u.id})" class="text-xs px-2 py-1 rounded-lg ${u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'} transition">${u.muted ? '解禁' : '禁言'}</button>
           <button onclick="adminDeleteUser(${u.id})" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
         ` : ''}
-      </div>
-    </div>`;
-      <div class="flex items-center gap-4 mt-2 ml-12 text-xs text-gray-500">
-        <span>${u.points} 积分</span>
-        <span>${u.posts_count} 帖</span>
-        <span>${u.comments_count} 评论</span>
       </div>
     </div>`;
   }).join('');
