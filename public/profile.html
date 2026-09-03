@@ -468,7 +468,7 @@ async function loadProfile() {
 
     // Avatar
     const letter = user.username[0].toUpperCase();
-    document.getElementById('profileAvatar').innerHTML = renderAvatar(user.avatar_url, letter, 'w-full h-full', '', 'text-white');
+    document.getElementById('profileAvatar').innerHTML = renderAvatar(user.avatar_url, letter, 'w-full h-full', 'bg-white/20', 'text-white');
     // Avatar frame：根据 avatar_frame 值切换外层光环样式（用内联 style 避免依赖 tailwind.css 编译）
     const frameStyles = {
       gold:   'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
