@@ -53,7 +53,7 @@ function authRoutes(app, db) {
       'INSERT INTO verification_codes (email, code, type, expires_at) VALUES (?, ?, ?, ?)'
     ).run(email, code, codeType, expiresAt);
 
-    const sent = await sendVerificationCode(email, code, codeType);
+    const sent = await sendVerificationCode(db, email, code, codeType);
     if (!sent) return res.status(500).json({ error: '验证码发送失败，请稍后再试' });
 
     res.json({ ok: true, message: '验证码已发送' });

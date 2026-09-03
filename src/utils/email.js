@@ -1,35 +1,58 @@
 /**
  * email.js - 邮件发送模块
- * 使用 nodemailer 通过 SMTP 发送验证码
+ * 优先从数据库读取 SMTP 配置，否则使用环境变量
  */
 
 const nodemailer = require('nodemailer');
 
-// SMTP 配置（从环境变量读取）
-const SMTP_CONFIG = {
-  host: process.env.SMTP_HOST || 'smtp.qq.com',
-  port: parseInt(process.env.SMTP_PORT || '465'),
-  secure: process.env.SMTP_SECURE !== 'false',  // 默认 true
-  auth: {
-    user: process.env.SMTP_USER || '',
-    pass: process.env.SMTP_PASS || ''
-  }
-};
-
-// 发件人名称
-const FROM_NAME = process.env.SMTP_FROM_NAME || 'MiForum';
-
 let transporter = null;
+let lastConfig = null;
+
+/**
+ * 从数据库获取 SMTP 配置
+ */
+function getSmtpConfig(db) {
+  const host = db.prepare("SELECT value FROM settings WHERE key = 'smtp_host'").get();
+  const port = db.prepare("SELECT value FROM settings WHERE key = 'smtp_port'").get();
+  const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
+  const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
+  const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
+
+  // 优先使用数据库配置
+  if (host && user && pass) {
+    return {
+      host: host.value,
+      port: parseInt(port ? port.value : '465'),
+      secure: secure ? secure.value === 'true' : true,
+      auth: { user: user.value, pass: pass.value }
+    };
+  }
+
+  // 回退到环境变量
+  return {
+    host: process.env.SMTP_HOST || 'smtp.qq.com',
+    port: parseInt(process.env.SMTP_PORT || '465'),
+    secure: process.env.SMTP_SECURE !== 'false',
+    auth: {
+      user: process.env.SMTP_USER || '',
+      pass: process.env.SMTP_PASS || ''
+    }
+  };
+}
 
 /**
  * 获取邮件传输器
  */
-function getTransporter() {
-  if (!transporter) {
-    if (!SMTP_CONFIG.auth.user || !SMTP_CONFIG.auth.pass) {
-      throw new Error('SMTP 未配置，请设置 SMTP_USER 和 SMTP_PASS 环境变量');
+function getTransporter(db) {
+  const config = getSmtpConfig(db);
+  const configKey = JSON.stringify(config);
+  
+  if (!transporter || lastConfig !== configKey) {
+    if (!config.auth.user || !config.auth.pass) {
+      throw new Error('SMTP 未配置，请在管理面板配置或设置环境变量');
     }
-    transporter = nodemailer.createTransport(SMTP_CONFIG);
+    transporter = nodemailer.createTransport(config);
+    lastConfig = configKey;
   }
   return transporter;
 }
@@ -43,13 +66,14 @@ function generateCode() {
 
 /**
  * 发送验证码邮件
+ * @param {Object} db 数据库实例
  * @param {string} to 收件人邮箱
  * @param {string} code 验证码
  * @param {string} type 类型（register/reset）
  * @returns {Promise<boolean>}
  */
-async function sendVerificationCode(to, code, type = 'register') {
-  const subject = type === 'reset' ? 'MiForum 密码重置验证码' : 'MiForum 注册验证码';
+async function sendVerificationCode(db, to, code, type = 'register') {
+  const subject = type === 'reset' ? '密码重置验证码' : '注册验证码';
   const action = type === 'reset' ? '重置密码' : '注册账号';
 
   const html = `
@@ -68,9 +92,9 @@ async function sendVerificationCode(to, code, type = 'register') {
   `;
 
   try {
-    const t = getTransporter();
+    const t = getTransporter(db);
     await t.sendMail({
-      from: `"${FROM_NAME}" <${SMTP_CONFIG.auth.user}>`,
+      from: `"MiForum" <${getSmtpConfig(db).auth.user}>`,
       to,
       subject,
       html
@@ -84,6 +108,5 @@ async function sendVerificationCode(to, code, type = 'register') {
 
 module.exports = {
   generateCode,
-  sendVerificationCode,
-  SMTP_CONFIG
+  sendVerificationCode
 };

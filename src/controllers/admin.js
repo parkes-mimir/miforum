@@ -186,4 +186,70 @@ module.exports = function (app, db) {
       .map(([name, count]) => ({ name, count }));
     res.json({ tags });
   });
+
+  // ============================================================
+  // 系统设置 API
+  // ============================================================
+
+  /** 获取 SMTP 配置（隐藏密码） */
+  app.get('/api/admin/smtp', requireAdmin, (req, res) => {
+    const host = db.prepare("SELECT value FROM settings WHERE key = 'smtp_host'").get();
+    const port = db.prepare("SELECT value FROM settings WHERE key = 'smtp_port'").get();
+    const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
+    const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
+    const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
+    res.json({
+      smtp_host: host ? host.value : '',
+      smtp_port: port ? port.value : '465',
+      smtp_secure: secure ? secure.value === 'true' : true,
+      smtp_user: user ? user.value : '',
+      smtp_pass: pass ? '********' : '',
+      configured: !!(host && user && pass)
+    });
+  });
+
+  /** 保存 SMTP 配置 */
+  app.put('/api/admin/smtp', requireAdmin, (req, res) => {
+    const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
+    if (!smtp_host || !smtp_user) {
+      return res.status(400).json({ error: '请填写 SMTP 主机和用户名' });
+    }
+    const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?');
+    upsert.run('smtp_host', smtp_host, smtp_host);
+    upsert.run('smtp_port', smtp_port || '465', smtp_port || '465');
+    upsert.run('smtp_secure', smtp_secure ? 'true' : 'false', smtp_secure ? 'true' : 'false');
+    upsert.run('smtp_user', smtp_user, smtp_user);
+    // 只有输入了新密码才更新
+    if (smtp_pass && smtp_pass !== '********') {
+      upsert.run('smtp_pass', smtp_pass, smtp_pass);
+    }
+    res.json({ ok: true, message: 'SMTP 配置已保存' });
+  });
+
+  /** 测试 SMTP 连接 */
+  app.post('/api/admin/smtp/test', requireAdmin, async (req, res) => {
+    const host = db.prepare("SELECT value FROM settings WHERE key = 'smtp_host'").get();
+    const port = db.prepare("SELECT value FROM settings WHERE key = 'smtp_port'").get();
+    const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
+    const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
+    const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
+    
+    if (!host || !user || !pass) {
+      return res.status(400).json({ error: '请先配置 SMTP 信息' });
+    }
+
+    try {
+      const nodemailer = require('nodemailer');
+      const transporter = nodemailer.createTransport({
+        host: host.value,
+        port: parseInt(port ? port.value : '465'),
+        secure: secure ? secure.value === 'true' : true,
+        auth: { user: user.value, pass: pass.value }
+      });
+      await transporter.verify();
+      res.json({ ok: true, message: 'SMTP 连接成功' });
+    } catch (err) {
+      res.status(400).json({ error: `连接失败: ${err.message}` });
+    }
+  });
 };

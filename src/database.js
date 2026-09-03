@@ -165,6 +165,12 @@ function createTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_verification_email ON verification_codes(email, type);
 
+    -- 系统设置表
+    CREATE TABLE IF NOT EXISTS settings (
+      key TEXT PRIMARY KEY,
+      value TEXT
+    );
+
     -- 分类表
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,
