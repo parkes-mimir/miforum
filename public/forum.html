@@ -1120,6 +1120,16 @@ async function loadTagCloud() {
   } catch(e) {}
 }
 
+/** 展开/收起标签 */
+function toggleTags(postId) {
+  const moreEl = document.getElementById('tags-more-' + postId);
+  const btnEl = document.getElementById('tags-btn-' + postId);
+  if (!moreEl || !btnEl) return;
+  const isHidden = moreEl.classList.contains('hidden');
+  moreEl.classList.toggle('hidden');
+  btnEl.textContent = isHidden ? '收起' : '展开' + (moreEl.children.length) + '个';
+}
+
 /** 按标签筛选 */
 function filterByTag(tag) {
   state.currentTag = tag;
@@ -1163,7 +1173,11 @@ function renderPosts() {
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
-          ${p.tags && p.tags.length ? `<div class="flex flex-wrap gap-1.5 mt-1.5">${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('')}${p.tags.length > 3 ? `<span class="text-xs text-gray-400">+${p.tags.length - 3}</span>` : ''}</div>` : ''}
+           ${p.tags && p.tags.length ? `<div class="flex flex-wrap items-center gap-1.5 mt-1.5">
+              ${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('')}
+              <span id="tags-more-${p.id}" class="${p.tags.length > 3 ? '' : 'hidden'}">${p.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('')}</span>
+              ${p.tags.length > 3 ? `<button onclick="event.stopPropagation();toggleTags(${p.id})" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" id="tags-btn-${p.id}">展开${p.tags.length - 3}个</button>` : ''}
+            </div>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
