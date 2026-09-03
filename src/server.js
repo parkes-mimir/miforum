@@ -59,7 +59,8 @@ function createApp() {
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
         formAction: ["'self'"],
-        frameAncestors: ["'self'"]
+        frameAncestors: ["'self'"],
+        upgradeInsecureRequests: null  // 禁用 HTTP 升级 HTTPS
       }
     },
     crossOriginEmbedderPolicy: false,
