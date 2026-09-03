@@ -2,6 +2,7 @@
   "name": "miforum",
   "version": "0.9.9",
   "private": true,
+  "license": "MIT",
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
