@@ -497,7 +497,12 @@ async function loadPage() {
     // 标签
     const tagsEl = document.getElementById('postTags');
     if (post.tags && post.tags.length) {
-      tagsEl.innerHTML = post.tags.map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="window.open('/?tag=${encodeURIComponent(t)}','_blank')">#${esc(t)}</span>`).join(' ');
+      let tagsHtml = `<div class="flex flex-wrap gap-1.5">${post.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="location.href='/?tag=${encodeURIComponent(t)}'">#${esc(t)}</span>`).join('')}</div>`;
+      if (post.tags.length > 3) {
+        tagsHtml += `<div id="post-tags-more" class="hidden flex flex-wrap gap-1.5 mt-1">${post.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="location.href='/?tag=${encodeURIComponent(t)}'">#${esc(t)}</span>`).join('')}</div>`;
+        tagsHtml += `<button onclick="togglePostTags()" id="post-tags-btn" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition mt-1">展开全部</button>`;
+      }
+      tagsEl.innerHTML = tagsHtml;
     } else { tagsEl.innerHTML = ''; }
     document.getElementById('postTime').textContent = relTime(post.created_at) + (post.updated_at ? ' (已编辑)' : '');
     document.getElementById('postTitle').textContent = post.title;
@@ -696,6 +701,16 @@ async function saveEditPost() {
 async function deletePost() {
   if (!confirm('确定删除这篇帖子？')) return;
   try { await api('/api/posts/' + state.post.id, { method: 'DELETE' }); toast('已删除'); window.location = '/'; } catch (e) { toast(e.message); }
+}
+
+/** 展开/收起标签 */
+function togglePostTags() {
+  const moreEl = document.getElementById('post-tags-more');
+  const btnEl = document.getElementById('post-tags-btn');
+  if (!moreEl || !btnEl) return;
+  const isHidden = moreEl.classList.contains('hidden');
+  moreEl.classList.toggle('hidden');
+  btnEl.textContent = isHidden ? '收起' : '展开全部';
 }
 
 /** 置顶/取消置顶帖子（仅管理员） */
