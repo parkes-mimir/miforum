@@ -59,9 +59,9 @@
             <span id="postAuthorLevel" class="hidden inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
             <span id="postAuthorId" class="text-xs text-gray-400"></span>
             <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" onclick="window.open('/?category='+encodeURIComponent('${esc(state.post ? state.post.category : '')}'),'_blank')"></span>
-            <span id="postTags"></span>
           </div>
           <span id="postTime" class="text-xs text-gray-400"></span>
+          <div id="postTags" class="mt-1.5"></div>
         </div>
         <div id="postActions" class="ml-auto hidden flex items-center gap-1">
           <button id="editPostBtn" onclick="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
@@ -764,7 +764,7 @@ function renderComments(cl, postOwnerId, pagination) {
               ${canDelete ? `<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>` : ''}
             </div>
           </div>
-          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : ''}
+          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : '<p class="text-sm text-gray-700 comment-content hidden"></p>'}
           ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${url}')">`).join('')}</div>` : ''}
         </div>
       </div>`;
