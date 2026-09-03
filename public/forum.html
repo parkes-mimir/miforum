@@ -1442,7 +1442,7 @@ async function loadAdminUsers() {
 
 /** 渲染用户列表 */
 function renderAdminUsers(users) {
-  const list = document.getElementById('adminUserList');
+  const list = document.getElementById('adminContentUsers');
   const currentRole = state.user ? (state.user.role || 'user') : 'user';
   const isSuperAdmin = currentRole === 'super_admin';
 
