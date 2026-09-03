@@ -50,17 +50,19 @@ function createApp() {
     crossOriginEmbedderPolicy: false
   }));
 
-  // 速率限制（开发环境放宽）
+  // 速率限制（开发环境放宽，测试环境禁用）
   const isDev = (process.env.NODE_ENV || 'development') === 'development';
+  const isTest = process.env.NODE_ENV === 'test';
+  
   const apiLimiter = rateLimit({
-    windowMs: 1 * 60 * 1000,  // 1 分钟
-    max: isDev ? 500 : 100,    // 开发 500次/分钟，生产 100次/分钟
+    windowMs: 1 * 60 * 1000,
+    max: isTest ? 10000 : (isDev ? 500 : 100),
     message: { error: '请求过于频繁，请稍后再试' }
   });
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: isDev ? 50 : 10,      // 开发 50次/15分钟，生产 10次/15分钟
+    max: isTest ? 10000 : (isDev ? 50 : 10),
     message: { error: '登录尝试过于频繁，请15分钟后再试' }
   });
 
