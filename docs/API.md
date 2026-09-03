@@ -239,6 +239,32 @@ try {
 
 ## 认证
 
+### 发送验证码
+
+```
+POST /api/send-code
+```
+
+**请求体**
+```json
+{
+  "email": "string",
+  "type": "register"
+}
+```
+
+**响应**
+```json
+{ "ok": true, "message": "验证码已发送" }
+```
+
+**说明**
+- 验证码 10 分钟有效
+- 60秒内只能发送一次
+- 需要配置 SMTP 环境变量（见 .env.example）
+
+---
+
 ### 注册
 
 ```
@@ -250,7 +276,8 @@ POST /api/register
 {
   "username": "string",
   "email": "string",
-  "password": "string"
+  "password": "string",
+  "code": "string"
 }
 ```
 

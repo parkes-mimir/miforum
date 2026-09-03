@@ -1,11 +1,12 @@
 /**
- * auth.js - 认证控制器（注册、登录、登出、用户信息、修改密码）
+ * auth.js - 认证控制器（注册、登录、登出、用户信息、修改密码、邮箱验证）
  */
 
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { intToBool } = require('../utils/helpers');
 const { getLevelInfo, EXP_REWARDS, addExp } = require('./level');
+const { generateCode, sendVerificationCode } = require('../utils/email');
 
 /**
  * 获取下一个显示 ID
@@ -24,10 +25,44 @@ function getNextDisplayId(db) {
  * @param {Object} db 数据库实例
  */
 function authRoutes(app, db) {
+  // 发送验证码
+  app.post('/api/send-code', async (req, res) => {
+    const { email, type } = req.body;
+    if (!email) return res.status(400).json({ error: '请填写邮箱' });
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
+
+    const codeType = type || 'register';
+
+    // 检查邮箱是否已注册（注册类型）
+    if (codeType === 'register') {
+      const exists = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
+      if (exists) return res.status(400).json({ error: '邮箱已被注册' });
+    }
+
+    // 检查发送频率（60秒内只能发一次）
+    const recent = db.prepare(
+      "SELECT id FROM verification_codes WHERE email = ? AND type = ? AND created_at > datetime('now', '-1 minute') ORDER BY id DESC LIMIT 1"
+    ).get(email, codeType);
+    if (recent) return res.status(429).json({ error: '验证码发送过于频繁，请稍后再试' });
+
+    // 生成并发送验证码
+    const code = generateCode();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString(); // 10分钟
+
+    db.prepare(
+      'INSERT INTO verification_codes (email, code, type, expires_at) VALUES (?, ?, ?, ?)'
+    ).run(email, code, codeType, expiresAt);
+
+    const sent = await sendVerificationCode(email, code, codeType);
+    if (!sent) return res.status(500).json({ error: '验证码发送失败，请稍后再试' });
+
+    res.json({ ok: true, message: '验证码已发送' });
+  });
+
   // 注册
   app.post('/api/register', async (req, res) => {
-    const { username, email, password } = req.body;
-    if (!username || !email || !password) return res.status(400).json({ error: '请填写所有字段' });
+    const { username, email, password, code } = req.body;
+    if (!username || !email || !password || !code) return res.status(400).json({ error: '请填写所有字段' });
 
     // 输入校验
     if (username.length < 2 || username.length > 20) return res.status(400).json({ error: '用户名 2-20 字' });
@@ -39,6 +74,15 @@ function authRoutes(app, db) {
     if (existsEmail) return res.status(400).json({ error: '邮箱已被注册' });
     const existsName = db.prepare('SELECT id FROM profiles WHERE username = ?').get(username);
     if (existsName) return res.status(400).json({ error: '用户名已被占用' });
+
+    // 验证验证码
+    const verification = db.prepare(
+      "SELECT id FROM verification_codes WHERE email = ? AND code = ? AND type = 'register' AND used = 0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1"
+    ).get(email, code);
+    if (!verification) return res.status(400).json({ error: '验证码无效或已过期' });
+
+    // 标记验证码已使用
+    db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
 
     const displayId = getNextDisplayId(db);
     const hash = await bcrypt.hash(password, 10);

@@ -191,6 +191,13 @@
           <p id="reg-text" class="text-xs text-gray-400"></p>
         </div>
       </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">验证码</label>
+        <div class="flex gap-2">
+          <input id="regCode" type="text" placeholder="输入验证码" maxlength="6" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+          <button id="sendCodeBtn" onclick="sendVerificationCode()" class="px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition whitespace-nowrap">发送验证码</button>
+        </div>
+      </div>
       <button onclick="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
     </div>
   </div>
@@ -605,15 +612,45 @@ async function doLogin() {
   } catch (e) { toast(e.message); }
 }
 
+/** 发送验证码 */
+let sendCodeTimer = null;
+async function sendVerificationCode() {
+  const email = document.getElementById('regEmail').value.trim();
+  if (!email) { toast('请先填写邮箱'); return; }
+  if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) { toast('邮箱格式不正确'); return; }
+
+  const btn = document.getElementById('sendCodeBtn');
+  if (btn.disabled) return;
+
+  try {
+    await api('/api/send-code', { method: 'POST', body: JSON.stringify({ email, type: 'register' }) });
+    toast('验证码已发送到邮箱');
+    btn.disabled = true;
+    let seconds = 60;
+    btn.textContent = `${seconds}s`;
+    sendCodeTimer = setInterval(() => {
+      seconds--;
+      if (seconds <= 0) {
+        clearInterval(sendCodeTimer);
+        btn.disabled = false;
+        btn.textContent = '发送验证码';
+      } else {
+        btn.textContent = `${seconds}s`;
+      }
+    }, 1000);
+  } catch (e) { toast(e.message); }
+}
+
 /** 注册 */
 async function doRegister() {
   const username = document.getElementById('regUsername').value.trim();
   const email = document.getElementById('regEmail').value.trim();
   const password = document.getElementById('regPassword').value;
-  if (!username || !email || !password) { toast('请填写所有字段'); return; }
+  const code = document.getElementById('regCode').value.trim();
+  if (!username || !email || !password || !code) { toast('请填写所有字段'); return; }
   if (password.length < 6) { toast('密码至少6位'); return; }
   try {
-    const { user } = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, email, password }) });
+    const { user } = await api('/api/register', { method: 'POST', body: JSON.stringify({ username, email, password, code }) });
     state.user = user;
     hideAuthModal();
     renderAuth();

@@ -13,7 +13,9 @@
   },
   "jest": {
     "testEnvironment": "node",
-    "testMatch": ["**/tests/**/*.test.js"],
+    "testMatch": [
+      "**/tests/**/*.test.js"
+    ],
     "testTimeout": 10000
   },
   "dependencies": {
@@ -24,7 +26,8 @@
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.18.1",
     "helmet": "^8.3.0",
-    "multer": "^1.4.5-lts.1"
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^9.1.1"
   },
   "devDependencies": {
     "eslint": "^8.50.0",
