@@ -52,9 +52,9 @@ function createApp() {
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:'],
+        imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
         fontSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'"],
+        connectSrc: ["'self'", 'http:', 'https:'],
         frameSrc: ["'none'"],
         objectSrc: ["'none'"],
         baseUri: ["'self'"],
@@ -63,8 +63,23 @@ function createApp() {
       }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: 'same-site' }
+    crossOriginResourcePolicy: false
   }));
+
+  // CORS 配置（允许局域网访问）
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    if (origin) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+    }
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    res.setHeader('Access-Control-Allow-Credentials', 'true');
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(200);
+    }
+    next();
+  });
 
   // 速率限制（开发环境放宽，测试环境禁用）
   const isDev = (process.env.NODE_ENV || 'development') === 'development';
