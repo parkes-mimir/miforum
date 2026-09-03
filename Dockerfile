@@ -15,6 +15,12 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm config set registry https://registry.npmmirror.com && npm ci --omit=dev
 
+# 复制源码
+COPY src/ ./src/
+COPY public/ ./public/
+COPY docs/ ./docs/
+COPY tailwind.config.js ./
+
 # 创建数据目录
 RUN mkdir -p /data/db /data/uploads
 
