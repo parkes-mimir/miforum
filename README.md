@@ -2,6 +2,8 @@
 
 Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开箱即用。
 
+![MiForum 预览](docs/preview.png)
+
 ## 灵感来源
 
 - [Flarum](https://github.com/flarum/flarum) — UI 设计风格
