@@ -4,6 +4,16 @@
 
 ---
 
+## [1.0.1] - 2026-09-03 - 贡献者：parkes-mimir
+
+### 修复
+
+- 添加 CORS 支持，允许局域网跨域访问
+- 放宽 CSP 策略（connectSrc/imgSrc 允许 http/https）
+- 修复其他设备访问时资源加载失败
+
+---
+
 ## [1.0.0] - 2026-09-03 - 贡献者：parkes-mimir, jxwzx, phppi561
 
 ### 正式版发布
