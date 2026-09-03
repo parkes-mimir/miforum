@@ -4,6 +4,16 @@
 
 ---
 
+## [1.0.3] - 2026-09-03 - 贡献者：parkes-mimir
+
+### 修复
+
+- 禁用 CSP `upgrade-insecure-requests` 指令
+- 解决浏览器自动将 HTTP 升级为 HTTPS 的问题
+- 局域网 HTTP 访问完全正常
+
+---
+
 ## [1.0.2] - 2026-09-03 - 贡献者：parkes-mimir
 
 ### 修复
