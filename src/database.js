@@ -171,6 +171,15 @@ function createTables() {
       value TEXT
     );
 
+    -- 经验日志表（用于每日上限统计）
+    CREATE TABLE IF NOT EXISTS exp_log (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER REFERENCES profiles(id),
+      amount INTEGER NOT NULL,
+      date TEXT NOT NULL
+    );
+    CREATE INDEX IF NOT EXISTS idx_exp_log_user_date ON exp_log(user_id, date);
+
     -- 分类表
     CREATE TABLE IF NOT EXISTS categories (
       id INTEGER PRIMARY KEY AUTOINCREMENT,

@@ -10,18 +10,21 @@
 // ============================================================
 
 /** 升级所需累计经验（索引即等级，level 0 占位，1~10 真实阈值） */
-const EXP_LEVELS = [0, 0, 50, 150, 300, 600, 1000, 1500, 2200, 3000, 5000];
+const EXP_LEVELS = [0, 0, 100, 300, 600, 1000, 1800, 3000, 5000, 8000, 12000];
 const MAX_LEVEL = 10;
+
+/** 每日经验上限 */
+const DAILY_EXP_LIMIT = 100;
 
 /** 各行为获得的经验值 */
 const EXP_REWARDS = {
-  register: 50,       // 注册
+  register: 50,       // 注册（一次性）
   signin: 10,         // 签到
   retroactive: 5,     // 补签
-  post: 20,           // 发帖
+  post: 15,           // 发帖
   comment: 5,         // 评论
-  receive_like: 3,    // 收到点赞
-  receive_comment: 2, // 收到评论
+  receive_like: 2,    // 收到点赞
+  receive_comment: 1, // 收到评论
   bookmark: 2         // 收藏帖子
 };
 
@@ -118,6 +121,7 @@ function getLevelInfo(exp) {
 
 /**
  * 给用户增加经验值（需要数据库实例）
+ * 注册经验不受每日上限限制
  * @param {Object} db 数据库实例
  * @param {number} userId
  * @param {number} amount
@@ -125,7 +129,29 @@ function getLevelInfo(exp) {
  */
 function addExp(db, userId, amount) {
   if (!Number.isFinite(amount) || amount === 0) return null;
+  
+  // 注册经验不受每日上限限制
+  if (amount !== EXP_REWARDS.register) {
+    const today = new Date().toISOString().slice(0, 10);
+    const row = db.prepare(`
+      SELECT COALESCE(SUM(amount), 0) AS total
+      FROM exp_log WHERE user_id = ? AND date = ?
+    `).get(userId, today);
+    
+    const remaining = Math.max(0, DAILY_EXP_LIMIT - row.total);
+    if (remaining <= 0) {
+      const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
+      return u ? u.exp : 0;
+    }
+    amount = Math.min(amount, remaining);
+  }
+  
   db.prepare('UPDATE profiles SET exp = MAX(0, exp + ?) WHERE id = ?').run(amount, userId);
+  
+  // 记录经验日志
+  const today = new Date().toISOString().slice(0, 10);
+  db.prepare('INSERT INTO exp_log (user_id, amount, date) VALUES (?, ?, ?)').run(userId, amount, today);
+  
   const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
   return u ? u.exp : 0;
 }
