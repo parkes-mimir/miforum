@@ -275,22 +275,22 @@ module.exports = function (app, db) {
     try {
       const pkg = require('../../package.json');
       const currentVersion = pkg.version;
-      
+
       const response = await fetch('https://api.github.com/repos/parkes-mimir/miforum/releases/latest', {
         headers: { 'User-Agent': 'MiForum' }
       });
-      
+
       if (!response.ok) {
         return res.json({ hasUpdate: false, message: '无法获取最新版本信息' });
       }
-      
+
       const data = await response.json();
       const latestVersion = data.tag_name.replace('v', '');
-      
+
       // 简单版本比较
       const current = currentVersion.split('.').map(Number);
       const latest = latestVersion.split('.').map(Number);
-      
+
       let hasUpdate = false;
       for (let i = 0; i < 3; i++) {
         if (latest[i] > current[i]) {
@@ -300,7 +300,7 @@ module.exports = function (app, db) {
           break;
         }
       }
-      
+
       res.json({
         hasUpdate,
         currentVersion,
@@ -318,22 +318,22 @@ module.exports = function (app, db) {
   app.post('/api/admin/update', requireSuperAdmin, async (req, res) => {
     try {
       const { execSync } = require('child_process');
-      
+
       // 备份当前版本
       const backupDir = path.join(__dirname, '../../backups');
       if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
       const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
       execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: path.join(__dirname, '../..') });
-      
+
       // 拉取最新代码
       execSync('git fetch origin main', { cwd: path.join(__dirname, '../..') });
       execSync('git reset --hard origin/main', { cwd: path.join(__dirname, '../..') });
-      
+
       // 安装依赖
       execSync('npm install --omit=dev', { cwd: path.join(__dirname, '../..') });
-      
-      res.json({ 
-        ok: true, 
+
+      res.json({
+        ok: true,
         message: '更新成功，需要重启服务器才能生效',
         backup: backupName
       });
