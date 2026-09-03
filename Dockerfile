@@ -15,11 +15,8 @@ WORKDIR /app
 COPY package.json package-lock.json ./
 RUN npm config set registry https://registry.npmmirror.com && npm ci --omit=dev
 
-# 复制源码
-COPY src/ ./src/
-COPY public/ ./public/
-COPY docs/ ./docs/
-COPY tailwind.config.js ./
+# 创建数据目录
+RUN mkdir -p /data/db /data/uploads
 
 # 环境变量
 ENV PORT=3000
@@ -30,5 +27,5 @@ ENV UPLOADS_PATH=/data/uploads
 # 暴露端口
 EXPOSE 3000
 
-# 启动时自动创建数据目录
-CMD ["sh", "-c", "mkdir -p /data/db /data/uploads && node src/server.js"]
+# 启动应用
+CMD ["node", "src/server.js"]

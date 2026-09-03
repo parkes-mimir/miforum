@@ -7,14 +7,15 @@ services:
     ports:
       - "${PORT:-3000}:3000"
     volumes:
-      - ./data/db:/data/db
-      - ./data/uploads:/data/uploads
+      - .:/app
+      - miforum-db:/app/data/db
+      - miforum-uploads:/app/data/uploads
     environment:
       - NODE_ENV=production
       - PORT=3000
       - SESSION_SECRET=${SESSION_SECRET:-change-me-in-production}
-      - DB_PATH=/data/db/data.db
-      - UPLOADS_PATH=/data/uploads
+      - DB_PATH=/app/data/db/data.db
+      - UPLOADS_PATH=/app/data/uploads
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]
@@ -22,3 +23,7 @@ services:
       timeout: 3s
       start_period: 5s
       retries: 3
+
+volumes:
+  miforum-db:
+  miforum-uploads:
