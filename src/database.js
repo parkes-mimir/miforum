@@ -5,7 +5,6 @@
 
 const Database = require('better-sqlite3');
 const path = require('path');
-const fs = require('fs');
 const bcrypt = require('bcryptjs');
 
 // 数据库文件路径（支持环境变量配置，默认为当前目录下的 data.db）
@@ -39,12 +38,12 @@ let db = null;
  */
 function initDatabase() {
   db = new Database(DB_FILE);
-  
+
   // 启用 WAL 模式（提升并发性能）
   db.pragma('journal_mode = WAL');
   // 启用外键约束
   db.pragma('foreign_keys = ON');
-  
+
   return db;
 }
 
@@ -191,8 +190,8 @@ function createTables() {
   // 删除已废弃的「无头像框」商品（先删订单再删商品）
   const noneItem = db.prepare("SELECT id FROM shop_items WHERE value = 'none' AND type = 'avatar_frame'").get();
   if (noneItem) {
-    db.prepare("DELETE FROM shop_orders WHERE item_id = ?").run(noneItem.id);
-    db.prepare("DELETE FROM shop_items WHERE id = ?").run(noneItem.id);
+    db.prepare('DELETE FROM shop_orders WHERE item_id = ?').run(noneItem.id);
+    db.prepare('DELETE FROM shop_items WHERE id = ?').run(noneItem.id);
   }
 }
 
@@ -272,9 +271,9 @@ function getNextDisplayId() {
     ORDER BY CAST(display_id AS INTEGER) DESC 
     LIMIT 1
   `).get();
-  
+
   if (!row) return '000001';
-  
+
   const nextNum = parseInt(row.display_id, 10) + 1;
   if (nextNum > 999999) throw new Error('用户数量已达上限（999999）');
   return String(nextNum).padStart(6, '0');

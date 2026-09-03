@@ -51,7 +51,6 @@ module.exports = function (app, db) {
 
     const deleteUser = db.transaction(() => {
       const userPosts = db.prepare('SELECT id, images FROM posts WHERE author_id = ?').all(uid);
-      const userPostIds = new Set(userPosts.map(p => p.id));
 
       userPosts.forEach(p => deleteImages(parseJsonField(p.images, [])));
 

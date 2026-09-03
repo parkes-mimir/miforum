@@ -1,8 +1,8 @@
 /**
  * migrate.js - 将 db.json 数据迁移到 SQLite
- * 
+ *
  * 用法: node migrate.js
- * 
+ *
  * 注意: 运行前确保 data.db 不存在或已备份
  */
 

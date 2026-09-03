@@ -1,5 +1,4 @@
 const { requireAuth } = require('../middleware/auth');
-const { intToBool } = require('../utils/helpers');
 
 module.exports = function registerShopRoutes(app, db) {
   app.get('/api/shop/items', (req, res) => {

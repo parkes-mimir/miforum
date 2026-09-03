@@ -15,7 +15,6 @@ const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
-const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
 const helmet = require('helmet');
@@ -144,7 +143,7 @@ function startServer() {
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     const ips = getLocalIps();
-    console.log(`\n  MiForum 运行在:`);
+    console.log('\n  MiForum 运行在:');
     console.log(`  本地: http://localhost:${PORT}`);
     ips.forEach(({ name, address }) => {
       console.log(`  ${name}: http://${address}:${PORT}`);

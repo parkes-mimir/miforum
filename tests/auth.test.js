@@ -16,6 +16,9 @@ const { getDb, closeDb } = require('../src/database');
 let app;
 let db;
 let agent;
+const randomSuffix = Date.now();
+const randomEmail = `test-${randomSuffix}@test.com`;
+const randomUsername = `user-${randomSuffix}`;
 
 beforeAll(() => {
   // 使用内存数据库进行测试
@@ -35,10 +38,6 @@ afterAll(() => {
 });
 
 describe('认证 API', () => {
-  const randomSuffix = Date.now();
-  const randomEmail = `test-${randomSuffix}@test.com`;
-  const randomUsername = `user-${randomSuffix}`;
-
   test('POST /api/register - 注册成功', async () => {
     const res = await request(app)
       .post('/api/register')
@@ -83,7 +82,7 @@ describe('认证 API', () => {
   test('POST /api/register - 邮箱重复', async () => {
     const res = await request(app)
       .post('/api/register')
-      .send({ username: 'testuser2', email: 'test@test.com', password: '123456' });
+      .send({ username: 'testuser2', email: randomEmail, password: '123456' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('邮箱已被注册');
@@ -92,17 +91,17 @@ describe('认证 API', () => {
   test('POST /api/login - 登录成功', async () => {
     const res = await request(app)
       .post('/api/login')
-      .send({ email: 'test@test.com', password: '123456' });
+      .send({ email: randomEmail, password: '123456' });
 
     expect(res.status).toBe(200);
     expect(res.body.user).toHaveProperty('id');
-    expect(res.body.user.email).toBe('test@test.com');
+    expect(res.body.user.email).toBe(randomEmail);
   });
 
   test('POST /api/login - 密码错误', async () => {
     const res = await request(app)
       .post('/api/login')
-      .send({ email: 'test@test.com', password: 'wrong' });
+      .send({ email: randomEmail, password: 'wrong' });
 
     expect(res.status).toBe(400);
     expect(res.body.error).toContain('邮箱或密码错误');
@@ -111,7 +110,7 @@ describe('认证 API', () => {
   test('GET /api/me - 获取用户信息', async () => {
     const loginRes = await request(app)
       .post('/api/login')
-      .send({ email: 'test@test.com', password: '123456' });
+      .send({ email: randomEmail, password: '123456' });
 
     const cookie = loginRes.headers['set-cookie'];
 
@@ -121,7 +120,7 @@ describe('认证 API', () => {
 
     expect(res.status).toBe(200);
     expect(res.body.user).not.toBeNull();
-    expect(res.body.user.email).toBe('test@test.com');
+    expect(res.body.user.email).toBe(randomEmail);
     expect(res.body.user).toHaveProperty('level_info');
   });
 
@@ -135,7 +134,7 @@ describe('认证 API', () => {
   test('POST /api/logout - 退出成功', async () => {
     const loginRes = await request(app)
       .post('/api/login')
-      .send({ email: 'test@test.com', password: '123456' });
+      .send({ email: randomEmail, password: '123456' });
 
     const cookie = loginRes.headers['set-cookie'];
 
@@ -154,7 +153,7 @@ describe('帖子 API', () => {
   beforeAll(async () => {
     const loginRes = await request(app)
       .post('/api/login')
-      .send({ email: 'test@test.com', password: '123456' });
+      .send({ email: randomEmail, password: '123456' });
     cookie = loginRes.headers['set-cookie'];
   });
 

@@ -148,7 +148,7 @@ module.exports = function (app, db) {
     });
 
     try {
-      const result = updateProfile();
+      updateProfile();
       const updated = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
       res.json({
         ok: true,

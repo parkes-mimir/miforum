@@ -38,14 +38,6 @@ function getLevel(exp) {
   return lv;
 }
 
-/** 等级对应的图标 */
-function getLevelIcon(level) {
-  if (level >= 10) return '👑';
-  if (level >= 7) return '☀️';
-  if (level >= 4) return '🌙';
-  return '⭐';
-}
-
 /** 等级阶段配色 */
 function getLevelTheme(level) {
   if (level >= 10) {
