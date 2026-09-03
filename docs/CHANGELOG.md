@@ -4,6 +4,163 @@
 
 ---
 
+## [0.9.7] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 新增
+
+- **Docker 支持**：
+  - `Dockerfile`：基于 node:20-alpine 的轻量化镜像
+  - `docker-compose.yml`：一键启动，支持环境变量配置
+  - 数据库和上传目录持久化（`./data/`）
+  - 端口可配置（默认 3000）
+  - 健康检查
+- **CI/CD**：
+  - `.github/workflows/ci.yml`：push/PR 自动测试 + lint
+  - `.github/workflows/docker.yml`：tag 推送自动构建 Docker 镜像
+  - 镜像推送到 GitHub Container Registry (ghcr.io)
+- **环境变量支持**：
+  - `DB_PATH`：数据库文件路径
+  - `UPLOADS_PATH`：上传目录路径
+
+### 改进
+
+- `database.js` 数据库路径支持环境变量配置
+- `helpers.js` 上传目录支持环境变量配置
+
+---
+
+## [0.9.6] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 修复
+
+- 统一 `display_id` 为六位数（000000-999999）
+  - 超管：`#000000`
+  - 普通用户：`#000001` 起
+  - 旧数据库自动迁移超管 display_id
+- 移除商店「无头像框」商品（先删订单再删商品）
+- 更新 `.gitignore` 忽略 `src/data.db`
+
+---
+
+## [0.9.5] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 隐私保护
+
+- 点赞和收藏仅本人可见
+- 公开资料关闭后，其他人不能查看点赞和收藏
+- 公开资料开启时，其他人可正常查看
+
+---
+
+## [0.9.4] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 新增
+
+- **分页翻页**：帖子列表、评论列表、收藏列表、用户帖子/点赞
+  - 每页条数：帖子20条、评论50条、收藏20条
+  - 翻页控件：页码 + 上一页/下一页 + 总数
+  - 点击帖子从新标签页改为当前页跳转
+- **显示本机 IP**：服务器启动时显示所有网卡 IP 地址
+- **密码强度指示器**：注册和修改密码时显示密码强度
+  - 4档强度：非常弱(红)、弱(橙)、一般(黄)、强(绿)、非常强(深绿)
+  - 进度条 + 文字实时反馈
+- **修改密码入口**：编辑资料弹窗添加「修改密码」按钮
+
+### 修复
+
+- 修复 `tailwind.css` 缺失 `h-1` 等类（重新生成 CSS）
+- 修复强制改密标志被服务器重启重置的问题
+- 开发环境放宽速率限制（500次/分钟）
+
+---
+
+## [0.9.3] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 新增
+
+- **环境变量管理**：使用 `dotenv` 管理配置
+  - `.env.example` 示例文件
+  - 支持 `PORT`、`SESSION_SECRET`、`ADMIN_EMAIL`、`ADMIN_PASSWORD`、`NODE_ENV`
+- **分页加载**：所有列表 API 支持分页
+  - `GET /api/posts?page=1&limit=20`
+  - `GET /api/posts/:id/comments?page=1&limit=50`
+  - `GET /api/bookmarks?page=1&limit=20`
+  - `GET /api/users/:id/posts?page=1&limit=20`
+  - `GET /api/users/:id/likes?page=1&limit=20`
+  - 响应包含 `pagination: { page, limit, total, pages }`
+- **安全加固**：
+  - `helmet`：设置安全 HTTP 头
+  - `express-rate-limit`：API 速率限制
+  - 登录/注册速率限制（防暴力破解）
+- **强制修改密码**：超管首次登录弹窗提示修改默认密码
+  - `POST /api/change-password` — 修改密码接口
+  - 登录/页面加载时检测 `force_password_change` 字段
+  - 修改成功后标记 `force_password_change = 0`
+- **单元测试**：`jest` + `supertest`
+  - 16 个测试用例全部通过
+
+### 改进
+
+- `server.js` 重构：分离 `createApp()` 和 `registerRoutes()`，支持测试
+
+---
+
+## [0.9.2] - 2026-09-02 - 贡献者：parkes-mimir
+
+### 重大变更
+
+- **项目结构重构**：采用 NodeBB 风格的模块化架构
+  - `src/server.js` — 主入口（Express 配置 + 路由注册）
+  - `src/controllers/` — 业务模块（9 个独立控制器）
+  - `src/middleware/` — 中间件（认证、权限）
+  - `src/utils/` — 工具函数
+  - `public/` — 前端静态文件
+  - `docs/` — 文档
+
+### 模块拆分
+
+| 控制器 | 文件 | 负责人 | API数 |
+|--------|------|--------|-------|
+| auth | src/controllers/auth.js | parkes | 4 |
+| posts | src/controllers/posts.js | parkes | 5 |
+| comments | src/controllers/comments.js | parkes | 5 |
+| checkin | src/controllers/checkin.js | phppi561 | 5 |
+| likes | src/controllers/likes.js | jxwzx | 7 |
+| shop | src/controllers/shop.js | parkes | 6 |
+| level | src/controllers/level.js | jxwzx | 1 |
+| profile | src/controllers/profile.js | parkes | 4 |
+| admin | src/controllers/admin.js | phppi561 | 16 |
+
+### 新增
+
+- ESLint 代码规范配置（`.eslintrc.json`）
+- `npm run lint` / `npm run lint:fix` 命令
+- `npm run dev` 开发模式（自动重启）
+
+### 改进
+
+- `addExp` 函数改为接收 `db` 参数，避免循环依赖
+- 修复 `likes.js` 使用 ESM 语法问题（改为 CommonJS）
+
+### Bug 修复
+
+- 修复管理员中间件调用（`requireAdmin` 需传 `db` 参数）
+- 修复 `tailwind.css` 路径（改为 `css/tailwind.css`）
+- 删除重复的 `docs/README.md`
+
+---
+
+## [0.9.1] - 2026-09-02 - 贡献者：parkes-mimir
+
+### Bug 修复
+
+- 修复 `selectTitle`/`selectFrame` 使用隐式 `event` 对象
+- 修复 `shop.html` 的 `esc()` 缺少单引号转义
+- 删除测试遗留的 `cookies.txt`
+
+---
+
+
 ## [0.9.0] - 2026-09-02 - 贡献者：jxwzx
 
 ### 活跃度等级系统（完整实现）
