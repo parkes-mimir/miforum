@@ -129,7 +129,7 @@ function getLevelInfo(exp) {
  */
 function addExp(db, userId, amount) {
   if (!Number.isFinite(amount) || amount === 0) return null;
-  
+
   // 注册经验不受每日上限限制
   if (amount !== EXP_REWARDS.register) {
     const today = new Date().toISOString().slice(0, 10);
@@ -137,7 +137,7 @@ function addExp(db, userId, amount) {
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM exp_log WHERE user_id = ? AND date = ?
     `).get(userId, today);
-    
+
     const remaining = Math.max(0, DAILY_EXP_LIMIT - row.total);
     if (remaining <= 0) {
       const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
@@ -145,13 +145,13 @@ function addExp(db, userId, amount) {
     }
     amount = Math.min(amount, remaining);
   }
-  
+
   db.prepare('UPDATE profiles SET exp = MAX(0, exp + ?) WHERE id = ?').run(amount, userId);
-  
+
   // 记录经验日志
   const today = new Date().toISOString().slice(0, 10);
   db.prepare('INSERT INTO exp_log (user_id, amount, date) VALUES (?, ?, ?)').run(userId, amount, today);
-  
+
   const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
   return u ? u.exp : 0;
 }

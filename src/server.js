@@ -52,8 +52,8 @@ function createApp() {
         scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", "data:", "blob:"],
-        fontSrc: ["'self'", "data:"],
+        imgSrc: ["'self'", 'data:', 'blob:'],
+        fontSrc: ["'self'", 'data:'],
         connectSrc: ["'self'"],
         frameSrc: ["'none'"],
         objectSrc: ["'none'"],
@@ -63,7 +63,7 @@ function createApp() {
       }
     },
     crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: { policy: "same-site" }
+    crossOriginResourcePolicy: { policy: 'same-site' }
   }));
 
   // 速率限制（开发环境放宽，测试环境禁用）

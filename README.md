@@ -186,7 +186,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v0.9.9** — Docker 支持、CI/CD、环境变量路径配置
+**最新版本 v1.0.0** — Docker 支持、CI/CD、环境变量路径配置
 
 ## 贡献者
 

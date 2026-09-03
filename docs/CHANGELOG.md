@@ -4,6 +4,35 @@
 
 ---
 
+## [1.0.0] - 2026-09-03 - 贡献者：parkes-mimir, jxwzx, phppi561
+
+### 正式版发布
+
+首个正式版本，功能完整、代码规范、测试覆盖。
+
+### 功能清单
+
+- 用户系统：注册（邮箱验证）、登录、退出、强制改密
+- 个人资料：头像裁剪、简介、称号、头像框
+- 帖子系统：CRUD、图片上传、标签、分类筛选
+- 评论系统：CRUD、楼层号、置顶、图片
+- 签到系统：自动签到、日历、补签
+- 点赞/收藏：toggle、列表、隐私保护
+- 积分系统：商店、称号、头像框、改名卡
+- 等级系统：Lv1~Lv10，每日经验上限100
+- 管理系统：禁言、删帖、分类管理、SMTP配置
+- Docker 支持：一键部署、环境变量配置
+- CI/CD：GitHub Actions 自动测试
+
+### 技术栈
+
+- 后端：Node.js + Express + SQLite（better-sqlite3）
+- 前端：HTML + Tailwind CSS + 原生 JavaScript
+- 测试：jest + supertest（53 个用例）
+- 部署：Docker / Docker Compose
+
+---
+
 ## [0.9.9] - 2026-09-03 - 贡献者：parkes-mimir
 
 ### 改进
