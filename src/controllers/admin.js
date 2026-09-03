@@ -333,19 +333,25 @@ module.exports = function (app, db) {
   app.post('/api/admin/update', requireSuperAdmin, async (req, res) => {
     try {
       const { execSync } = require('child_process');
+      const projectRoot = path.join(__dirname, '../..');
+
+      // 检查是否在 git 仓库中
+      if (!fs.existsSync(path.join(projectRoot, '.git'))) {
+        return res.status(400).json({ error: 'Docker 环境不支持自动更新，请重新构建镜像：docker build -t miforum .' });
+      }
 
       // 备份当前版本
-      const backupDir = path.join(__dirname, '../../backups');
+      const backupDir = path.join(projectRoot, 'backups');
       if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
       const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
-      execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: path.join(__dirname, '../..') });
+      execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: projectRoot });
 
       // 拉取最新代码
-      execSync('git fetch origin main', { cwd: path.join(__dirname, '../..') });
-      execSync('git reset --hard origin/main', { cwd: path.join(__dirname, '../..') });
+      execSync('git fetch origin main', { cwd: projectRoot });
+      execSync('git reset --hard origin/main', { cwd: projectRoot });
 
       // 安装依赖
-      execSync('npm install --omit=dev', { cwd: path.join(__dirname, '../..') });
+      execSync('npm install --omit=dev', { cwd: projectRoot });
 
       res.json({
         ok: true,
