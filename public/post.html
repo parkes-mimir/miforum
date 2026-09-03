@@ -916,7 +916,9 @@ async function saveEditC(cid) {
   const textarea = el.querySelector('textarea');
   const text = textarea ? textarea.value.trim() : '';
   const st = editCommentState[cid] || { removeImages: [], newImages: [] };
-  if (!text && st.newImages.length === 0) { toast('评论不能为空'); return; }
+  const c = commentsDataCache.find(x => x.id === cid);
+  const existingImages = c ? (c.images || []).filter(url => !st.removeImages.includes(url)) : [];
+  if (!text && st.newImages.length === 0 && existingImages.length === 0) { toast('评论不能为空'); return; }
   try {
     const fd = new FormData();
     if (text) fd.append('content', text);
