@@ -7,17 +7,7 @@ const { requireAuth } = require('../middleware/auth');
 const { intToBool } = require('../utils/helpers');
 const { getLevelInfo, EXP_REWARDS, addExp } = require('./level');
 const { generateCode, sendVerificationCode } = require('../utils/email');
-
-/**
- * 获取下一个显示 ID
- * @param {Object} db 数据库实例
- * @returns {string}
- */
-function getNextDisplayId(db) {
-  const row = db.prepare('SELECT MAX(CAST(display_id AS INTEGER)) AS max_id FROM profiles').get();
-  const nextId = (row && row.max_id ? row.max_id : 0) + 1;
-  return String(nextId).padStart(6, '0');
-}
+const { getNextDisplayId } = require('../database');
 
 /**
  * 注册认证路由
@@ -44,6 +34,12 @@ function authRoutes(app, db) {
       "SELECT id FROM verification_codes WHERE email = ? AND type = ? AND created_at > datetime('now', '-1 minute') ORDER BY id DESC LIMIT 1"
     ).get(email, codeType);
     if (recent) return res.status(429).json({ error: '验证码发送过于频繁，请稍后再试' });
+
+    // 检查同一邮箱10分钟内验证码尝试次数（防暴力破解）
+    const attempts = db.prepare(
+      "SELECT COUNT(*) as count FROM verification_codes WHERE email = ? AND type = ? AND created_at > datetime('now', '-10 minutes')"
+    ).get(email, codeType);
+    if (attempts.count >= 5) return res.status(429).json({ error: '验证码尝试次数过多，请10分钟后再试' });
 
     // 生成并发送验证码
     const code = generateCode();
@@ -88,7 +84,7 @@ function authRoutes(app, db) {
       db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
     }
 
-    const displayId = getNextDisplayId(db);
+    const displayId = getNextDisplayId();
     const hash = await bcrypt.hash(password, 10);
     const result = db.prepare(`
       INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, created_at)

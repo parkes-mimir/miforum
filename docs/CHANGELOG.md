@@ -4,6 +4,22 @@
 
 ---
 
+## [1.0.8] - 2026-09-03 - 贡献者：parkes-mimir
+
+### 安全修复
+
+- CORS 策略改为白名单模式（通过 CORS_ORIGINS 环境变量配置）
+- SQL 注入防护：shop.js 字段名白名单校验
+- 验证码使用 crypto.randomInt（密码学安全）
+- Session Cookie 生产环境强制 HTTPS
+- 验证码暴力破解防护（10分钟内最多5次尝试）
+- ensureColumn SQL 拼接白名单校验
+- 用户帖子列表尊重隐私设置
+- 添加 trust proxy 配置（Docker/reverse proxy）
+- 删除重复的 getNextDisplayId 函数
+
+---
+
 ## [1.0.7] - 2026-09-03 - 贡献者：parkes-mimir
 
 ### 改进

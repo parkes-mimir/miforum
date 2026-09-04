@@ -92,7 +92,10 @@ module.exports = function registerShopRoutes(app, db) {
     }
 
     const value = item.value === 'none' ? null : item.value;
-    const field = item.type === 'title' ? 'title' : 'avatar_frame';
+    // 白名单校验字段名，防止 SQL 注入
+    const allowedFields = { title: 'title', avatar_frame: 'avatar_frame' };
+    const field = allowedFields[item.type];
+    if (!field) return res.status(400).json({ error: '无效的商品类型' });
     db.prepare(`UPDATE profiles SET ${field} = ? WHERE id = ?`).run(value, userId);
 
     const updated = db.prepare('SELECT title, avatar_frame FROM profiles WHERE id = ?').get(userId);
@@ -102,8 +105,9 @@ module.exports = function registerShopRoutes(app, db) {
   app.post('/api/shop/unequip', requireAuth, (req, res) => {
     const userId = req.session.userId;
     const { type } = req.body;
-    if (type !== 'title' && type !== 'avatar_frame') return res.status(400).json({ error: '参数错误' });
-    const field = type === 'title' ? 'title' : 'avatar_frame';
+    const allowedFields = { title: 'title', avatar_frame: 'avatar_frame' };
+    const field = allowedFields[type];
+    if (!field) return res.status(400).json({ error: '参数错误' });
     db.prepare(`UPDATE profiles SET ${field} = NULL WHERE id = ?`).run(userId);
     res.json({ ok: true, [field]: null });
   });

@@ -58,10 +58,11 @@ function getTransporter(db) {
 }
 
 /**
- * 生成 6 位验证码
+ * 生成 6 位验证码（使用密码学安全随机数）
  */
 function generateCode() {
-  return String(Math.floor(100000 + Math.random() * 900000));
+  const crypto = require('crypto');
+  return String(crypto.randomInt(100000, 999999));
 }
 
 /**

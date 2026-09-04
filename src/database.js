@@ -224,11 +224,18 @@ function createTables() {
 
 /**
  * 字段迁移：若表中不存在指定列则 ALTER ADD
- * @param {string} table 表名
- * @param {string} column 列名
+ * @param {string} table 表名（白名单校验）
+ * @param {string} column 列名（白名单校验）
  * @param {string} definition 列定义（如 'INTEGER DEFAULT 0'）
  */
 function ensureColumn(table, column, definition) {
+  // 白名单校验，防止 SQL 注入
+  const allowedTables = ['profiles', 'posts', 'comments', 'check_ins', 'post_likes', 'bookmarks', 'shop_items', 'shop_orders', 'categories', 'verification_codes', 'settings', 'exp_log'];
+  const columnRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
+  if (!allowedTables.includes(table) || !columnRegex.test(column)) {
+    console.error(`  ✗ ensureColumn 参数无效: table=${table}, column=${column}`);
+    return;
+  }
   const cols = db.prepare(`PRAGMA table_info(${table})`).all();
   if (!cols.some(c => c.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);

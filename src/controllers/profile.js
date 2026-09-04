@@ -172,6 +172,14 @@ module.exports = function (app, db) {
     const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(uid);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
+    // 隐私检查：私密资料只有本人和管理员可查看帖子列表
+    const isOwner = req.session.userId === uid;
+    const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
+    const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
+    if (!isOwner && !isAdmin && !intToBool(user.profile_public)) {
+      return res.status(403).json({ error: '该用户设置了私密资料' });
+    }
+
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;

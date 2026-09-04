@@ -44,6 +44,9 @@ function getLocalIps() {
 function createApp() {
   const app = express();
 
+  // 信任代理（Docker/reverse proxy 环境下正确获取客户端 IP）
+  app.set('trust proxy', 1);
+
   // 安全 HTTP 头
   app.use(helmet({
     contentSecurityPolicy: {
@@ -68,15 +71,17 @@ function createApp() {
     hsts: false  // 禁用 HSTS，本地 HTTP 访问
   }));
 
-  // CORS 配置（允许局域网访问）
+  // CORS 配置（白名单模式）
+  const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
   app.use((req, res, next) => {
     const origin = req.headers.origin;
-    if (origin) {
-      res.setHeader('Access-Control-Allow-Origin', origin);
+    // 允许同源请求（无 origin）和白名单中的跨域请求
+    if (!origin || allowedOrigins.includes(origin)) {
+      if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+      res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
     }
-    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
-    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
-    res.setHeader('Access-Control-Allow-Credentials', 'true');
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
     }
@@ -127,6 +132,7 @@ function createApp() {
 
   // Session 配置
   const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+  const isProduction = process.env.NODE_ENV === 'production';
   app.use(session({
     secret: SESSION_SECRET,
     resave: false,
@@ -134,6 +140,7 @@ function createApp() {
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
+      secure: isProduction,  // 生产环境强制 HTTPS
       sameSite: 'lax'
     }
   }));
