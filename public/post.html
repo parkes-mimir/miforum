@@ -76,7 +76,8 @@
           </button>
         </div>
       </div>
-      <h1 id="postTitle" class="text-2xl font-bold mb-4"></h1>
+      <h1 id="postTitle" class="text-2xl font-bold mb-4 inline"></h1>
+      <span id="postPrivateBadge" class="hidden text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 ml-2 align-middle">私密</span>
       <div id="postImages" class="flex flex-wrap gap-2 mb-4"></div>
       <div id="postContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
       <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
@@ -118,6 +119,11 @@
           <input id="editTagInput" type="text" class="flex-1 min-w-[50px] text-sm outline-none bg-transparent" placeholder="回车添加" onkeydown="handleEditTagKey(event)">
         </div>
       </div>
+      <!-- 私密帖子 -->
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input id="editPrivate" type="checkbox" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500">
+        <span class="text-sm text-gray-600">私密帖子（仅自己可见）</span>
+      </label>
       <div class="flex gap-2 justify-end">
         <button onclick="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
         <button onclick="saveEditPost()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">保存修改</button>
@@ -562,6 +568,16 @@ async function loadPage() {
     document.getElementById('postTitle').textContent = post.title;
     document.getElementById('postContent').textContent = post.content;
 
+    // 私密标记
+    const privateBadge = document.getElementById('postPrivateBadge');
+    if (privateBadge) {
+      if (post.private) {
+        privateBadge.classList.remove('hidden');
+      } else {
+        privateBadge.classList.add('hidden');
+      }
+    }
+
     // 帖子图片
     const imgsEl = document.getElementById('postImages');
     if (post.images && post.images.length > 0) {
@@ -654,6 +670,7 @@ function startEditPost() {
   document.getElementById('editTitle').value = state.post.title;
   document.getElementById('editCategory').value = state.post.category;
   document.getElementById('editContent').value = state.post.content;
+  document.getElementById('editPrivate').checked = !!state.post.private;
   renderEditImages(state.post.images || []);
   renderEditTagPills();
   document.getElementById('editPostArea').classList.remove('hidden');
@@ -661,6 +678,8 @@ function startEditPost() {
   document.getElementById('postContent').classList.add('hidden');
   document.getElementById('postImages').classList.add('hidden');
   document.getElementById('postTags').classList.add('hidden');
+  const privateBadge = document.getElementById('postPrivateBadge');
+  if (privateBadge) privateBadge.classList.add('hidden');
 }
 
 /** 取消编辑 */
@@ -670,6 +689,11 @@ function cancelEditPost() {
   document.getElementById('postContent').classList.remove('hidden');
   document.getElementById('postImages').classList.remove('hidden');
   document.getElementById('postTags').classList.remove('hidden');
+  // 恢复私密标记
+  const privateBadge = document.getElementById('postPrivateBadge');
+  if (privateBadge && state.post && state.post.private) {
+    privateBadge.classList.remove('hidden');
+  }
 }
 
 /** 标签编辑 */
@@ -740,6 +764,7 @@ async function saveEditPost() {
     const fd = new FormData();
     fd.append('title', title); fd.append('content', content); fd.append('category', category);
     fd.append('tags', JSON.stringify(editPostTags));
+    fd.append('private', document.getElementById('editPrivate').checked);
     if (editRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editRemoveImages));
     editNewImages.forEach(f => fd.append('images', f));
     const res = await fetch('/api/posts/' + state.post.id, { method: 'PUT', body: fd });

@@ -36,6 +36,7 @@ CREATE TABLE IF NOT EXISTS posts (
   author_id INTEGER REFERENCES profiles(id),
   images TEXT DEFAULT '[]',
   pinned INTEGER DEFAULT 0,
+  private INTEGER DEFAULT 0,
   created_at TEXT DEFAULT (datetime('now')),
   updated_at TEXT
 );

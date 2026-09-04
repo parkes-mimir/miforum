@@ -64,7 +64,8 @@
         MiForum
       </a>
     </div>
-    <div class="hidden sm:flex flex-1 max-w-md mx-6">
+    <!-- 桌面端搜索框 -->
+    <div id="searchDesktop" style="flex:1;max-width:28rem;margin:0 1.5rem;">
       <div class="relative w-full">
         <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
         <input id="searchInput" type="text" placeholder="搜索话题..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:bg-white transition">
@@ -72,7 +73,24 @@
     </div>
     <div id="authArea" class="flex items-center gap-2"></div>
   </div>
+  <!-- 移动端搜索框 -->
+  <div id="searchMobile" style="display:none;padding:0 1rem 0.5rem;">
+    <div class="relative w-full">
+      <svg class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"/></svg>
+      <input id="searchInputMobile" type="text" placeholder="搜索话题..." class="w-full pl-10 pr-4 py-2 bg-gray-100 border-0 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 focus:bg-white transition">
+    </div>
+  </div>
 </header>
+<style>
+@media (max-width: 639px) {
+  #searchDesktop { display: none !important; }
+  #searchMobile { display: block !important; }
+}
+@media (min-width: 640px) {
+  #searchDesktop { display: block !important; }
+  #searchMobile { display: none !important; }
+}
+</style>
 
 <div id="sidebarOverlay" class="fixed inset-0 bg-black/30 z-30 hidden lg:hidden" onclick="toggleSidebar()"></div>
 
@@ -143,6 +161,13 @@
         <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         发布新话题
       </button>
+    </div>
+
+    <!-- 排序控件 -->
+    <div id="sortBar" class="flex items-center gap-1 mb-4 overflow-x-auto">
+      <button onclick="setSort('newest')" data-sort="newest" class="sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-100 text-primary-700 transition whitespace-nowrap">最新</button>
+      <button onclick="setSort('most_liked')" data-sort="most_liked" class="sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition whitespace-nowrap">最多赞</button>
+      <button onclick="setSort('oldest')" data-sort="oldest" class="sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition whitespace-nowrap">最早</button>
     </div>
 
     <div id="postSkeleton" class="space-y-3">
@@ -233,6 +258,11 @@
         </div>
         <p class="text-xs text-gray-400 mt-1">回车添加，每个标签最多20字</p>
       </div>
+      <!-- 私密帖子 -->
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input id="postPrivate" type="checkbox" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500">
+        <span class="text-sm text-gray-600">私密帖子（仅自己可见）</span>
+      </label>
     </div>
     <div class="p-5 border-t border-gray-100 flex-shrink-0">
       <button id="submitPostBtn" onclick="doNewPost()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">发布话题</button>
@@ -528,6 +558,7 @@ let state = {
   currentCat: 'all',
   currentTag: null,
   currentSearch: null,
+  currentSort: 'newest',
   posts: [],
   likedIds: new Set(),
   bookmarkedIds: new Set(),
@@ -1077,6 +1108,7 @@ function resetPostForm() {
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
   document.getElementById('postCategory').value = 'tech';
+  document.getElementById('postPrivate').checked = false;
   selectedImages = [];
   postTags = [];
   renderSelectedImages();
@@ -1090,6 +1122,7 @@ async function loadPosts(page = 1) {
   if (state.currentCat !== 'all') params.set('category', state.currentCat);
   if (state.currentTag) params.set('tag', state.currentTag);
   if (state.currentSearch) params.set('search', state.currentSearch);
+  params.set('sort', state.currentSort);
   params.set('page', page);
   params.set('limit', 20);
 
@@ -1171,6 +1204,7 @@ function renderPosts() {
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
             ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
+            ${p.private ? '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">私密</span>' : ''}
             ${isAdmin ? `<span class="ml-auto flex items-center gap-1"><button onclick="event.stopPropagation();togglePinPost(${p.id},${!!p.pinned})" class="text-xs px-2 py-0.5 rounded-lg ${p.pinned ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'} hover:bg-amber-200 transition">${p.pinned ? '取消置顶' : '置顶'}</button><button onclick="event.stopPropagation();adminDeletePost(${p.id})" class="text-xs px-2 py-0.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button></span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
@@ -1304,6 +1338,7 @@ async function doNewPost() {
     formData.append('content', content);
     formData.append('category', cat);
     formData.append('tags', JSON.stringify(postTags));
+    formData.append('private', document.getElementById('postPrivate').checked);
     selectedImages.forEach(f => formData.append('images', f));
 
     const res = await fetch('/api/posts', { method: 'POST', body: formData });
@@ -1349,6 +1384,22 @@ async function toggleBookmark(pid) {
 }
 
 // ============================================================
+// 排序
+// ============================================================
+function setSort(sort) {
+  state.currentSort = sort;
+  // 更新按钮样式
+  document.querySelectorAll('.sort-btn').forEach(btn => {
+    if (btn.dataset.sort === sort) {
+      btn.className = 'sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-100 text-primary-700 transition whitespace-nowrap';
+    } else {
+      btn.className = 'sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition whitespace-nowrap';
+    }
+  });
+  loadPosts(1);
+}
+
+// ============================================================
 // 分类筛选 / 搜索
 // ============================================================
 function filterCategory(cat) {
@@ -1367,11 +1418,15 @@ function toggleSidebar() {
   document.getElementById('sidebarOverlay').classList.toggle('hidden');
 }
 
-// 搜索（300ms 防抖）
+// 搜索（300ms 防抖，桌面端和移动端同步）
 let searchTimer = null;
-document.getElementById('searchInput').addEventListener('input', function (e) {
+function handleSearchInput(e) {
   clearTimeout(searchTimer);
   const q = e.target.value.trim();
+  // 同步另一个搜索框的值
+  const otherId = e.target.id === 'searchInput' ? 'searchInputMobile' : 'searchInput';
+  const other = document.getElementById(otherId);
+  if (other && other.value !== e.target.value) other.value = e.target.value;
   searchTimer = setTimeout(async () => {
     if (!q) {
       state.currentSearch = null;
@@ -1385,7 +1440,9 @@ document.getElementById('searchInput').addEventListener('input', function (e) {
     document.getElementById('pageSub').textContent = '';
     await loadPosts(1);
   }, 300);
-});
+}
+document.getElementById('searchInput').addEventListener('input', handleSearchInput);
+document.getElementById('searchInputMobile').addEventListener('input', handleSearchInput);
 
 // ============================================================
 // 事件绑定
@@ -1788,6 +1845,17 @@ async function deleteCategory(id, name) {
   const params = new URLSearchParams(window.location.search);
   const cat = params.get('category');
   const tag = params.get('tag');
+  const sort = params.get('sort');
+  if (sort && ['newest', 'most_liked', 'oldest'].includes(sort)) {
+    state.currentSort = sort;
+    document.querySelectorAll('.sort-btn').forEach(btn => {
+      if (btn.dataset.sort === sort) {
+        btn.className = 'sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-primary-100 text-primary-700 transition whitespace-nowrap';
+      } else {
+        btn.className = 'sort-btn px-3 py-1.5 text-xs font-medium rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition whitespace-nowrap';
+      }
+    });
+  }
   await loadPosts(1);
   if (cat && CAT_MAP[cat]) filterCategory(cat);
   if (tag) filterByTag(tag);

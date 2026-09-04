@@ -85,6 +85,7 @@ function createTables() {
       author_id INTEGER REFERENCES profiles(id),
       images TEXT DEFAULT '[]',
       pinned INTEGER DEFAULT 0,
+      private INTEGER DEFAULT 0,
       created_at TEXT DEFAULT (datetime('now')),
       updated_at TEXT
     );
@@ -207,6 +208,7 @@ function createTables() {
   ensureColumn('profiles', 'title', 'TEXT');
   ensureColumn('profiles', 'avatar_frame', 'TEXT');
   ensureColumn('profiles', 'force_password_change', 'INTEGER DEFAULT 0');
+  ensureColumn('posts', 'private', 'INTEGER DEFAULT 0');
 
   // 迁移：更新超管 display_id 从 '000' 到 '000000'
   const admin = db.prepare("SELECT id, display_id FROM profiles WHERE email = 'root@miforum.local'").get();

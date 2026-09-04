@@ -191,7 +191,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.1** — 修复登录状态丢失、Docker 自动更新、头像框全局显示
+**最新版本 v1.1.2** — 私密帖子、帖子排序、移动端搜索框
 
 ## 贡献者
 

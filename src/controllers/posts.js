@@ -4,15 +4,31 @@ const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
 
 module.exports = function (app, db) {
-  /** 获取帖子列表（支持分页、分类、标签、搜索） */
+  /** 获取帖子列表（支持分页、分类、标签、搜索、排序，过滤私密帖子） */
   app.get('/api/posts', (req, res) => {
     const { category, search, tag } = req.query;
+    const sort = req.query.sort || 'newest';
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
+    // 获取当前用户信息（用于过滤私密帖子）
+    const userId = req.session.userId || null;
+    let userRole = 'user';
+    if (userId) {
+      const u = db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId);
+      if (u) userRole = u.role;
+    }
+    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+
     let whereSql = ' WHERE 1=1';
     const params = [];
+
+    // 过滤私密帖子：仅作者和管理员可见
+    if (!isAdmin) {
+      whereSql += ' AND (p.private = 0 OR p.author_id = ?)';
+      params.push(userId || 0);
+    }
 
     if (category && category !== 'all') {
       whereSql += ' AND p.category = ?';
@@ -26,6 +42,14 @@ module.exports = function (app, db) {
       whereSql += ' AND (p.title LIKE ? OR p.content LIKE ?)';
       params.push(`%${search}%`, `%${search}%`);
     }
+
+    // 排序方式
+    const sortOptions = {
+      newest: 'p.created_at DESC',
+      oldest: 'p.created_at ASC',
+      most_liked: '(SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) DESC'
+    };
+    const orderBy = sortOptions[sort] || sortOptions.newest;
 
     // 查询总数
     const countSql = `SELECT COUNT(*) AS total FROM posts p${whereSql}`;
@@ -42,7 +66,7 @@ module.exports = function (app, db) {
       FROM posts p
       LEFT JOIN profiles pr ON pr.id = p.author_id
       ${whereSql}
-      ORDER BY p.pinned DESC, p.created_at DESC
+      ORDER BY p.pinned DESC, ${orderBy}
       LIMIT ? OFFSET ?
     `;
 
@@ -52,6 +76,7 @@ module.exports = function (app, db) {
       tags: parseJsonField(p.tags, []),
       images: parseJsonField(p.images, []),
       pinned: intToBool(p.pinned),
+      private: intToBool(p.private),
       author_avatar_url: p.author_avatar_url || null,
       author_title: p.author_title || null,
       author_avatar_frame: p.author_avatar_frame || null,
@@ -84,12 +109,23 @@ module.exports = function (app, db) {
     `).get(pid);
     if (!p) return res.status(404).json({ error: '帖子不存在' });
 
+    // 私密帖子权限检查
+    if (intToBool(p.private)) {
+      const userId = req.session.userId || null;
+      const user = userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId) : null;
+      const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
+      if (p.author_id !== userId && !isAdmin) {
+        return res.status(404).json({ error: '帖子不存在' });
+      }
+    }
+
     res.json({
       post: {
         ...p,
         tags: parseJsonField(p.tags, []),
         images: parseJsonField(p.images, []),
         pinned: intToBool(p.pinned),
+        private: intToBool(p.private),
         author_avatar_url: p.author_avatar_url || null,
         author_title: p.author_title || null,
         author_avatar_frame: p.author_avatar_frame || null,
@@ -99,8 +135,10 @@ module.exports = function (app, db) {
   });
 
   app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
-    const { title, content, category, tags } = req.body;
+    const { title, content, category, tags, private: isPrivate } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+
+    const privateVal = (isPrivate === true || isPrivate === 'true' || isPrivate === '1' || isPrivate === 1) ? 1 : 0;
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
     let parsedTags = [];
@@ -115,9 +153,9 @@ module.exports = function (app, db) {
 
     const insertPost = db.transaction(() => {
       const result = db.prepare(`
-        INSERT INTO posts (title, content, category, tags, author_id, images, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
+        INSERT INTO posts (title, content, category, tags, author_id, images, private, created_at)
+        VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
+      `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images), privateVal);
 
       db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
       addExp(db, req.session.userId, EXP_REWARDS.post);
@@ -130,13 +168,15 @@ module.exports = function (app, db) {
   });
 
   app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
-    const { title, content, category, tags, removeImages } = req.body;
+    const { title, content, category, tags, removeImages, private: isPrivate } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
     if (!post) return res.status(404).json({ error: '帖子不存在' });
     if (post.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的帖子' });
+
+    const privateVal = (isPrivate === true || isPrivate === 'true' || isPrivate === '1' || isPrivate === 1) ? 1 : (isPrivate === false || isPrivate === 'false' || isPrivate === '0' || isPrivate === 0) ? 0 : intToBool(post.private) ? 1 : 0;
 
     let currentImages = parseJsonField(post.images, []);
 
@@ -165,9 +205,9 @@ module.exports = function (app, db) {
     }
 
     db.prepare(`
-      UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, updated_at = datetime('now')
+      UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, private = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
+    `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), privateVal, pid);
 
     res.json({ ok: true });
   });

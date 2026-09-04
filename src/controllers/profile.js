@@ -150,21 +150,29 @@ module.exports = function (app, db) {
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const { total } = db.prepare('SELECT COUNT(*) AS total FROM posts WHERE author_id = ?').get(uid);
+    // 过滤私密帖子：仅作者和管理员可见
+    let privacyFilter = '';
+    const queryParams = [uid];
+    if (!isOwner && !isAdmin) {
+      privacyFilter = ' AND p.private = 0';
+    }
+
+    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM posts p WHERE p.author_id = ?${privacyFilter}`).get(...queryParams);
 
     const posts = db.prepare(`
       SELECT p.*,
         (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count
       FROM posts p
-      WHERE p.author_id = ?
+      WHERE p.author_id = ?${privacyFilter}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(uid, limit, offset).map(p => ({
+    `).all(...queryParams, limit, offset).map(p => ({
       ...p,
       tags: parseJsonField(p.tags, []),
       images: parseJsonField(p.images, []),
       pinned: intToBool(p.pinned),
+      private: intToBool(p.private),
       author_display_id: user.display_id,
       author_name: user.username,
       author_avatar_url: user.avatar_url || null,
@@ -178,17 +186,28 @@ module.exports = function (app, db) {
     });
   });
 
-  /** 获取用户点赞列表（支持分页） */
+  /** 获取用户点赞列表（支持分页，过滤私密帖子） */
   app.get('/api/users/:id/likes', (req, res) => {
     const uid = Number(req.params.id);
     const user = db.prepare('SELECT id FROM profiles WHERE id = ?').get(uid);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
+    // 检查查看权限
+    const isOwner = req.session.userId === uid;
+    const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
+    const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
+
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
 
-    const { total } = db.prepare('SELECT COUNT(*) AS total FROM post_likes WHERE user_id = ?').get(uid);
+    // 过滤私密帖子
+    let privacyFilter = '';
+    if (!isOwner && !isAdmin) {
+      privacyFilter = ' AND p.private = 0';
+    }
+
+    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM post_likes pl JOIN posts p ON p.id = pl.post_id WHERE pl.user_id = ?${privacyFilter}`).get(uid);
 
     const posts = db.prepare(`
       SELECT p.*,
@@ -199,7 +218,7 @@ module.exports = function (app, db) {
       FROM post_likes pl
       JOIN posts p ON p.id = pl.post_id
       LEFT JOIN profiles pr ON pr.id = p.author_id
-      WHERE pl.user_id = ?
+      WHERE pl.user_id = ?${privacyFilter}
       ORDER BY pl.created_at DESC
       LIMIT ? OFFSET ?
     `).all(uid, limit, offset).map(p => ({
@@ -207,6 +226,7 @@ module.exports = function (app, db) {
       tags: parseJsonField(p.tags, []),
       images: parseJsonField(p.images, []),
       pinned: intToBool(p.pinned),
+      private: intToBool(p.private),
       author_avatar_url: p.author_avatar_url || null,
       author_title: p.author_title || null,
       author_avatar_frame: p.author_avatar_frame || null
