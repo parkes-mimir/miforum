@@ -1,5 +1,5 @@
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
-const { deleteImages, deleteFile, parseJsonField, intToBool, sanitizeText } = require('../utils/helpers');
+const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { commentUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS } = require('./level');
 
@@ -66,11 +66,10 @@ module.exports = function (app, db) {
     if (!post) return res.status(404).json({ error: '帖子不存在' });
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-    const safeContent = sanitizeText(content || '');
     const result = db.prepare(`
       INSERT INTO comments (post_id, author_id, content, images, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(Number(req.params.id), req.session.userId, safeContent, JSON.stringify(images));
+    `).run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
 
     addExp(db, req.session.userId, EXP_REWARDS.comment);
     if (post.author_id && post.author_id !== req.session.userId) {
@@ -107,7 +106,7 @@ module.exports = function (app, db) {
     }
 
     db.prepare('UPDATE comments SET content = ?, images = ? WHERE id = ?')
-      .run(sanitizeText(content || c.content), JSON.stringify(currentImages), cid);
+      .run(content || c.content, JSON.stringify(currentImages), cid);
 
     res.json({ ok: true });
   });

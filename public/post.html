@@ -57,6 +57,7 @@
           <div class="flex items-center gap-2">
             <span id="postAuthor" class="text-sm font-semibold"></span>
             <span id="postAuthorLevel" class="hidden inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
+            <span id="postAuthorTitle" class="hidden text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"></span>
             <span id="postAuthorId" class="text-xs text-gray-400"></span>
             <span id="postCategory" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" onclick="window.open('/?category='+encodeURIComponent('${esc(state.post ? state.post.category : '')}'),'_blank')"></span>
           </div>
@@ -342,12 +343,6 @@ function checkPasswordStrength(password, prefix) {
   textEl.style.color = color;
 }
 
-/** 渲染头像（有图片用 img，否则用首字母） */
-function avatarHtml(url, letter, size) {
-  if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
-  return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
-}
-
 /** 通用 API 请求（JSON 格式） */
 async function api(url, opts) {
   const res = await fetch(url, { headers: { 'Content-Type': 'application/json' }, ...opts });
@@ -496,8 +491,11 @@ function renderAuth() {
   if (state.user) {
     a.innerHTML = `<div class="flex items-center gap-2">
       <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
-        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8')}
-        <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8', state.user.avatar_frame)}
+        <div class="hidden sm:flex flex-col">
+          <span class="text-sm font-medium">${esc(state.user.username)}</span>
+          ${state.user.title ? `<span class="text-[10px] text-gray-400">${esc(state.user.title)}</span>` : ''}
+        </div>
       </a>
       <button onclick="doLogout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     </div>`;
@@ -520,10 +518,20 @@ async function loadPage() {
 
     // 设置页面标题和元信息
     document.title = post.title + ' - MiForum';
-    document.getElementById('postAvatar').innerHTML = avatarHtml(post.author_avatar_url, post.author_name[0].toUpperCase(), 'w-10 h-10');
+    document.getElementById('postAvatar').innerHTML = avatarHtml(post.author_avatar_url, post.author_name[0].toUpperCase(), 'w-10 h-10', post.author_avatar_frame);
     document.getElementById('postAvatarLink').href = '/profile.html?id=' + post.author_id;
     document.getElementById('postAuthor').textContent = post.author_name;
     document.getElementById('postAuthorId').textContent = '#' + post.author_display_id;
+    // 称号显示
+    const titleEl = document.getElementById('postAuthorTitle');
+    if (titleEl) {
+      if (post.author_title) {
+        titleEl.textContent = post.author_title;
+        titleEl.classList.remove('hidden');
+      } else {
+        titleEl.classList.add('hidden');
+      }
+    }
     // 作者等级角标
     const lvlBadge = document.getElementById('postAuthorLevel');
     if (lvlBadge) {
@@ -795,10 +803,11 @@ function renderComments(cl, postOwnerId, pagination) {
       const canDelete = own || isPostOwner || state.isAdmin;
       const hasImgs = c.images && c.images.length > 0;
       return `<div class="flex gap-3 ${c.pinned ? 'bg-amber-50 rounded-xl p-3 -mx-3' : ''}" id="comment-${c.id}">
-        <a href="/profile.html?id=${c.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(c.author_avatar_url, c.author_name[0].toUpperCase(), 'w-8 h-8')}</a>
+        <a href="/profile.html?id=${c.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(c.author_avatar_url, c.author_name[0].toUpperCase(), 'w-8 h-8', c.author_avatar_frame)}</a>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 mb-1 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(c.author_name)}</span>
+            ${c.author_title ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${esc(c.author_title)}</span>` : ''}
             <span class="text-xs text-gray-400">#${esc(c.author_display_id)}</span>
             ${c.is_post_owner ? '<span class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>' : ''}
             ${c.pinned ? '<span class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>' : ''}

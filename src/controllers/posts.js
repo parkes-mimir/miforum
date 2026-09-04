@@ -1,5 +1,5 @@
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
-const { deleteImages, deleteFile, parseJsonField, intToBool, sanitizeText } = require('../utils/helpers');
+const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
 
@@ -102,9 +102,6 @@ module.exports = function (app, db) {
     const { title, content, category, tags } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
-    const safeTitle = sanitizeText(title);
-    const safeContent = sanitizeText(content);
-
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
     let parsedTags = [];
     if (tags) {
@@ -120,7 +117,7 @@ module.exports = function (app, db) {
       const result = db.prepare(`
         INSERT INTO posts (title, content, category, tags, author_id, images, created_at)
         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(safeTitle, safeContent, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
+      `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
 
       db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
       addExp(db, req.session.userId, EXP_REWARDS.post);
@@ -135,9 +132,6 @@ module.exports = function (app, db) {
   app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags, removeImages } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
-
-    const safeTitle = sanitizeText(title);
-    const safeContent = sanitizeText(content);
 
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
@@ -173,7 +167,7 @@ module.exports = function (app, db) {
     db.prepare(`
       UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(safeTitle, safeContent, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
+    `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
 
     res.json({ ok: true });
   });

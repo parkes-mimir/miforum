@@ -33,12 +33,11 @@ module.exports = function registerShopRoutes(app, db) {
       return res.status(400).json({ error: `积分不足，需要 ${item.price} 积分，当前 ${user.points || 0} 积分` });
     }
 
-    // 检查永久物品是否已拥有（头像框、称号不可重复购买）
+    // 检查是否已拥有同一商品（同一称号/头像框不可重复购买，但可以买不同的）
     if (item.type === 'title' || item.type === 'avatar_frame') {
-      const hasOwned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_type = ? AND status = ?').get(userId, item.type, 'completed');
+      const hasOwned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?').get(userId, item.id, 'completed');
       if (hasOwned) {
-        const typeName = item.type === 'title' ? '称号' : '头像框';
-        return res.status(400).json({ error: `你已经拥有${typeName}，不可重复购买` });
+        return res.status(400).json({ error: `你已经拥有「${item.name}」，不可重复购买` });
       }
     }
 

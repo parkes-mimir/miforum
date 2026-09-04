@@ -4,6 +4,66 @@
 
 ---
 
+## [1.1.0] - 2026-09-04 - 贡献者：parkes-mimir
+
+安全审计修复版本，共修复 21 项安全/代码质量问题，涉及 20 个文件。未新增任何 npm 依赖。
+
+### 安全修复（严重）
+
+- XSS 防护：所有 lightbox onclick 中的 URL 使用 `escAttr()` 转义单引号（forum.html、post.html、profile.html）
+- CSRF 防护：POST/PUT/DELETE 请求校验 Origin/Referer 头与 Host 一致性（server.js）
+- CSP 移除 `unsafe-eval`，保留 `unsafe-inline`（server.js）
+- 验证码暴力破解防护：per-email 内存锁，5 次错误锁定 10 分钟（auth.js）
+- SMTP 密码 AES-256-GCM 加密存储，密钥派生自 SESSION_SECRET（helpers.js、admin.js、email.js）
+- Display ID 竞态条件：UNIQUE 冲突时自动重试最多 5 次（auth.js）
+
+### 安全修复（中危）
+
+- 管理员自动更新改用 `git pull --rebase`，避免 `git reset --hard` 丢失数据（admin.js）
+- `requireNotMuted` 中间件增加登录状态前置检查（middleware/auth.js）
+- `/api/checkin/history` 添加 `requireAuth` 中间件（checkin.js）
+- 查询语句 `SELECT *` 改为显式列名（auth.js、checkin.js）
+
+### 改进
+
+- 前端公共函数提取为 `public/js/common.js`（esc、toast、relTime、api、avatarHtml 等）
+- multer 配置提取为 `src/utils/upload.js` 共享模块（postUpload、commentUpload、avatarUpload）
+- `schema.sql` 重写为匹配实际 SQLite 表结构（原为 Supabase/PostgreSQL）
+- `.dockerignore` 补充 `.env.*`、`docs/`、`backups/` 条目
+- 新增 `tests/api.test.js` 测试文件，覆盖帖子搜索/筛选、评论分页、商店兑换、管理员积分、CSRF 校验等 25 个用例
+
+### 修复
+
+- 撤回 `sanitizeText` 入库净化（会破坏含 `<`、`>`、`&` 的用户内容，改为依赖前端 `esc()` / `textContent` 出库转义）
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/server.js | CSRF 中间件、CSP 移除 unsafe-eval |
+| src/controllers/auth.js | 验证码锁定、Display ID 重试、显式列名 |
+| src/controllers/checkin.js | requireAuth、显式列名 |
+| src/controllers/posts.js | multer 提取、撤回 sanitizeText |
+| src/controllers/comments.js | multer 提取、撤回 sanitizeText |
+| src/controllers/profile.js | multer 提取 |
+| src/controllers/admin.js | SMTP 加密、git pull --rebase |
+| src/middleware/auth.js | requireNotMuted 认证检查 |
+| src/utils/helpers.js | 新增 encryptText/decryptText/sanitizeText |
+| src/utils/upload.js | 新建 multer 共享模块 |
+| src/utils/email.js | SMTP 密码解密 |
+| src/database.js | ensureColumn 白名单（1.0.8 已修） |
+| public/forum.html | escAttr 转义、common.js 引入 |
+| public/post.html | escAttr 转义、common.js 引入 |
+| public/shop.html | common.js 引入 |
+| public/profile.html | common.js 引入 |
+| public/js/common.js | 新建前端公共函数 |
+| tests/api.test.js | 新建 25 个测试用例 |
+| schema.sql | 重写为 SQLite 匹配 |
+| .dockerignore | 补充条目 |
+| package.json | 版本号 → 1.1.0 |
+
+---
+
 ## [1.0.9] - 2026-09-03 - 贡献者：parkes-mimir
 
 ### 安全修复

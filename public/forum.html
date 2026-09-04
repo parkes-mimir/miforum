@@ -809,12 +809,6 @@ async function doChangePassword() {
   }
 }
 
-/** 渲染头像（有图片用 img，否则用首字母） */
-function avatarHtml(url, letter, size) {
-  if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
-  return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
-}
-
 /** 渲染右上角登录状态 */
 function renderAuth() {
   const a = document.getElementById('authArea');
@@ -828,8 +822,11 @@ function renderAuth() {
 
     html += `<div class="flex items-center gap-2">
       <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
-        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8')}
-        <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8', state.user.avatar_frame)}
+        <div class="hidden sm:flex flex-col">
+          <span class="text-sm font-medium">${esc(state.user.username)}</span>
+          ${state.user.title ? `<span class="text-[10px] text-gray-400">${esc(state.user.title)}</span>` : ''}
+        </div>
       </a>
       ${roleLabel ? `<span class="text-xs px-1.5 py-0.5 rounded ${roleColor} text-white">${roleLabel}</span>` : ''}
       ${state.user.muted ? '<span class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">禁言中</span>' : ''}
@@ -1162,10 +1159,11 @@ function renderPosts() {
     const isAdmin = userRole === 'admin' || userRole === 'super_admin';
     return `<div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" onclick="location.href='/post.html?id=${p.id}'">
       <div class="flex items-start gap-3">
-        <a href="/profile.html?id=${p.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(p.author_avatar_url, p.author_name[0].toUpperCase(), 'w-9 h-9')}</a>
+        <a href="/profile.html?id=${p.author_id}" onclick="event.stopPropagation()" class="flex-shrink-0">${avatarHtml(p.author_avatar_url, p.author_name[0].toUpperCase(), 'w-9 h-9', p.author_avatar_frame)}</a>
         <div class="flex-1 min-w-0">
           <div class="flex items-center gap-2 flex-wrap">
             <span class="text-sm font-semibold text-gray-900">${esc(p.author_name)}</span>
+            ${p.author_title ? `<span class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">${esc(p.author_title)}</span>` : ''}
             ${p.author_level_info ? `<span class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none" style="background:${p.author_level_info.badge_bg};" title="活跃度 Lv${p.author_level_info.level} · ${p.author_level_info.stage_name}">${p.author_level_info.icon}Lv${p.author_level_info.level}</span>` : ''}
             <span class="text-xs text-gray-400">#${esc(p.author_display_id)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>

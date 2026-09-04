@@ -38,7 +38,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - PWA 支持（theme-color、apple-mobile-web-app）
 - 分页加载（帖子/评论/收藏列表）
-- 安全加固（helmet、速率限制）
+- 安全加固（helmet、速率限制、CSRF 防护、CSP、SMTP 加密）
 - 单元测试（jest + supertest）
 - 环境变量管理（dotenv）
 - Docker 支持（一键部署）
@@ -118,13 +118,17 @@ docker-compose down
 │   ├── middleware/             # 中间件
 │   │   └── auth.js             # 认证/权限中间件
 │   └── utils/                  # 工具函数
-│       └── helpers.js
+│       ├── helpers.js
+│       ├── email.js
+│       └── upload.js
 │
 ├── public/                     # 前端静态文件
 │   ├── forum.html              # 首页
 │   ├── post.html               # 帖子详情
 │   ├── profile.html            # 个人资料
 │   ├── shop.html               # 积分商店
+│   ├── js/
+│   │   └── common.js           # 公共函数
 │   └── css/
 │       └── tailwind.css
 │
@@ -187,7 +191,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.0.9** — Docker 支持、CI/CD、环境变量路径配置
+**最新版本 v1.1.0** — 安全审计修复：21项安全加固、CSRF防护、SMTP加密、验证码锁定
 
 ## 贡献者
 

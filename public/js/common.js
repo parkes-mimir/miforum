@@ -35,10 +35,21 @@ async function api(url, opts) {
   return data;
 }
 
-/** Render avatar (img or initial letter fallback) */
-function avatarHtml(url, letter, size) {
-  if (url) return `<img src="${url}" class="${size} rounded-full object-cover cursor-pointer">`;
-  return `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold cursor-pointer">${esc(letter)}</div>`;
+/** Render avatar (img or initial letter fallback), with optional frame glow */
+function avatarHtml(url, letter, size, frame) {
+  const frameStyles = {
+    gold: 'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
+    silver: 'linear-gradient(135deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
+    blue: 'linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%)',
+    purple: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #7e22ce 100%)'
+  };
+  let inner;
+  if (url) inner = `<img src="${url}" class="${size} rounded-full object-cover">`;
+  else inner = `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(letter)}</div>`;
+  if (frame && frameStyles[frame]) {
+    return `<div style="background:${frameStyles[frame]};padding:2px;border-radius:9999px;display:inline-flex">${inner}</div>`;
+  }
+  return inner;
 }
 
 /** Password strength detection → { score: 0-4, label, color } */

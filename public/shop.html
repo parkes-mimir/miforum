@@ -223,9 +223,14 @@ function renderAuth() {
   const area = document.getElementById('authArea');
   if (state.user) {
     area.innerHTML = `
-      <span class="text-sm text-gray-600">${esc(state.user.username)}</span>
-      <a href="/profile.html?id=${state.user.id}" class="px-3 py-1.5 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition">个人中心</a>
-      <button onclick="logout()" class="px-3 py-1.5 text-sm text-gray-500 hover:text-gray-700 transition">退出</button>
+      <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
+        ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8', state.user.avatar_frame)}
+        <div class="hidden sm:flex flex-col">
+          <span class="text-sm font-medium">${esc(state.user.username)}</span>
+          ${state.user.title ? `<span class="text-[10px] text-gray-400">${esc(state.user.title)}</span>` : ''}
+        </div>
+      </a>
+      <button onclick="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
     `;
   } else {
     area.innerHTML = `
