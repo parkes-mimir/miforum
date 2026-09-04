@@ -333,30 +333,105 @@ module.exports = function (app, db) {
   app.post('/api/admin/update', requireSuperAdmin, async (req, res) => {
     try {
       const { execSync } = require('child_process');
+      const https = require('https');
       const projectRoot = path.join(__dirname, '../..');
-
-      // 检查是否在 git 仓库中
-      if (!fs.existsSync(path.join(projectRoot, '.git'))) {
-        return res.status(400).json({ error: 'Docker 环境不支持自动更新，请重新构建镜像：docker build -t miforum .' });
-      }
+      const isDocker = !fs.existsSync(path.join(projectRoot, '.git'));
 
       // 备份当前版本
       const backupDir = path.join(projectRoot, 'backups');
       if (!fs.existsSync(backupDir)) fs.mkdirSync(backupDir, { recursive: true });
       const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
-      execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: projectRoot });
+      try {
+        execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git --exclude=backups .`, { cwd: projectRoot, timeout: 30000 });
+      } catch (e) {
+        console.warn('备份失败，继续更新:', e.message);
+      }
 
-      // 拉取最新代码（使用 pull --rebase 代替 reset --hard，保留本地修改）
-      execSync('git pull --rebase origin main', { cwd: projectRoot });
+      if (isDocker) {
+        // Docker 环境：从 GitHub 下载最新 release 源码包
+        const pkg = require('../../package.json');
+        const repo = 'parkes-mimir/miforum';
 
-      // 安装依赖
-      execSync('npm install --omit=dev', { cwd: projectRoot });
+        // 获取最新 release 信息
+        const releaseData = await new Promise((resolve, reject) => {
+          const req = https.get(`https://api.github.com/repos/${repo}/releases/latest`, {
+            headers: { 'User-Agent': 'MiForum/' + pkg.version }
+          }, (res) => {
+            let data = '';
+            res.on('data', chunk => data += chunk);
+            res.on('end', () => {
+              if (res.statusCode !== 200) return reject(new Error('无法获取最新版本信息'));
+              resolve(JSON.parse(data));
+            });
+          });
+          req.on('error', reject);
+          req.setTimeout(10000, () => { req.destroy(); reject(new Error('请求超时')); });
+        });
 
-      res.json({
-        ok: true,
-        message: '更新成功，需要重启服务器才能生效',
-        backup: backupName
-      });
+        const latestTag = releaseData.tag_name;
+        const tarUrl = `https://github.com/${repo}/archive/refs/tags/${latestTag}.tar.gz`;
+
+        // 下载并解压到临时目录
+        const tmpDir = path.join(projectRoot, '.update-tmp');
+        if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
+        fs.mkdirSync(tmpDir, { recursive: true });
+
+        await new Promise((resolve, reject) => {
+          const file = fs.createWriteStream(path.join(tmpDir, 'update.tar.gz'));
+          https.get(tarUrl, { headers: { 'User-Agent': 'MiForum' } }, (response) => {
+            if (response.statusCode === 302 || response.statusCode === 301) {
+              https.get(response.headers.location, { headers: { 'User-Agent': 'MiForum' } }, (res2) => {
+                res2.pipe(file);
+                file.on('finish', () => { file.close(); resolve(); });
+              }).on('error', reject);
+            } else {
+              response.pipe(file);
+              file.on('finish', () => { file.close(); resolve(); });
+            }
+          }).on('error', reject);
+          file.on('error', reject);
+        });
+
+        // 解压
+        execSync('tar -xzf update.tar.gz --strip-components=1', { cwd: tmpDir, timeout: 30000 });
+
+        // 覆盖源码文件（不动 data.db、uploads、.env、node_modules）
+        const copyItems = ['src', 'public', 'package.json', 'package-lock.json', 'tailwind.config.js', 'Dockerfile', '.eslintrc.json'];
+        for (const item of copyItems) {
+          const src = path.join(tmpDir, item);
+          const dest = path.join(projectRoot, item);
+          if (fs.existsSync(src)) {
+            if (fs.statSync(src).isDirectory()) {
+              execSync(`rm -rf "${dest}" && cp -r "${src}" "${dest}"`, { timeout: 15000 });
+            } else {
+              fs.copyFileSync(src, dest);
+            }
+          }
+        }
+
+        // 清理临时目录
+        fs.rmSync(tmpDir, { recursive: true, force: true });
+
+        // 安装依赖
+        execSync('npm install --omit=dev', { cwd: projectRoot, timeout: 120000 });
+
+        res.json({
+          ok: true,
+          message: `已更新到 ${latestTag}，需要重启容器才能生效`,
+          backup: backupName,
+          version: latestTag
+        });
+      } else {
+        // Git 环境：使用 git pull
+        execSync('git pull --rebase origin main', { cwd: projectRoot, timeout: 60000 });
+        execSync('npm install --omit=dev', { cwd: projectRoot, timeout: 120000 });
+
+        res.json({
+          ok: true,
+          message: '更新成功，需要重启服务器才能生效',
+          backup: backupName
+        });
+      }
     } catch (err) {
       res.status(500).json({ error: '更新失败: ' + err.message });
     }
