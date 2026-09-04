@@ -4,6 +4,23 @@
 
 ---
 
+## [1.1.1] - 2026-09-04 - 贡献者：parkes-mimir
+
+### 修复
+
+- HTTP 环境登录状态丢失：`secure: isProduction` 导致浏览器拒绝存储 session cookie
+  - 改为读取 `COOKIE_SECURE` 环境变量，默认 `false`
+  - HTTPS 部署需在 `.env` 或 `docker-compose.yml` 中设置 `COOKIE_SECURE=true`
+- 积分商店：不同称号/头像框可分别购买（修复只能买一个的 bug）
+- Dockerfile 移除不存在的 `docs/` COPY 指令（修复 CI 构建失败）
+- Docker 环境支持自动更新（从 GitHub 下载 release 包覆盖源码）
+
+### 新增
+
+- 头像框和称号在帖子列表、帖子详情、评论、右上角全局显示
+
+---
+
 ## [1.1.0] - 2026-09-04 - 贡献者：parkes-mimir
 
 安全审计修复版本，共修复 21 项安全/代码质量问题，涉及 20 个文件。未新增任何 npm 依赖。

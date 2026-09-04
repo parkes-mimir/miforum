@@ -191,7 +191,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.0** — 安全审计修复：21项安全加固、CSRF防护、SMTP加密、验证码锁定
+**最新版本 v1.1.1** — 修复登录状态丢失、Docker 自动更新、头像框全局显示
 
 ## 贡献者
 

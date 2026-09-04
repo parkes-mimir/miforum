@@ -152,7 +152,7 @@ function createApp() {
 
   // Session 配置
   const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
-  const isProduction = process.env.NODE_ENV === 'production';
+  const cookieSecure = process.env.COOKIE_SECURE === 'true'; // 需要 HTTPS 环境变量开启
   app.use(session({
     secret: SESSION_SECRET,
     resave: false,
@@ -160,7 +160,7 @@ function createApp() {
     cookie: {
       maxAge: 7 * 24 * 60 * 60 * 1000,
       httpOnly: true,
-      secure: isProduction,  // 生产环境强制 HTTPS
+      secure: cookieSecure,
       sameSite: 'lax'
     }
   }));
