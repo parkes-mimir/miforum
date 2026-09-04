@@ -4,6 +4,22 @@
 
 ---
 
+## [1.0.9] - 2026-09-03 - 贡献者：parkes-mimir
+
+### 安全修复
+
+- Lightbox XSS 防护：验证 URL 必须以 `/uploads/` 开头
+- post.html 注册表单添加验证码输入框
+- post.html 添加密码强度指示器
+- post.html 添加发送验证码功能
+
+### 修复
+
+- 修复 post.html 注册缺少验证码字段
+- 修复 lightbox onclick URL 未转义
+
+---
+
 ## [1.0.8] - 2026-09-03 - 贡献者：parkes-mimir
 
 ### 安全修复

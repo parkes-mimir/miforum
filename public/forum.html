@@ -634,6 +634,8 @@ function checkPasswordStrength(password, prefix) {
 
 /** 图片 Lightbox 弹窗 */
 function openLightbox(url) {
+  // 验证 URL 格式，防止 XSS
+  if (!url || !url.startsWith('/uploads/')) return;
   document.getElementById('lightboxImg').src = url;
   document.getElementById('lightbox').classList.remove('hidden');
   document.getElementById('lightbox').classList.add('flex');
