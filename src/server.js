@@ -52,7 +52,7 @@ function createApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        scriptSrc: ["'self'", "'unsafe-inline'"],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
@@ -84,6 +84,26 @@ function createApp() {
     }
     if (req.method === 'OPTIONS') {
       return res.sendStatus(200);
+    }
+    next();
+  });
+
+  // CSRF 防护：校验 state-changing 请求的 Origin 头
+  app.use((req, res, next) => {
+    if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
+      const origin = req.headers.origin || req.headers.referer;
+      if (origin) {
+        try {
+          const originUrl = new URL(origin);
+          const host = req.headers.host;
+          if (host && originUrl.host !== host) {
+            return res.status(403).json({ error: 'CSRF 校验失败' });
+          }
+        } catch (e) {
+          return res.status(403).json({ error: 'CSRF 校验失败' });
+        }
+      }
+      // 允许无 Origin/Referer 的请求（非浏览器客户端如 curl、API 工具）
     }
     next();
   });

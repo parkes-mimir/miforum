@@ -469,6 +469,7 @@
   </div>
 </div>
 
+<script src="/js/common.js"></script>
 <script>
 // ============================================================
 // 配置常量
@@ -507,7 +508,7 @@ function renderCategoryNav() {
   const nav = document.getElementById('categoryNav');
   const icons = ['tech','life','notice','game','movie','book','music','food','travel','other'];
   nav.innerHTML = categoriesData.map((c, i) =>
-    `<button onclick="filterCategory('${c.name}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+    `<button onclick="filterCategory('${escAttr(c.name)}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
       <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>
       ${esc(c.label)}
     </button>`
@@ -560,6 +561,7 @@ function relTime(iso) {
 
 /** HTML 转义（防 XSS） */
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
 
 /**
  * 密码强度检测
@@ -1117,7 +1119,7 @@ async function loadTagCloud() {
     const el = document.getElementById('tagCloud');
     if (!tags.length) { el.innerHTML = '<span class="text-xs text-gray-300">暂无标签</span>'; return; }
     el.innerHTML = tags.slice(0, 20).map(t =>
-      `<button onclick="filterByTag('${esc(t.name)}')" class="tag-btn px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">#${esc(t.name)} <span class="text-gray-300">${t.count}</span></button>`
+      `<button onclick="filterByTag('${escAttr(t.name)}')" class="tag-btn px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">#${esc(t.name)} <span class="text-gray-300">${t.count}</span></button>`
     ).join('');
   } catch(e) {}
 }
@@ -1167,7 +1169,7 @@ function renderPosts() {
             ${p.author_level_info ? `<span class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none" style="background:${p.author_level_info.badge_bg};" title="活跃度 Lv${p.author_level_info.level} · ${p.author_level_info.stage_name}">${p.author_level_info.icon}Lv${p.author_level_info.level}</span>` : ''}
             <span class="text-xs text-gray-400">#${esc(p.author_display_id)}</span>
             <span class="text-xs text-gray-400">${relTime(p.created_at)}</span>
-            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'} cursor-pointer hover:opacity-80 transition" onclick="event.stopPropagation();filterCategory('${esc(p.category)}')">${esc(CAT_MAP[p.category] || p.category)}</span>
+            <span class="text-xs px-2 py-0.5 rounded-full ${CAT_COLORS[p.category] || 'bg-gray-100 text-gray-600'} cursor-pointer hover:opacity-80 transition" onclick="event.stopPropagation();filterCategory('${escAttr(p.category)}')">${esc(CAT_MAP[p.category] || p.category)}</span>
             ${p.updated_at ? '<span class="text-xs text-gray-400">(已编辑)</span>' : ''}
             ${hasImgs && p.images.length > 1 ? `<span class="text-xs text-gray-400">📷${p.images.length}</span>` : ''}
             ${p.pinned ? '<span class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>' : ''}
@@ -1175,8 +1177,8 @@ function renderPosts() {
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
           <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
-          ${p.tags && p.tags.length ? `<div class="flex flex-wrap gap-1.5 mt-1.5">${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('')}${p.tags.length > 3 ? `<span id="tags-more-${p.id}" class="hidden">${p.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${esc(t)}')">#${esc(t)}</span>`).join('')}</span><button onclick="event.stopPropagation();toggleTags(${p.id})" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" id="tags-btn-${p.id}">展开全部</button>` : ''}</div>` : ''}
-          ${firstImg ? `<img src="${firstImg}" class="mt-2 rounded-lg max-h-24 object-cover" onclick="event.stopPropagation();openLightbox('${firstImg}')">` : ''}
+          ${p.tags && p.tags.length ? `<div class="flex flex-wrap gap-1.5 mt-1.5">${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}${p.tags.length > 3 ? `<span id="tags-more-${p.id}" class="hidden">${p.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}</span><button onclick="event.stopPropagation();toggleTags(${p.id})" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" id="tags-btn-${p.id}">展开全部</button>` : ''}</div>` : ''}
+          ${firstImg ? `<img src="${firstImg}" class="mt-2 rounded-lg max-h-24 object-cover" onclick="event.stopPropagation();openLightbox('${escAttr(firstImg)}')">` : ''}
           <div class="flex items-center gap-4 mt-3">
             <button onclick="event.stopPropagation();toggleLike(${p.id})" class="flex items-center gap-1 text-xs ${liked ? 'text-red-500' : 'text-gray-400'} hover:text-red-500 transition">
               <svg class="w-4 h-4" fill="${liked ? 'currentColor' : 'none'}" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -1732,7 +1734,7 @@ function renderCategoryList() {
       <span class="text-xs text-gray-400 font-mono">${esc(c.name)}</span>
       <div class="ml-auto flex items-center gap-1">
         <button onclick="editCategory(${c.id})" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-lg transition">编辑</button>
-        <button onclick="deleteCategory(${c.id},'${esc(c.name)}')" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>
+        <button onclick="deleteCategory(${c.id},'${escAttr(c.name)}')" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>
       </div>
     </div>
   `).join('');

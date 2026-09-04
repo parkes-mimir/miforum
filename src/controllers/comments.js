@@ -1,41 +1,7 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
-const { deleteImages, deleteFile, parseJsonField, intToBool, UPLOADS_DIR } = require('../utils/helpers');
+const { deleteImages, deleteFile, parseJsonField, intToBool, sanitizeText } = require('../utils/helpers');
+const { commentUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS } = require('./level');
-
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const name = 'comment' + date + '-' + Date.now() + ext;
-    cb(null, name);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    allowed.includes(ext) ? cb(null, true) : cb(new Error('仅支持 JPG/PNG/GIF/WebP/BMP 格式图片'));
-  }
-});
-
-function multerUpload(middleware) {
-  return (req, res, next) => {
-    middleware(req, res, (err) => {
-      if (err && err.code === 'LIMIT_UNEXPECTED_FILE') return next();
-      if (err) return res.status(400).json({ error: err.message });
-      next();
-    });
-  };
-}
 
 module.exports = function (app, db) {
 
@@ -90,7 +56,7 @@ module.exports = function (app, db) {
     });
   });
 
-  app.post('/api/posts/:id/comments', requireAuth, requireNotMuted(db), multerUpload(upload.array('images', 3)), (req, res) => {
+  app.post('/api/posts/:id/comments', requireAuth, requireNotMuted(db), multerUpload(commentUpload.array('images', 3)), (req, res) => {
     const { content } = req.body;
     if (!content && (!req.files || req.files.length === 0)) {
       return res.status(400).json({ error: '请输入评论内容或上传图片' });
@@ -100,10 +66,11 @@ module.exports = function (app, db) {
     if (!post) return res.status(404).json({ error: '帖子不存在' });
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
+    const safeContent = sanitizeText(content || '');
     const result = db.prepare(`
       INSERT INTO comments (post_id, author_id, content, images, created_at)
       VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
+    `).run(Number(req.params.id), req.session.userId, safeContent, JSON.stringify(images));
 
     addExp(db, req.session.userId, EXP_REWARDS.comment);
     if (post.author_id && post.author_id !== req.session.userId) {
@@ -113,7 +80,7 @@ module.exports = function (app, db) {
     res.json({ commentId: result.lastInsertRowid });
   });
 
-  app.put('/api/comments/:id', requireAuth, requireNotMuted(db), multerUpload(upload.array('images', 3)), (req, res) => {
+  app.put('/api/comments/:id', requireAuth, requireNotMuted(db), multerUpload(commentUpload.array('images', 3)), (req, res) => {
     const { content, removeImages } = req.body;
     if (!content && (!req.files || req.files.length === 0)) {
       return res.status(400).json({ error: '评论不能为空' });
@@ -140,7 +107,7 @@ module.exports = function (app, db) {
     }
 
     db.prepare('UPDATE comments SET content = ?, images = ? WHERE id = ?')
-      .run(content || c.content, JSON.stringify(currentImages), cid);
+      .run(sanitizeText(content || c.content), JSON.stringify(currentImages), cid);
 
     res.json({ ok: true });
   });

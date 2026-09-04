@@ -7,6 +7,8 @@ const path = require('path');
 const fs = require('fs');
 
 // 设置测试环境
+const TEST_DB = path.join(__dirname, 'test.db');
+process.env.DB_PATH = TEST_DB;
 process.env.NODE_ENV = 'test';
 process.env.SESSION_SECRET = 'test-secret';
 

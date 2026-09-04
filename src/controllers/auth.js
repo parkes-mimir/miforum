@@ -15,6 +15,9 @@ const { getNextDisplayId } = require('../database');
  * @param {Object} db 数据库实例
  */
 function authRoutes(app, db) {
+  // 验证码错误锁定（内存存储，重启重置）
+  const codeLockouts = new Map(); // key -> { attempts, lockedUntil }
+
   // 发送验证码
   app.post('/api/send-code', async (req, res) => {
     const { email, type } = req.body;
@@ -75,21 +78,52 @@ function authRoutes(app, db) {
 
     // 验证验证码（测试环境跳过）
     if (process.env.NODE_ENV !== 'test') {
+      // 检查是否被锁定
+      const lockoutKey = email + ':register';
+      const lockout = codeLockouts.get(lockoutKey);
+      if (lockout && lockout.lockedUntil > Date.now()) {
+        const remaining = Math.ceil((lockout.lockedUntil - Date.now()) / 60000);
+        return res.status(429).json({ error: `验证码错误次数过多，请${remaining}分钟后再试` });
+      }
+
       const verification = db.prepare(
         "SELECT id FROM verification_codes WHERE email = ? AND code = ? AND type = 'register' AND used = 0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1"
       ).get(email, code);
-      if (!verification) return res.status(400).json({ error: '验证码无效或已过期' });
+      if (!verification) {
+        // 记录失败尝试
+        const current = codeLockouts.get(lockoutKey) || { attempts: 0, lockedUntil: 0 };
+        current.attempts++;
+        if (current.attempts >= 5) {
+          current.lockedUntil = Date.now() + 10 * 60 * 1000;
+          current.attempts = 0;
+        }
+        codeLockouts.set(lockoutKey, current);
+        return res.status(400).json({ error: '验证码无效或已过期' });
+      }
 
+      // 验证成功，清除锁定
+      codeLockouts.delete(lockoutKey);
       // 标记验证码已使用
       db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
     }
 
-    const displayId = getNextDisplayId();
     const hash = await bcrypt.hash(password, 10);
-    const result = db.prepare(`
-      INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, created_at)
-      VALUES (?, ?, ?, ?, 'user', 1, datetime('now'))
-    `).run(displayId, username, email, hash);
+    let displayId;
+    let result;
+    const maxRetries = 5;
+    for (let attempt = 0; attempt < maxRetries; attempt++) {
+      displayId = getNextDisplayId();
+      try {
+        result = db.prepare(`
+          INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, created_at)
+          VALUES (?, ?, ?, ?, 'user', 1, datetime('now'))
+        `).run(displayId, username, email, hash);
+        break;
+      } catch (e) {
+        if (e.code === 'SQLITE_CONSTRAINT_UNIQUE' && attempt < maxRetries - 1) continue;
+        throw e;
+      }
+    }
 
     req.session.userId = result.lastInsertRowid;
     // 注册送经验
@@ -103,7 +137,7 @@ function authRoutes(app, db) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: '请填写邮箱和密码' });
 
-    const user = db.prepare('SELECT * FROM profiles WHERE email = ?').get(email);
+    const user = db.prepare('SELECT id, display_id, username, email, password_hash, points, role, force_password_change FROM profiles WHERE email = ?').get(email);
     if (!user) return res.status(400).json({ error: '邮箱或密码错误' });
 
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -132,7 +166,7 @@ function authRoutes(app, db) {
   // 获取当前用户信息
   app.get('/api/me', (req, res) => {
     if (!req.session.userId) return res.json({ user: null });
-    const u = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    const u = db.prepare('SELECT id, display_id, username, email, avatar_url, bio, location, website, profile_public, points, exp, muted, role, title, avatar_frame, rename_chances, force_password_change FROM profiles WHERE id = ?').get(req.session.userId);
     if (!u) return res.json({ user: null });
     res.json({ user: {
       id: u.id, display_id: u.display_id, username: u.username, email: u.email,
@@ -165,7 +199,7 @@ function authRoutes(app, db) {
       return res.status(400).json({ error: '新密码不能与旧密码相同' });
     }
 
-    const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    const user = db.prepare('SELECT id, password_hash FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
     const ok = await bcrypt.compare(old_password, user.password_hash);

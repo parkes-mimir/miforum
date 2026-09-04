@@ -48,6 +48,7 @@ function requireSuperAdmin(db) {
  */
 function requireNotMuted(db) {
   return (req, res, next) => {
+    if (!req.session.userId) return res.status(401).json({ error: '请先登录' });
     const user = db.prepare('SELECT muted FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(401).json({ error: '用户不存在' });
     if (intToBool(user.muted)) return res.status(403).json({ error: '你已被禁言，暂时无法发布内容' });

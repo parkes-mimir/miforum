@@ -14,6 +14,7 @@ uploads/
 
 # Environment
 .env
+.env.*
 .env.local
 .env.*.local
 
@@ -26,6 +27,10 @@ uploads/
 
 # Tests
 tests/
+
+# Docs & Backups
+docs/
+backups/
 
 # Documentation
 *.md

@@ -4,6 +4,40 @@
 
 const fs = require('fs');
 const path = require('path');
+const crypto = require('crypto');
+
+const ENC_ALGO = 'aes-256-gcm';
+function getEncKey() {
+  const secret = process.env.SESSION_SECRET || 'miforum-default-key-change-me';
+  return crypto.createHash('sha256').update(secret).digest();
+}
+
+function encryptText(text) {
+  const key = getEncKey();
+  const iv = crypto.randomBytes(16);
+  const cipher = crypto.createCipheriv(ENC_ALGO, key, iv);
+  let encrypted = cipher.update(text, 'utf8', 'hex');
+  encrypted += cipher.final('hex');
+  const tag = cipher.getAuthTag().toString('hex');
+  return iv.toString('hex') + ':' + tag + ':' + encrypted;
+}
+
+function decryptText(encrypted) {
+  try {
+    const key = getEncKey();
+    const parts = encrypted.split(':');
+    if (parts.length !== 3) return encrypted;
+    const iv = Buffer.from(parts[0], 'hex');
+    const tag = Buffer.from(parts[1], 'hex');
+    const decipher = crypto.createDecipheriv(ENC_ALGO, key, iv);
+    decipher.setAuthTag(tag);
+    let decrypted = decipher.update(parts[2], 'hex', 'utf8');
+    decrypted += decipher.final('utf8');
+    return decrypted;
+  } catch (e) {
+    return encrypted;
+  }
+}
 
 // 上传目录路径（支持环境变量配置）
 const UPLOADS_DIR = process.env.UPLOADS_PATH || path.join(__dirname, '../../uploads');
@@ -97,6 +131,11 @@ function daysBetween(a, b) {
   return Math.floor((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
 }
 
+function sanitizeText(text) {
+  if (typeof text !== 'string') return text;
+  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
+}
+
 module.exports = {
   UPLOADS_DIR,
   deleteFile,
@@ -107,5 +146,8 @@ module.exports = {
   dateStr,
   todayStr,
   addDays,
-  daysBetween
+  daysBetween,
+  encryptText,
+  decryptText,
+  sanitizeText
 };

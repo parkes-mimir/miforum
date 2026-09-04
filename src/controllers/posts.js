@@ -1,41 +1,7 @@
-const multer = require('multer');
-const path = require('path');
-const fs = require('fs');
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
-const { deleteImages, deleteFile, parseJsonField, intToBool, UPLOADS_DIR } = require('../utils/helpers');
+const { deleteImages, deleteFile, parseJsonField, intToBool, sanitizeText } = require('../utils/helpers');
+const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
-
-if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
-
-const storage = multer.diskStorage({
-  destination: (req, file, cb) => cb(null, UPLOADS_DIR),
-  filename: (req, file, cb) => {
-    const ext = path.extname(file.originalname).toLowerCase();
-    const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const name = 'webforum' + date + '-' + Date.now() + ext;
-    cb(null, name);
-  }
-});
-
-const upload = multer({
-  storage,
-  limits: { fileSize: 10 * 1024 * 1024 },
-  fileFilter: (req, file, cb) => {
-    const allowed = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
-    const ext = path.extname(file.originalname).toLowerCase();
-    allowed.includes(ext) ? cb(null, true) : cb(new Error('仅支持 JPG/PNG/GIF/WebP/BMP 格式图片'));
-  }
-});
-
-function multerUpload(middleware) {
-  return (req, res, next) => {
-    middleware(req, res, (err) => {
-      if (err && err.code === 'LIMIT_UNEXPECTED_FILE') return next();
-      if (err) return res.status(400).json({ error: err.message });
-      next();
-    });
-  };
-}
 
 module.exports = function (app, db) {
   /** 获取帖子列表（支持分页、分类、标签、搜索） */
@@ -132,9 +98,12 @@ module.exports = function (app, db) {
     });
   });
 
-  app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(upload.array('images', 30)), (req, res) => {
+  app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+
+    const safeTitle = sanitizeText(title);
+    const safeContent = sanitizeText(content);
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
     let parsedTags = [];
@@ -151,7 +120,7 @@ module.exports = function (app, db) {
       const result = db.prepare(`
         INSERT INTO posts (title, content, category, tags, author_id, images, created_at)
         VALUES (?, ?, ?, ?, ?, ?, datetime('now'))
-      `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
+      `).run(safeTitle, safeContent, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images));
 
       db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
       addExp(db, req.session.userId, EXP_REWARDS.post);
@@ -163,9 +132,12 @@ module.exports = function (app, db) {
     res.json({ postId: result.postId, points: result.points, exp: result.exp, level_info: result.level_info });
   });
 
-  app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(upload.array('images', 30)), (req, res) => {
+  app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags, removeImages } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+
+    const safeTitle = sanitizeText(title);
+    const safeContent = sanitizeText(content);
 
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
@@ -201,7 +173,7 @@ module.exports = function (app, db) {
     db.prepare(`
       UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, updated_at = datetime('now')
       WHERE id = ?
-    `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
+    `).run(safeTitle, safeContent, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), pid);
 
     res.json({ ok: true });
   });

@@ -1,7 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { requireAuth, requireAdmin: requireAdminFactory, requireSuperAdmin: requireSuperAdminFactory } = require('../middleware/auth');
-const { deleteImages, intToBool, parseJsonField } = require('../utils/helpers');
+const { deleteImages, intToBool, parseJsonField, encryptText, decryptText } = require('../utils/helpers');
 
 module.exports = function (app, db) {
   const requireAdmin = requireAdminFactory(db);
@@ -236,7 +236,7 @@ module.exports = function (app, db) {
     upsert.run('smtp_user', smtp_user, smtp_user);
     // 只有输入了新密码才更新
     if (smtp_pass && smtp_pass !== '********') {
-      upsert.run('smtp_pass', smtp_pass, smtp_pass);
+      upsert.run('smtp_pass', encryptText(smtp_pass), encryptText(smtp_pass));
     }
     res.json({ ok: true, message: 'SMTP 配置已保存' });
   });
@@ -259,7 +259,7 @@ module.exports = function (app, db) {
         host: host.value,
         port: parseInt(port ? port.value : '465'),
         secure: secure ? secure.value === 'true' : true,
-        auth: { user: user.value, pass: pass.value }
+        auth: { user: user.value, pass: decryptText(pass.value) }
       });
       await transporter.verify();
       res.json({ ok: true, message: 'SMTP 连接成功' });
@@ -346,9 +346,8 @@ module.exports = function (app, db) {
       const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
       execSync(`tar -czf ${backupDir}/${backupName} --exclude=node_modules --exclude=data.db --exclude=.git .`, { cwd: projectRoot });
 
-      // 拉取最新代码
-      execSync('git fetch origin main', { cwd: projectRoot });
-      execSync('git reset --hard origin/main', { cwd: projectRoot });
+      // 拉取最新代码（使用 pull --rebase 代替 reset --hard，保留本地修改）
+      execSync('git pull --rebase origin main', { cwd: projectRoot });
 
       // 安装依赖
       execSync('npm install --omit=dev', { cwd: projectRoot });

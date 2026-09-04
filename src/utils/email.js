@@ -4,6 +4,7 @@
  */
 
 const nodemailer = require('nodemailer');
+const { decryptText } = require('./helpers');
 
 let transporter = null;
 let lastConfig = null;
@@ -24,7 +25,7 @@ function getSmtpConfig(db) {
       host: host.value,
       port: parseInt(port ? port.value : '465'),
       secure: secure ? secure.value === 'true' : true,
-      auth: { user: user.value, pass: pass.value }
+      auth: { user: user.value, pass: decryptText(pass.value) }
     };
   }
 

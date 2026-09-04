@@ -31,10 +31,8 @@ module.exports = function (app, db) {
     res.json({ checkedIn: !!found });
   });
 
-  app.get('/api/checkin/history', (req, res) => {
+  app.get('/api/checkin/history', requireAuth, (req, res) => {
     const empty = { checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 };
-    if (!req.session.userId) return res.json(empty);
-
     const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.json(empty);
 
@@ -75,7 +73,7 @@ module.exports = function (app, db) {
     const { date } = req.body;
     if (!date) return res.status(400).json({ error: '请指定补签日期' });
 
-    const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    const user = db.prepare('SELECT id, created_at, points FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
     const today = todayStr();
@@ -106,7 +104,7 @@ module.exports = function (app, db) {
 
   app.post('/api/checkin/auto', requireAuth, (req, res) => {
     const today = todayStr();
-    const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
+    const user = db.prepare('SELECT id, points FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.json({ checkedIn: false, points: 0 });
 
     const already = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')

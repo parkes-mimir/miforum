@@ -244,6 +244,7 @@
 
 <style>.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
 
+<script src="/js/common.js"></script>
 <script>
 // ============================================================
 // 配置常量
@@ -284,6 +285,7 @@ function relTime(iso) {
 
 /** HTML 转义 */
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
+function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
 
 /**
  * 密码强度检测
@@ -555,7 +557,7 @@ async function loadPage() {
     // 帖子图片
     const imgsEl = document.getElementById('postImages');
     if (post.images && post.images.length > 0) {
-      imgsEl.innerHTML = post.images.map(url => `<img src="${url}" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('${url}')">`).join('');
+      imgsEl.innerHTML = post.images.map(url => `<img src="${url}" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('${escAttr(url)}')">`).join('');
       imgsEl.classList.remove('hidden');
     } else { imgsEl.innerHTML = ''; imgsEl.classList.add('hidden'); }
 
@@ -691,8 +693,8 @@ function renderEditImages(images) {
     html += `<div class="relative w-16 h-16 rounded overflow-hidden ${removed ? 'opacity-40' : ''}">
       <img src="${url}" class="w-full h-full object-cover">
       ${removed
-        ? `<button onclick="undoRemoveImg('${url}')" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`
-        : `<button onclick="markRemoveImg('${url}')" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`
+        ? `<button onclick="undoRemoveImg('${escAttr(url)}')" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>`
+        : `<button onclick="markRemoveImg('${escAttr(url)}')" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`
       }
     </div>`;
   });
@@ -809,7 +811,7 @@ function renderComments(cl, postOwnerId, pagination) {
             </div>
           </div>
           ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : '<p class="text-sm text-gray-700 comment-content hidden"></p>'}
-          ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${url}')">`).join('')}</div>` : ''}
+          ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${escAttr(url)}')">`).join('')}</div>` : ''}
         </div>
       </div>`;
     }).join('');
@@ -924,7 +926,7 @@ function renderEditCImgs(cid, existing) {
   let html = '';
   existing.forEach(url => {
     const removed = state.removeImages.includes(url);
-    html += `<div class="relative w-14 h-14 rounded overflow-hidden ${removed ? 'opacity-40' : ''}"><img src="${url}" class="w-full h-full object-cover">${removed ? `<button onclick="undoRemoveCImg('${url}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>` : `<button onclick="markRemoveCImg('${url}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
+    html += `<div class="relative w-14 h-14 rounded overflow-hidden ${removed ? 'opacity-40' : ''}"><img src="${url}" class="w-full h-full object-cover">${removed ? `<button onclick="undoRemoveCImg('${escAttr(url)}',${cid})" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>` : `<button onclick="markRemoveCImg('${escAttr(url)}',${cid})" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>`}</div>`;
   });
   state.newImages.forEach((f, i) => {
     const url = URL.createObjectURL(f);
