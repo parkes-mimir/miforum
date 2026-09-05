@@ -47,7 +47,7 @@ module.exports = function (app, db) {
 
     // 自动关闭过期投票
     if (poll.status === 'open' && poll.close_at && new Date(poll.close_at) <= new Date()) {
-      db.prepare("UPDATE polls SET status = 'closed' WHERE id = ?").run(pollId);
+      db.prepare('UPDATE polls SET status = \'closed\' WHERE id = ?').run(pollId);
       poll.status = 'closed';
     }
 
@@ -112,7 +112,7 @@ module.exports = function (app, db) {
 
     // 检查是否已过期
     if (poll.status === 'open' && poll.close_at && new Date(poll.close_at) <= new Date()) {
-      db.prepare("UPDATE polls SET status = 'closed' WHERE id = ?").run(pollId);
+      db.prepare('UPDATE polls SET status = \'closed\' WHERE id = ?').run(pollId);
       return res.status(400).json({ error: '投票已过期' });
     }
     if (poll.status === 'closed') return res.status(400).json({ error: '投票已关闭' });
@@ -132,7 +132,7 @@ module.exports = function (app, db) {
     }
 
     // 验证选项属于该投票
-    const validOptions = db.prepare(`SELECT id FROM poll_options WHERE poll_id = ?`).all(pollId);
+    const validOptions = db.prepare('SELECT id FROM poll_options WHERE poll_id = ?').all(pollId);
     const validIds = new Set(validOptions.map(o => o.id));
     for (const oid of optionIds) {
       if (!validIds.has(oid)) return res.status(400).json({ error: '无效的选项' });
@@ -191,7 +191,7 @@ module.exports = function (app, db) {
 
     if (poll.status === 'closed') return res.status(400).json({ error: '投票已关闭' });
 
-    db.prepare("UPDATE polls SET status = 'closed' WHERE id = ?").run(pollId);
+    db.prepare('UPDATE polls SET status = \'closed\' WHERE id = ?').run(pollId);
     res.json({ ok: true });
   });
 };
