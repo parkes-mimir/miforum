@@ -4,6 +4,51 @@
 
 ---
 
+## [1.1.6] - 2026-09-05 - 贡献者：parkes-mimir
+
+### 新增
+
+- **自定义表情功能**：
+  - 默认 Unicode emoji 选择器（9个分类，全 emoji 覆盖）
+  - 自定义表情上传（JPG/PNG/GIF，最大50MB，前端自动压缩到300×300）
+  - GIF 动图保留原始动画不压缩
+  - 表情内联显示最大100px，选择器网格44px
+  - 点击他人发的自定义表情可一键收藏到"我的表情"
+  - 表情选择器简化为两个标签：默认表情 + 我的表情
+- **板块重构**：
+  - 特殊板块（📢公告/🔥热门）+ 普通板块（用户可创建）
+  - 公告板块仅管理员可发帖
+  - 热门板块 Discourse 启发的个性化推荐算法
+  - 用户可创建普通板块（每人限5个）
+- **Docker 更新镜像支持**：`GITHUB_MIRROR` 环境变量
+
+### 修复
+
+- 自定义表情正则支持相对路径 URL
+- 表情选择器初始化自动打开 bug
+- JSON body parser 限制加大到 2MB（修复 base64 上传失败）
+- 表情上传按钮引用修复
+- 表情压缩尺寸改为 300×300（之前128太小）
+- 表情显示尺寸改为 100px（之前太小看不清）
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/database.js | 新增 custom_emoji/user_emoji 表 |
+| src/controllers/emoji.js | 新建表情控制器 |
+| src/controllers/admin.js | 板块 CRUD 新字段、用户创建板块 API、GITHUB_MIRROR |
+| src/controllers/posts.js | 热门板块算法、公告发帖权限 |
+| src/services/hotPosts.js | 新建热门帖子算法 |
+| public/js/emoji-picker.js | 新建表情选择器组件 |
+| public/js/common.js | 公共函数 |
+| public/forum.html | 侧边栏重构、表情选择器、创建板块弹窗 |
+| public/post.html | 评论表情选择器、表情渲染 |
+| public/messages.html | 私信表情选择器、表情渲染 |
+| schema.sql | 新增表情相关表 |
+
+---
+
 ## [1.1.5] - 2026-09-05 - 贡献者：parkes-mimir
 
 ### 新增

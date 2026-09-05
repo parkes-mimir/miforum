@@ -37,10 +37,36 @@ function renderEmojiInText(text) {
   if (!text) return text;
   // 转义 HTML（防止 XSS）
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  // 解析自定义表情标记
-  return escaped.replace(/\[emoji:([^\]]+?):(https?:\/\/[^\]]+)\]/g, (match, name, url) => {
-    return `<img src="${url}" class="inline-block w-5 h-5 align-middle" title=":${name}:" onerror="this.outerHTML=':${name}:'">`;
+  // 解析自定义表情标记（支持相对路径和绝对路径）
+  return escaped.replace(/\[emoji:([^\]]+?):(\/[^\]]+|https?:\/\/[^\]]+)\]/g, (match, name, url) => {
+    return `<img src="${url}" style="display:inline-block;max-width:100px;max-height:100px;vertical-align:middle;border-radius:4px;cursor:pointer" title=":${name}: · 点击添加到我的表情" onclick="collectEmojiFromContent(this, '${url}', '${name}')" onerror="this.outerHTML=':${name}:'">`;
   });
+}
+
+// 添加表情到收藏
+async function collectEmojiFromContent(imgEl, url, name) {
+  // 从 URL 中提取 emoji ID（URL 格式: /uploads/emoji/emoji-{ts}-{rand}.ext）
+  // 需要通过 API 查找对应的 emoji ID
+  try {
+    // 先获取公共表情列表，找到匹配的
+    const { emojis } = await api('/api/emoji/public');
+    const found = emojis.find(e => e.image_url === url);
+    if (!found) {
+      toast('表情不存在');
+      return;
+    }
+    await api('/api/emoji/' + found.id + '/collect', { method: 'POST' });
+    toast('已添加到我的表情');
+    // 添加成功动画
+    imgEl.style.outline = '2px solid #4f46e5';
+    setTimeout(() => { imgEl.style.outline = ''; }, 1000);
+  } catch (e) {
+    if (e.message && e.message.includes('已收藏')) {
+      toast('已经在我的表情中了');
+    } else {
+      toast(e.message || '添加失败');
+    }
+  }
 }
 
 class EmojiPicker {
@@ -51,7 +77,6 @@ class EmojiPicker {
     this.container = null;
     this.isOpen = false;
     this.currentTab = 'default';
-    this.customEmojis = [];
     this.myEmojis = [];
     this.searchQuery = '';
 
@@ -102,11 +127,7 @@ class EmojiPicker {
 
   async loadCustomEmojis() {
     try {
-      const [publicData, myData] = await Promise.all([
-        api('/api/emoji/public').catch(() => ({ emojis: [] })),
-        api('/api/emoji/my').catch(() => ({ emojis: [] }))
-      ]);
-      this.customEmojis = publicData.emojis || [];
+      const myData = await api('/api/emoji/my').catch(() => ({ emojis: [] }));
       this.myEmojis = myData.emojis || [];
       if (this.isOpen) this.renderContent();
     } catch (e) {}
@@ -116,7 +137,6 @@ class EmojiPicker {
     this.container.innerHTML = `
       <div class="flex border-b border-gray-100 flex-shrink-0">
         <button onclick="this.closest('.emoji-picker').__picker.switchTab('default')" class="flex-1 px-2 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 tab-default active-tab">😀 表情</button>
-        <button onclick="this.closest('.emoji-picker').__picker.switchTab('custom')" class="flex-1 px-2 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 tab-custom">🎨 自定义</button>
         <button onclick="this.closest('.emoji-picker').__picker.switchTab('mine')" class="flex-1 px-2 py-2 text-xs font-medium text-gray-500 hover:text-gray-700 tab-mine">⭐ 我的</button>
       </div>
       <div class="p-2 border-b border-gray-100 flex-shrink-0">
@@ -136,8 +156,6 @@ class EmojiPicker {
     const content = this.container.querySelector('.emoji-content');
     if (this.currentTab === 'default') {
       this.renderDefaultEmojis(content);
-    } else if (this.currentTab === 'custom') {
-      this.renderCustomEmojis(content);
     } else {
       this.renderMyEmojis(content);
     }
@@ -158,29 +176,14 @@ class EmojiPicker {
     container.innerHTML = html || '<p class="text-xs text-gray-400 text-center py-4">无结果</p>';
   }
 
-  renderCustomEmojis(container) {
-    if (!this.customEmojis.length) {
-      container.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">暂无自定义表情</p>';
-      return;
-    }
-    let html = '<div class="flex flex-wrap gap-1">';
-    this.customEmojis.forEach(emoji => {
-      html += `<button onclick="this.closest('.emoji-picker').__picker.insertCustom(${emoji.id}, '${emoji.image_url}', '${esc(emoji.name)}')" class="w-10 h-10 flex items-center justify-center rounded hover:bg-gray-100 transition p-1" title=":${esc(emoji.name)}:">
-        <img src="${emoji.image_url}" class="max-w-full max-h-full object-contain">
-      </button>`;
-    });
-    html += '</div>';
-    container.innerHTML = html;
-  }
-
   renderMyEmojis(container) {
     if (!this.myEmojis.length) {
-      container.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">暂无收藏，去「自定义」标签添加</p>';
+      container.innerHTML = '<p class="text-xs text-gray-400 text-center py-8">暂无自定义表情，点击下方上传</p>';
       return;
     }
     let html = '<div class="flex flex-wrap gap-1">';
     this.myEmojis.forEach(emoji => {
-      html += `<button onclick="this.closest('.emoji-picker').__picker.insertCustom(${emoji.id}, '${emoji.image_url}', '${esc(emoji.name)}')" class="w-10 h-10 flex items-center justify-center rounded hover:bg-gray-100 transition p-1" title=":${esc(emoji.name)}:">
+      html += `<button onclick="this.closest('.emoji-picker').__picker.insertCustom(${emoji.id}, '${emoji.image_url}', '${esc(emoji.name)}')" class="w-14 h-14 flex items-center justify-center rounded hover:bg-gray-100 transition p-1.5" title=":${esc(emoji.name)}:">
         <img src="${emoji.image_url}" class="max-w-full max-h-full object-contain">
       </button>`;
     });
@@ -198,7 +201,7 @@ class EmojiPicker {
   }
 
   updateTabStyles() {
-    ['default', 'custom', 'mine'].forEach(tab => {
+    ['default', 'mine'].forEach(tab => {
       const btn = this.container.querySelector(`.tab-${tab}`);
       if (btn) {
         if (tab === this.currentTab) {
@@ -251,7 +254,7 @@ class EmojiPicker {
         <h3 class="text-lg font-bold mb-4">上传自定义表情</h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-xs font-medium text-gray-500 mb-1">选择图片（JPG/PNG/GIF，最大 500KB）</label>
+            <label class="block text-xs font-medium text-gray-500 mb-1">选择图片（JPG/PNG/GIF，最大 50MB，自动压缩）</label>
             <input id="emojiUploadFile" type="file" accept="image/*" class="w-full text-sm">
           </div>
           <div id="emojiUploadPreview" class="hidden w-16 h-16 rounded-lg overflow-hidden border border-gray-200"></div>
@@ -269,7 +272,7 @@ class EmojiPicker {
     fileInput.addEventListener('change', (e) => {
       const file = e.target.files[0];
       if (!file) return;
-      if (file.size > 500 * 1024) { toast('图片不能超过500KB'); fileInput.value = ''; return; }
+      if (file.size > 50 * 1024 * 1024) { toast('文件不能超过50MB'); fileInput.value = ''; return; }
       const reader = new FileReader();
       reader.onload = (ev) => {
         const preview = modal.querySelector('#emojiUploadPreview');
@@ -284,25 +287,76 @@ class EmojiPicker {
     const fileInput = modal.querySelector('#emojiUploadFile');
     if (!fileInput.files[0]) { toast('请选择图片'); return; }
 
-    const reader = new FileReader();
-    reader.onload = async (e) => {
-      try {
-        await api('/api/emoji', {
-          method: 'POST',
-          body: JSON.stringify({ imageData: e.target.result })
-        });
-        modal.remove();
-        toast('表情上传成功');
-        await this.loadCustomEmojis();
-        this.switchTab('mine');
-      } catch (err) { toast(err.message); }
-    };
-    reader.readAsDataURL(fileInput.files[0]);
+    try {
+      const compressed = await compressEmojiImage(fileInput.files[0]);
+      await api('/api/emoji', {
+        method: 'POST',
+        body: JSON.stringify({ imageData: compressed })
+      });
+      modal.remove();
+      toast('表情上传成功');
+      await this.loadCustomEmojis();
+      this.switchTab('mine');
+    } catch (err) { toast(err.message); }
   }
 }
 
 // 导出
+/**
+ * 压缩表情图片
+ * - GIF 动图：直接读取不压缩（保留动画）
+ * - 其他图片：canvas 缩放到 300x300 以内 + 质量压缩
+ */
+function compressEmojiImage(file) {
+  return new Promise((resolve, reject) => {
+    // GIF 直接读取，不经过 canvas（会丢失动画）
+    if (file.type === 'image/gif') {
+      const reader = new FileReader();
+      reader.onload = (e) => resolve(e.target.result);
+      reader.onerror = () => reject(new Error('文件读取失败'));
+      reader.readAsDataURL(file);
+      return;
+    }
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      const img = new Image();
+      img.onload = () => {
+        const maxSize = 300;
+        let w = img.width;
+        let h = img.height;
+
+        if (w > maxSize || h > maxSize) {
+          if (w > h) { h = Math.round(h * maxSize / w); w = maxSize; }
+          else { w = Math.round(w * maxSize / h); h = maxSize; }
+        }
+
+        const canvas = document.createElement('canvas');
+        canvas.width = w;
+        canvas.height = h;
+        const ctx = canvas.getContext('2d');
+        ctx.drawImage(img, 0, 0, w, h);
+
+        let quality = 0.85;
+        let result = canvas.toDataURL('image/jpeg', quality);
+
+        while (result.length > 500 * 1024 && quality > 0.3) {
+          quality -= 0.1;
+          result = canvas.toDataURL('image/jpeg', quality);
+        }
+
+        resolve(result);
+      };
+      img.onerror = () => reject(new Error('图片加载失败'));
+      img.src = e.target.result;
+    };
+    reader.onerror = () => reject(new Error('文件读取失败'));
+    reader.readAsDataURL(file);
+  });
+}
+
 window.EmojiPicker = EmojiPicker;
 window.EMOJI_CATEGORIES = EMOJI_CATEGORIES;
 window.renderEmojiInText = renderEmojiInText;
 window.customEmojiHtml = customEmojiHtml;
+window.collectEmojiFromContent = collectEmojiFromContent;

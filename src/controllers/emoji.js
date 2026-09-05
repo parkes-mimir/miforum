@@ -52,9 +52,9 @@ module.exports = function (app, db) {
       return res.status(400).json({ error: '图片格式错误' });
     }
 
-    // 限制大小 500KB
-    if (buffer.data.length > 500 * 1024) {
-      return res.status(400).json({ error: '图片大小不能超过500KB' });
+    // 限制大小 5MB（前端已压缩，GIF 动图可能较大）
+    if (buffer.data.length > 5 * 1024 * 1024) {
+      return res.status(400).json({ error: '图片大小不能超过5MB' });
     }
 
     // 保存文件

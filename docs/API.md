@@ -373,9 +373,12 @@ GET /api/posts
 ```
 
 **查询参数**
-- `category` - 分类筛选（可选）
+- `category` - 分类筛选（可选，`hot` 走热门推荐算法）
 - `tag` - 标签筛选（可选）
 - `search` - 关键词搜索（可选）
+- `sort` - 排序方式：`newest`（默认）/ `oldest` / `most_liked`
+- `page` - 页码（默认1）
+- `limit` - 每页条数（默认20，最大50）
 
 **响应**
 ```json
@@ -424,6 +427,7 @@ GET /api/posts/:id
     "author_display_id": "001",
     "images": ["/uploads/img1.png"],
     "pinned": false,
+    "private": false,
     "created_at": "2026-09-01T12:00:00.000Z",
     "updated_at": null,
     "author_name": "testuser",
@@ -433,6 +437,20 @@ GET /api/posts/:id
     "likes_count": 5,
     "comments_count": 3,
     "bookmarks_count": 2
+  },
+  "poll": {
+    "id": 1,
+    "question": "投票问题",
+    "pollType": "single",
+    "status": "open",
+    "closeAt": null,
+    "totalVotes": 10,
+    "options": [
+      { "id": 1, "text": "选项1", "votes": 6 },
+      { "id": 2, "text": "选项2", "votes": 4 }
+    ],
+    "userVotes": [1],
+    "hasVoted": true
   }
 }
 ```
@@ -446,15 +464,23 @@ POST /api/posts
 **请求体**（FormData）
 - `title` - 标题（必填）
 - `content` - 内容（必填）
-- `category` - 分类（默认 `tech`）
+- `category` - 分类（默认 `tech`，`notice` 仅管理员可发，`hot` 不可直接发帖）
 - `tags` - 标签数组或逗号分隔字符串（可选）
 - `images[]` - 图片文件（最多 30 张，10MB/张）
+- `private` - 是否私密帖子（布尔值，仅自己和管理员可见）
+- `pollQuestion` - 投票问题（可选）
+- `pollOptions` - 投票选项 JSON 数组（可选，最少2个）
+- `pollType` - `single`（默认）/ `multiple`
+- `pollMaxChoices` - 多选最大选项数
+- `pollCloseAt` - 投票关闭时间 ISO 字符串（可选）
 
 **响应**
 ```json
 {
   "postId": 1,
-  "points": 5
+  "points": 5,
+  "exp": 65,
+  "level_info": { "level": 2, "icon": "⭐", ... }
 }
 ```
 
@@ -471,6 +497,13 @@ PUT /api/posts/:id
 - `tags` - 标签（可选）
 - `images[]` - 新增图片（可选）
 - `removeImages` - 要删除的图片 URL 数组（JSON 字符串）
+- `private` - 是否私密帖子（布尔值）
+- `deletePoll` - 删除投票（布尔值）
+- `pollQuestion` - 新增投票问题（仅当帖子无投票时）
+- `pollOptions` - 投票选项 JSON 数组
+- `pollType` - `single` / `multiple`
+- `pollMaxChoices` - 多选最大选项数
+- `pollCloseAt` - 投票关闭时间
 
 **响应**
 ```json
@@ -802,14 +835,44 @@ GET /api/categories
   "categories": [
     {
       "id": 1,
+      "name": "notice",
+      "label": "公告",
+      "description": "官方公告和通知",
+      "color": "bg-amber-100 text-amber-700",
+      "icon": "📢",
+      "section_type": "announcement",
+      "order": 1,
+      "created_by": null
+    },
+    {
+      "id": 2,
+      "name": "hot",
+      "label": "热门",
+      "description": "热门帖子自动聚合",
+      "color": "bg-red-100 text-red-700",
+      "icon": "🔥",
+      "section_type": "hot",
+      "order": 2,
+      "created_by": null
+    },
+    {
+      "id": 3,
       "name": "tech",
       "label": "技术",
+      "description": "技术交流与讨论",
       "color": "bg-blue-100 text-blue-700",
-      "order": 1
+      "icon": "💻",
+      "section_type": "normal",
+      "order": 3,
+      "created_by": null
     }
   ]
 }
 ```
+
+**说明**
+- `section_type`：`announcement`（公告，仅管理员发帖）/ `hot`（热门，算法推荐）/ `normal`（普通）
+- `created_by`：用户创建的板块显示创建者 ID
 
 ### 创建分类
 
@@ -1226,6 +1289,355 @@ GET /api/shop/orders
   ]
 }
 ```
+
+---
+
+## 修改密码
+
+### 修改密码
+
+```
+POST /api/change-password
+```
+
+**权限**：登录
+
+**请求体**
+```json
+{ "old_password": "旧密码", "new_password": "新密码" }
+```
+
+**响应**
+```json
+{ "ok": true, "message": "密码修改成功" }
+```
+
+---
+
+## 通知
+
+### 获取通知列表
+
+```
+GET /api/notifications?page=1&limit=20&type=like
+```
+
+**权限**：登录
+
+**参数**
+| 参数 | 说明 |
+|------|------|
+| page | 页码（默认1） |
+| limit | 每页条数（默认20，最大50） |
+| type | 筛选类型：`like`/`comment`/`bookmark`，不传则全部 |
+
+**响应**
+```json
+{
+  "notifications": [
+    {
+      "id": 1,
+      "user_id": 2,
+      "from_user_id": 3,
+      "type": "like",
+      "post_id": 5,
+      "read": false,
+      "created_at": "2026-09-05T12:00:00.000Z",
+      "from_username": "user1",
+      "from_avatar_url": null,
+      "from_display_id": "000001",
+      "post_title": "帖子标题"
+    }
+  ],
+  "unread": 3,
+  "pagination": { "page": 1, "limit": 20, "total": 10, "pages": 1 }
+}
+```
+
+### 获取未读数量
+
+```
+GET /api/notifications/unread-count
+```
+
+**权限**：登录
+
+**响应**
+```json
+{ "unread": 5, "likes": 2, "comments": 2, "bookmarks": 1 }
+```
+
+### 标记单条已读
+
+```
+PUT /api/notifications/:id/read
+```
+
+**权限**：登录（仅自己的通知）
+
+### 全部已读
+
+```
+PUT /api/notifications/read-all?type=like
+```
+
+**权限**：登录
+
+**参数**
+| 参数 | 说明 |
+|------|------|
+| type | 可选，按类型标记：`like`/`comment`/`bookmark` |
+
+---
+
+## 私信
+
+### 获取会话列表
+
+```
+GET /api/conversations
+```
+
+**权限**：登录
+
+**响应**
+```json
+{
+  "conversations": [
+    {
+      "id": 1,
+      "other_user_id": 2,
+      "other_username": "user1",
+      "other_avatar_url": null,
+      "last_message": "你好",
+      "last_message_at": "2026-09-05T12:00:00.000Z",
+      "unread": 2
+    }
+  ]
+}
+```
+
+### 创建/查找会话
+
+```
+POST /api/conversations
+```
+
+**权限**：登录
+
+**请求体**
+```json
+{ "userId": 2 }
+```
+
+**响应**
+```json
+{ "conversation": { "id": 1 } }
+```
+
+### 获取会话消息
+
+```
+GET /api/conversations/:id/messages?page=1&limit=50
+```
+
+**权限**：登录（仅参与者）
+
+**响应**
+```json
+{
+  "messages": [
+    {
+      "id": 1,
+      "conversation_id": 1,
+      "sender_id": 2,
+      "content": "你好",
+      "created_at": "2026-09-05T12:00:00.000Z",
+      "sender_display_id": "000001",
+      "sender_name": "user1",
+      "sender_avatar_url": null
+    }
+  ],
+  "pagination": { "page": 1, "limit": 50, "total": 10, "pages": 1 }
+}
+```
+
+### 发送消息
+
+```
+POST /api/conversations/:id/messages
+```
+
+**权限**：登录（仅参与者）
+
+**请求体**
+```json
+{ "content": "消息内容" }
+```
+
+### 获取未读私信数
+
+```
+GET /api/messages/unread-count
+```
+
+**权限**：登录
+
+**响应**
+```json
+{ "unread": 3 }
+```
+
+---
+
+## 投票
+
+### 获取投票详情
+
+```
+GET /api/polls/:id
+```
+
+**响应**
+```json
+{
+  "id": 1,
+  "postId": 5,
+  "question": "你喜欢哪个框架？",
+  "pollType": "single",
+  "maxChoices": 1,
+  "status": "open",
+  "closeAt": null,
+  "totalVotes": 10,
+  "options": [
+    { "id": 1, "text": "Vue", "votes": 6 },
+    { "id": 2, "text": "React", "votes": 4 }
+  ],
+  "userVotes": [1],
+  "hasVoted": true
+}
+```
+
+### 投票
+
+```
+POST /api/polls/:id/vote
+```
+
+**权限**：登录
+
+**请求体**
+```json
+{ "optionIds": [1] }
+```
+
+### 撤销投票
+
+```
+DELETE /api/polls/:id/vote
+```
+
+**权限**：登录
+
+### 关闭投票
+
+```
+PUT /api/polls/:id/close
+```
+
+**权限**：登录（仅帖主）
+
+---
+
+## 表情
+
+### 获取公共表情
+
+```
+GET /api/emoji/public
+```
+
+**响应**
+```json
+{
+  "emojis": [
+    { "id": 1, "name": "e123", "image_url": "/uploads/emoji/emoji-123.jpg", "creator_name": "user1" }
+  ]
+}
+```
+
+### 获取我的表情
+
+```
+GET /api/emoji/my
+```
+
+**权限**：登录
+
+### 上传自定义表情
+
+```
+POST /api/emoji
+```
+
+**权限**：登录
+
+**请求体**
+```json
+{ "imageData": "data:image/jpeg;base64,/9j/4AAQ..." }
+```
+
+**说明**
+- 支持 JPG/PNG/GIF
+- 最大 50MB（前端自动压缩到 300×300，GIF 保留动画）
+- 自动收藏到"我的表情"
+
+### 收藏表情
+
+```
+POST /api/emoji/:id/collect
+```
+
+**权限**：登录
+
+### 取消收藏
+
+```
+DELETE /api/emoji/:id/collect
+```
+
+**权限**：登录
+
+### 删除表情
+
+```
+DELETE /api/emoji/:id
+```
+
+**权限**：登录（仅创建者或管理员）
+
+---
+
+## 板块
+
+### 用户创建板块
+
+```
+POST /api/categories/user
+```
+
+**权限**：登录
+
+**请求体**
+```json
+{ "name": "game", "label": "游戏", "description": "游戏交流", "icon": "🎮", "color": "bg-green-100 text-green-700" }
+```
+
+**说明**
+- `name`：2-20字符，英文/数字/下划线
+- `label`：1-10字
+- 每人最多创建5个板块
+- 创建的板块类型为 `normal`
 
 ---
 
