@@ -191,7 +191,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.2** — 私密帖子、帖子排序、移动端搜索框
+**最新版本 v1.1.3** — 消息中心、通知系统、私信功能
 
 ## 贡献者
 

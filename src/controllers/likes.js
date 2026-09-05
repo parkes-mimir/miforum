@@ -4,6 +4,7 @@
 
 const { requireAuth } = require('../middleware/auth');
 const { parseJsonField, intToBool } = require('../utils/helpers');
+const { createNotification } = require('./notifications');
 
 module.exports = function(app, db) {
   const { addExp, EXP_REWARDS } = require('./level');
@@ -27,10 +28,11 @@ module.exports = function(app, db) {
     db.prepare('INSERT INTO post_likes (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))')
       .run(pid, req.session.userId);
 
-    // 帖子作者获得「被点赞」经验
+    // 帖子作者获得「被点赞」经验 + 通知
     const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
     if (post && post.author_id && post.author_id !== req.session.userId) {
       addExp(db, post.author_id, EXP_REWARDS.receive_like);
+      createNotification(db, { userId: post.author_id, fromUserId: req.session.userId, type: 'like', postId: pid });
     }
     res.json({ ok: true });
   });
@@ -46,7 +48,7 @@ module.exports = function(app, db) {
   /** 收藏帖子 */
   app.post('/api/bookmark/:postId', requireAuth, (req, res) => {
     const pid = Number(req.params.postId);
-    const post = db.prepare('SELECT id FROM posts WHERE id = ?').get(pid);
+    const post = db.prepare('SELECT id, author_id FROM posts WHERE id = ?').get(pid);
     if (!post) return res.status(404).json({ error: '帖子不存在' });
 
     const exists = db.prepare('SELECT id FROM bookmarks WHERE post_id = ? AND user_id = ?')
@@ -56,8 +58,11 @@ module.exports = function(app, db) {
     db.prepare('INSERT INTO bookmarks (post_id, user_id, created_at) VALUES (?, ?, datetime(\'now\'))')
       .run(pid, req.session.userId);
 
-    // 收藏行为获得经验
+    // 收藏行为获得经验 + 通知帖子作者
     addExp(db, req.session.userId, EXP_REWARDS.bookmark);
+    if (post.author_id && post.author_id !== req.session.userId) {
+      createNotification(db, { userId: post.author_id, fromUserId: req.session.userId, type: 'bookmark', postId: pid });
+    }
     res.json({ ok: true });
   });
 

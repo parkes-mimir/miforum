@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+<meta name="theme-color" content="#4f46e5">
+<title>消息中心 - MiForum</title>
+<link rel="stylesheet" href="css/tailwind.css">
+<style>
+*{font-family:system-ui,-apple-system,"Microsoft YaHei","PingFang SC",sans-serif}
+body{background:#f0f2f5}
+.fade-in{animation:fadeIn .2s ease-out}
+@keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
+.toast-in{animation:slideUp .3s ease-out}
+@keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
+::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+.msg-bubble{max-width:75%;padding:0.625rem 0.875rem;border-radius:1rem;font-size:0.875rem;line-height:1.4;word-break:break-word}
+.msg-sent{background:#4f46e5;color:#fff;border-bottom-right:0.25rem}
+.msg-recv{background:#f3f4f6;color:#1f2937;border-bottom-left:0.25rem}
+.sidebar-item{display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-radius:0.75rem;cursor:pointer;transition:all .15s;font-size:0.875rem;color:#4b5563}
+.sidebar-item:hover{background:#f3f4f6}
+.sidebar-item.active{background:#eef2ff;color:#4f46e5;font-weight:600}
+.sidebar-badge{min-width:1.25rem;height:1.25rem;padding:0 0.25rem;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:9999px;display:none;align-items:center;justify-content:center}
+.sidebar-badge.show{display:flex}
+@media (max-width:639px){
+  .page-layout{flex-direction:column}
+  .page-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid #e5e7eb;max-height:44px;overflow:hidden;transition:max-height .3s}
+  .page-sidebar.open{max-height:300px}
+  .page-main{min-height:calc(100vh - 56px - 44px)}
+  .msg-chat-layout{flex-direction:column}
+  .msg-chat-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid #e5e7eb;max-height:50vh}
+}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<header class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-2 font-bold text-xl text-primary-600">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+        MiForum
+      </a>
+      <span class="text-gray-300">|</span>
+      <span class="text-sm font-medium text-gray-600">消息中心</span>
+    </div>
+    <div id="authArea" class="flex items-center gap-2"></div>
+  </div>
+</header>
+
+<div class="max-w-7xl mx-auto flex page-layout" style="min-height:calc(100vh - 56px)">
+  <!-- 左侧导航 -->
+  <aside class="page-sidebar flex-shrink-0 w-56 bg-white border-r border-gray-100 p-3 space-y-1">
+    <button onclick="toggleMobileSidebar()" class="sm:hidden w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg bg-gray-50 mb-1">
+      <span id="currentSectionLabel">消息中心</span>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+    <div onclick="switchSection('messages')" data-section="messages" class="sidebar-item active">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+      <span class="flex-1">我的私信</span>
+      <span id="badgeMessages" class="sidebar-badge">0</span>
+    </div>
+    <div onclick="switchSection('replies')" data-section="replies" class="sidebar-item">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      <span class="flex-1">回复我的</span>
+      <span id="badgeReplies" class="sidebar-badge">0</span>
+    </div>
+    <div onclick="switchSection('likes')" data-section="likes" class="sidebar-item">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+      <span class="flex-1">收到的赞</span>
+      <span id="badgeLikes" class="sidebar-badge">0</span>
+    </div>
+    <div onclick="switchSection('bookmarks')" data-section="bookmarks" class="sidebar-item">
+      <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+      <span class="flex-1">收藏我的</span>
+      <span id="badgeBookmarks" class="sidebar-badge">0</span>
+    </div>
+  </aside>
+
+  <!-- 右侧内容 -->
+  <main class="page-main flex-1 min-w-0">
+
+    <!-- 我的私信 -->
+    <div id="sectionMessages" class="h-full">
+      <div class="flex bg-white msg-chat-layout" style="height:calc(100vh - 56px)">
+        <div class="msg-chat-sidebar flex-shrink-0 w-72 flex flex-col border-r border-gray-100">
+          <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-gray-900">会话列表</h3>
+            <button onclick="loadConversations()" class="p-1 rounded hover:bg-gray-100" title="刷新"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+          </div>
+          <div id="convList" class="flex-1 overflow-y-auto">
+            <div class="text-center py-20 text-gray-400 text-sm">加载中...</div>
+          </div>
+        </div>
+        <div class="flex-1 flex flex-col min-w-0">
+          <div id="chatEmpty" class="flex-1 flex items-center justify-center text-gray-400 text-sm">
+            <div class="text-center">
+              <svg class="w-16 h-16 mx-auto text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <p>选择一个会话开始聊天</p>
+            </div>
+          </div>
+          <div id="chatArea" class="hidden flex-1 flex flex-col min-h-0">
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+              <button onclick="backToConvList()" class="sm:hidden p-1 rounded hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+              <a id="chatUserLink" href="#" class="flex items-center gap-2 hover:opacity-80 transition">
+                <div id="chatAvatar" class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold"></div>
+                <span id="chatTitle" class="text-sm font-bold text-gray-900"></span>
+              </a>
+            </div>
+            <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
+            <div class="flex gap-2 p-3 border-t border-gray-100 flex-shrink-0">
+              <input id="chatInput" type="text" placeholder="输入消息..." class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" onkeydown="if(event.key==='Enter')sendChatMsg()">
+              <button onclick="sendChatMsg()" class="flex-shrink-0 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition whitespace-nowrap">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 回复我的 -->
+    <div id="sectionReplies" class="hidden p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">回复我的</h2>
+        <button onclick="markTypeRead('comment')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div id="repliesList" class="space-y-2"></div>
+      <div id="repliesPagination" class="flex justify-center mt-4"></div>
+    </div>
+
+    <!-- 收到的赞 -->
+    <div id="sectionLikes" class="hidden p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">收到的赞</h2>
+        <button onclick="markTypeRead('like')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div id="likesList" class="space-y-2"></div>
+      <div id="likesPagination" class="flex justify-center mt-4"></div>
+    </div>
+
+    <!-- 收藏我的 -->
+    <div id="sectionBookmarks" class="hidden p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">收藏我的</h2>
+        <button onclick="markTypeRead('bookmark')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div id="bookmarksList" class="space-y-2"></div>
+      <div id="bookmarksPagination" class="flex justify-center mt-4"></div>
+    </div>
+
+  </main>
+</div>
+
+<div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
+
+<script src="/js/common.js"></script>
+<script>
+let state = { user: null };
+let currentSection = 'messages';
+let currentConvId = null;
+let chatPollTimer = null;
+let sectionPages = { replies: 1, likes: 1, bookmarks: 1 };
+
+function renderAuth() {
+  const a = document.getElementById('authArea');
+  if (state.user) {
+    a.innerHTML = `<a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
+      ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8', state.user.avatar_frame)}
+      <span class="text-sm font-medium hidden sm:inline">${esc(state.user.username)}</span>
+    </a>`;
+  }
+}
+
+function toggleMobileSidebar() {
+  document.querySelector('.page-sidebar').classList.toggle('open');
+}
+
+// ============================================================
+// 侧边栏切换
+// ============================================================
+function switchSection(section) {
+  currentSection = section;
+  document.querySelectorAll('.sidebar-item').forEach(el => {
+    el.classList.toggle('active', el.dataset.section === section);
+  });
+  document.querySelectorAll('[id^="section"]').forEach(el => el.classList.add('hidden'));
+  const sectionNames = { messages: '我的私信', replies: '回复我的', likes: '收到的赞', bookmarks: '收藏我的' };
+  document.getElementById('currentSectionLabel').textContent = sectionNames[section];
+  document.getElementById('section' + section.charAt(0).toUpperCase() + section.slice(1)).classList.remove('hidden');
+  document.querySelector('.page-sidebar').classList.remove('open');
+
+  if (section === 'messages') loadConversations();
+  else loadSectionNotifications(section);
+}
+
+// ============================================================
+// 通知列表（回复/赞/收藏）
+// ============================================================
+const sectionConfig = {
+  replies: { type: 'comment', listId: 'repliesList', pgId: 'repliesPagination', label: '评论了你的帖子', icon: '💬', color: 'bg-blue-50' },
+  likes: { type: 'like', listId: 'likesList', pgId: 'likesPagination', label: '赞了你的帖子', icon: '❤️', color: 'bg-red-50' },
+  bookmarks: { type: 'bookmark', listId: 'bookmarksList', pgId: 'bookmarksPagination', label: '收藏了你的帖子', icon: '⭐', color: 'bg-amber-50' }
+};
+
+async function loadSectionNotifications(section) {
+  const cfg = sectionConfig[section];
+  const page = sectionPages[section] || 1;
+  try {
+    const data = await api('/api/notifications?type=' + cfg.type + '&page=' + page + '&limit=20');
+    const list = document.getElementById(cfg.listId);
+    if (!data.notifications.length && page === 1) {
+      list.innerHTML = '<div class="text-center py-16"><p class="text-gray-400">暂无消息</p></div>';
+      document.getElementById(cfg.pgId).innerHTML = '';
+      return;
+    }
+    list.innerHTML = data.notifications.map(n => `
+      <div class="flex items-start gap-3 p-4 rounded-xl cursor-pointer transition ${n.read ? 'bg-white hover:bg-gray-50' : cfg.color} border border-gray-100" onclick="readNotif(${n.id}, ${n.post_id})">
+        <span class="text-xl flex-shrink-0">${cfg.icon}</span>
+        <div class="flex-1 min-w-0">
+          <p class="text-sm text-gray-800"><strong class="font-semibold">${esc(n.from_username || '系统')}</strong> ${cfg.label}</p>
+          ${n.post_title ? `<p class="text-xs text-gray-500 mt-1 cursor-pointer hover:text-primary-600" onclick="event.stopPropagation();window.open('/post.html?id=${n.post_id}','_blank')">${esc(n.post_title)}</p>` : ''}
+          <p class="text-[11px] text-gray-400 mt-1.5">${relTime(n.created_at)}</p>
+        </div>
+        ${n.read ? '' : '<div class="w-2.5 h-2.5 bg-primary-500 rounded-full flex-shrink-0 mt-1.5"></div>'}
+      </div>
+    `).join('');
+    const pg = document.getElementById(cfg.pgId);
+    if (data.pagination.pages > 1) {
+      let html = '';
+      if (page > 1) html += `<button onclick="sectionPages.${section}--;loadSectionNotifications('${section}')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>`;
+      html += `<span class="px-3 py-1.5 text-sm text-gray-500">${page} / ${data.pagination.pages}</span>`;
+      if (page < data.pagination.pages) html += `<button onclick="sectionPages.${section}++;loadSectionNotifications('${section}')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>`;
+      pg.innerHTML = html;
+    } else { pg.innerHTML = ''; }
+  } catch (e) { toast(e.message); }
+}
+
+async function readNotif(notifId, postId) {
+  try {
+    await api('/api/notifications/' + notifId + '/read', { method: 'PUT' });
+    await loadBadges();
+    if (postId) window.open('/post.html?id=' + postId, '_blank');
+    if (currentSection !== 'messages') loadSectionNotifications(currentSection);
+  } catch (e) {}
+}
+
+async function markTypeRead(type) {
+  try {
+    await api('/api/notifications/read-all?type=' + type, { method: 'PUT' });
+    loadBadges();
+    if (currentSection !== 'messages') loadSectionNotifications(currentSection);
+    toast('已全部标为已读');
+  } catch (e) { toast(e.message); }
+}
+
+// ============================================================
+// 私信
+// ============================================================
+async function loadConversations() {
+  try {
+    const data = await api('/api/conversations');
+    const list = document.getElementById('convList');
+    if (!data.conversations.length) {
+      list.innerHTML = '<div class="text-center py-16"><p class="text-gray-400">暂无私信</p></div>';
+      return;
+    }
+    list.innerHTML = data.conversations.map(c => `
+      <div class="flex items-center gap-3 p-3 cursor-pointer hover:bg-gray-50 transition ${currentConvId === c.id ? 'bg-primary-50' : ''} ${c.unread > 0 ? 'font-medium' : ''}" onclick="openConversation(${c.id}, '${escAttr(c.other_username)}', '${escAttr(c.other_avatar_url || '')}', ${c.other_user_id})">
+        ${avatarHtml(c.other_avatar_url, c.other_username[0].toUpperCase(), 'w-10 h-10')}
+        <div class="flex-1 min-w-0">
+          <div class="flex items-center justify-between">
+            <span class="text-sm text-gray-900 truncate">${esc(c.other_username)}</span>
+            <span class="text-[10px] text-gray-400 flex-shrink-0 ml-2">${c.last_message_at ? relTime(c.last_message_at) : ''}</span>
+          </div>
+          <p class="text-xs text-gray-500 truncate mt-0.5">${esc(c.last_message || '暂无消息')}</p>
+        </div>
+        ${c.unread > 0 ? `<span class="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0">${c.unread > 9 ? '9+' : c.unread}</span>` : ''}
+      </div>
+    `).join('');
+  } catch (e) { toast(e.message); }
+}
+
+async function openConversation(convId, username, avatarUrl, otherUserId) {
+  currentConvId = convId;
+  document.getElementById('chatEmpty').classList.add('hidden');
+  document.getElementById('chatArea').classList.remove('hidden');
+  document.getElementById('chatTitle').textContent = username;
+  document.getElementById('chatUserLink').href = '/profile.html?id=' + (otherUserId || convId);
+  document.getElementById('chatAvatar').textContent = username[0].toUpperCase();
+  if (avatarUrl) document.getElementById('chatAvatar').innerHTML = `<img src="${avatarUrl}" class="w-8 h-8 rounded-full object-cover">`;
+  await loadChatMessages();
+  loadBadges();
+  if (chatPollTimer) clearInterval(chatPollTimer);
+  chatPollTimer = setInterval(() => { if (currentConvId) loadChatMessages(true); }, 5000);
+}
+
+async function loadChatMessages(silent) {
+  if (!currentConvId) return;
+  try {
+    const data = await api('/api/conversations/' + currentConvId + '/messages?limit=50');
+    const list = document.getElementById('chatMessages');
+    list.innerHTML = data.messages.reverse().map(m => `
+      <div class="flex ${m.sender_id === state.user.id ? 'justify-end' : 'justify-start'}">
+        <div class="msg-bubble ${m.sender_id === state.user.id ? 'msg-sent' : 'msg-recv'}">
+          ${esc(m.content)}
+          <div class="text-[10px] ${m.sender_id === state.user.id ? 'text-white/50' : 'text-gray-400'} mt-1">${relTime(m.created_at)}</div>
+        </div>
+      </div>
+    `).join('');
+    list.scrollTop = list.scrollHeight;
+  } catch (e) { if (!silent) toast(e.message); }
+}
+
+function backToConvList() {
+  currentConvId = null;
+  if (chatPollTimer) { clearInterval(chatPollTimer); chatPollTimer = null; }
+  document.getElementById('chatEmpty').classList.remove('hidden');
+  document.getElementById('chatArea').classList.add('hidden');
+  loadConversations();
+}
+
+async function sendChatMsg() {
+  if (!currentConvId) return;
+  const input = document.getElementById('chatInput');
+  const content = input.value.trim();
+  if (!content) return;
+  try {
+    await api('/api/conversations/' + currentConvId + '/messages', { method: 'POST', body: JSON.stringify({ content }) });
+    input.value = '';
+    await loadChatMessages();
+  } catch (e) { toast(e.message); }
+}
+
+// ============================================================
+// 徽标
+// ============================================================
+async function loadBadges() {
+  try {
+    const [n, m] = await Promise.all([
+      api('/api/notifications/unread-count'),
+      api('/api/messages/unread-count')
+    ]);
+    const badges = {
+      messages: m.unread,
+      replies: n.comments,
+      likes: n.likes,
+      bookmarks: n.bookmarks
+    };
+    for (const [section, count] of Object.entries(badges)) {
+      const el = document.getElementById('badge' + section.charAt(0).toUpperCase() + section.slice(1));
+      if (count > 0) {
+        el.textContent = count > 99 ? '99+' : count;
+        el.classList.add('show');
+      } else {
+        el.classList.remove('show');
+      }
+    }
+  } catch (e) {}
+}
+
+// ============================================================
+// 初始化
+// ============================================================
+(async () => {
+  try { const { user } = await api('/api/me'); state.user = user; } catch (e) {}
+  renderAuth();
+  if (!state.user) { location.href = '/'; return; }
+
+  const targetUserId = new URLSearchParams(window.location.search).get('user');
+
+  if (targetUserId) {
+    switchSection('messages');
+    try {
+      const conv = await api('/api/conversations', { method: 'POST', body: JSON.stringify({ userId: Number(targetUserId) }) });
+      const userData = await api('/api/users/' + targetUserId);
+      openConversation(conv.conversation.id, userData.user.username, userData.user.avatar_url, Number(targetUserId));
+    } catch (e) { toast('无法打开会话：' + e.message); }
+  } else {
+    switchSection('messages');
+  }
+
+  loadBadges();
+})();
+</script>
+</body>
+</html>

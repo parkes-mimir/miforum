@@ -2,6 +2,7 @@ const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { commentUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS } = require('./level');
+const { createNotification } = require('./notifications');
 
 module.exports = function (app, db) {
 
@@ -74,6 +75,7 @@ module.exports = function (app, db) {
     addExp(db, req.session.userId, EXP_REWARDS.comment);
     if (post.author_id && post.author_id !== req.session.userId) {
       addExp(db, post.author_id, EXP_REWARDS.receive_comment);
+      createNotification(db, { userId: post.author_id, fromUserId: req.session.userId, type: 'comment', postId: Number(req.params.id) });
     }
 
     res.json({ commentId: result.lastInsertRowid });

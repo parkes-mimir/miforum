@@ -851,8 +851,13 @@ function renderAuth() {
     const roleLabel = isSuperAdmin ? '超管' : isAdmin ? '管理' : '';
     const roleColor = isSuperAdmin ? 'bg-red-500' : isAdmin ? 'bg-amber-500' : '';
 
-    html += `<div class="flex items-center gap-2">
-      <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition">
+    html += `<div class="flex items-center gap-1">
+      <!-- 消息按钮 -->
+      <a href="/messages" class="relative p-2 rounded-lg hover:bg-gray-100 transition" title="消息中心">
+        <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+        <span id="msgBadge" class="hidden absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full items-center justify-center px-1">0</span>
+      </a>
+      <a href="/profile.html?id=${state.user.id}" class="flex items-center gap-2 hover:opacity-80 transition ml-1">
         ${avatarHtml(state.user.avatar_url, state.user.username[0].toUpperCase(), 'w-8 h-8', state.user.avatar_frame)}
         <div class="hidden sm:flex flex-col">
           <span class="text-sm font-medium">${esc(state.user.username)}</span>
@@ -1863,7 +1868,37 @@ async function deleteCategory(id, name) {
   if (state.user && state.user.force_password_change) {
     setTimeout(() => showChangePasswordModal(), 1000);
   }
+  // 加载通知和私信未读数
+  if (state.user) {
+    loadUnreadCounts();
+    // 页面重新可见时刷新徽标
+    document.addEventListener('visibilitychange', () => {
+      if (!document.hidden) loadUnreadCounts();
+    });
+  }
 })();
+
+// ============================================================
+// 徽标 + 私信弹窗
+// ============================================================
+async function loadUnreadCounts() {
+  try {
+    const [n, m] = await Promise.all([
+      api('/api/notifications/unread-count'),
+      api('/api/messages/unread-count')
+    ]);
+    const total = n.unread + m.unread;
+    const badge = document.getElementById('msgBadge');
+    if (total > 0) {
+      badge.textContent = total > 99 ? '99+' : total;
+      badge.classList.remove('hidden');
+      badge.classList.add('flex');
+    } else {
+      badge.classList.add('hidden');
+      badge.classList.remove('flex');
+    }
+  } catch (e) {}
+}
 </script>
 </body>
 </html>

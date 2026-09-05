@@ -200,6 +200,44 @@ function createTables() {
     CREATE INDEX IF NOT EXISTS idx_post_likes_user ON post_likes(user_id);
     CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
     CREATE INDEX IF NOT EXISTS idx_shop_orders_user ON shop_orders(user_id);
+
+    -- 通知表
+    CREATE TABLE IF NOT EXISTS notifications (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES profiles(id),
+      from_user_id INTEGER REFERENCES profiles(id),
+      type TEXT NOT NULL,
+      post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
+      read INTEGER DEFAULT 0,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
+
+    -- 会话表
+    CREATE TABLE IF NOT EXISTS conversations (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+
+    -- 会话参与者表
+    CREATE TABLE IF NOT EXISTS conversation_participants (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      user_id INTEGER NOT NULL REFERENCES profiles(id),
+      last_read_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(conversation_id, user_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_conv_part_user ON conversation_participants(user_id);
+
+    -- 私信表
+    CREATE TABLE IF NOT EXISTS messages (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
+      sender_id INTEGER NOT NULL REFERENCES profiles(id),
+      content TEXT NOT NULL,
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
   `);
 
   // 字段迁移：旧库没有的列自动补上

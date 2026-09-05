@@ -4,6 +4,52 @@
 
 ---
 
+## [1.1.3] - 2026-09-04 - 贡献者：parkes-mimir
+
+### 新增
+
+- **消息中心**：独立标签页 `/messages`，B站风格侧边栏导航
+  - 我的私信：会话列表 + 聊天窗口，支持1对1私信
+  - 回复我的：评论通知列表
+  - 收到的赞：点赞通知列表
+  - 收藏我的：收藏通知列表
+  - 各分类独立未读数角标，支持单独全部已读
+- **通知系统**：点赞/评论/收藏帖子自动触发通知
+  - 数据库新增 `notifications` 表
+  - 后端通知控制器（CRUD、分类筛选、批量已读）
+- **私信系统**：用户主页点击"发私信"进入聊天
+  - 数据库新增 `conversations`、`conversation_participants`、`messages` 表
+  - 后端私信控制器（会话管理、消息收发、未读统计）
+  - 聊天轮询刷新（5秒间隔）
+- **消息徽标**：右上角信封图标显示总未读数
+  - 页面可见时自动刷新徽标
+
+### 修复
+
+- 私信发送按钮被压缩（添加 flex-shrink-0）
+- 消息中心侧边栏徽标0时隐藏
+- 从消息中心返回后徽标自动刷新
+- 所有页面统一显示消息中心按钮（forum/post/profile/shop）
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/database.js | 新增 notifications/conversations/messages 表 |
+| src/controllers/notifications.js | 新建通知控制器 |
+| src/controllers/messages.js | 新建私信控制器 |
+| src/controllers/likes.js | 触发通知 |
+| src/controllers/comments.js | 触发通知 |
+| src/server.js | 注册新路由、添加 /messages 路由 |
+| public/messages.html | 新建消息中心页面 |
+| public/forum.html | 消息图标、徽标刷新 |
+| public/post.html | 消息图标 |
+| public/profile.html | 消息图标、发私信按钮 |
+| public/shop.html | 消息图标 |
+| schema.sql | 新增表定义 |
+
+---
+
 ## [1.1.2] - 2026-09-04 - 贡献者：parkes-mimir
 
 ### 新增

@@ -149,6 +149,7 @@ function createApp() {
   // 页面路由
   app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/forum.html')));
   app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, '../public/shop.html')));
+  app.get('/messages', (req, res) => res.sendFile(path.join(__dirname, '../public/messages.html')));
 
   // Session 配置
   const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
@@ -181,6 +182,8 @@ function registerRoutes(app, db) {
   require('./controllers/level')(app, db);
   require('./controllers/profile')(app, db);
   require('./controllers/admin')(app, db);
+  require('./controllers/notifications')(app, db);
+  require('./controllers/messages')(app, db);
 }
 
 // ============================================================
