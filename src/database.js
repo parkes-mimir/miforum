@@ -286,19 +286,19 @@ function createTables() {
   ensureColumn('profiles', 'avatar_frame', 'TEXT');
   ensureColumn('profiles', 'force_password_change', 'INTEGER DEFAULT 0');
   ensureColumn('posts', 'private', 'INTEGER DEFAULT 0');
-  ensureColumn('categories', 'description', "TEXT DEFAULT ''");
-  ensureColumn('categories', 'icon', "TEXT DEFAULT ''");
-  ensureColumn('categories', 'section_type', "TEXT DEFAULT 'normal'");
+  ensureColumn('categories', 'description', 'TEXT DEFAULT \'\'');
+  ensureColumn('categories', 'icon', 'TEXT DEFAULT \'\'');
+  ensureColumn('categories', 'section_type', 'TEXT DEFAULT \'normal\'');
   ensureColumn('categories', 'created_by', 'INTEGER');
 
   // 迁移：更新超管 display_id 从 '000' 到 '000000'
-  const admin = db.prepare("SELECT id, display_id FROM profiles WHERE email = 'root@miforum.local'").get();
+  const admin = db.prepare('SELECT id, display_id FROM profiles WHERE email = \'root@miforum.local\'').get();
   if (admin && admin.display_id === '000') {
-    db.prepare("UPDATE profiles SET display_id = '000000' WHERE id = ?").run(admin.id);
+    db.prepare('UPDATE profiles SET display_id = \'000000\' WHERE id = ?').run(admin.id);
   }
 
   // 删除已废弃的「无头像框」商品（先删订单再删商品）
-  const noneItem = db.prepare("SELECT id FROM shop_items WHERE value = 'none' AND type = 'avatar_frame'").get();
+  const noneItem = db.prepare('SELECT id FROM shop_items WHERE value = \'none\' AND type = \'avatar_frame\'').get();
   if (noneItem) {
     db.prepare('DELETE FROM shop_orders WHERE item_id = ?').run(noneItem.id);
     db.prepare('DELETE FROM shop_items WHERE id = ?').run(noneItem.id);
@@ -364,13 +364,13 @@ function initDefaultData() {
     }
   } else {
     // 迁移：更新已有分类的 section_type
-    const notice = db.prepare("SELECT id FROM categories WHERE name = 'notice'").get();
+    const notice = db.prepare('SELECT id FROM categories WHERE name = \'notice\'').get();
     if (notice) {
-      db.prepare("UPDATE categories SET section_type = 'announcement', icon = '📢', description = '官方公告和通知' WHERE name = 'notice' AND (section_type IS NULL OR section_type = 'normal')").run();
+      db.prepare('UPDATE categories SET section_type = \'announcement\', icon = \'📢\', description = \'官方公告和通知\' WHERE name = \'notice\' AND (section_type IS NULL OR section_type = \'normal\')').run();
     }
-    const hot = db.prepare("SELECT id FROM categories WHERE name = 'hot'").get();
+    const hot = db.prepare('SELECT id FROM categories WHERE name = \'hot\'').get();
     if (!hot) {
-      db.prepare("INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)").run('hot', '热门', '热门帖子自动聚合', 'bg-red-100 text-red-700', '🔥', 'hot', 2);
+      db.prepare('INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)').run('hot', '热门', '热门帖子自动聚合', 'bg-red-100 text-red-700', '🔥', 'hot', 2);
     }
   }
 }
