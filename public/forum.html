@@ -530,6 +530,35 @@
   </div>
 </div>
 
+<!-- 创建板块弹窗 -->
+<div id="createSectionModal" class="hidden fixed inset-0 z-50 items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">创建板块</h2>
+      <button onclick="hideCreateSectionModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-3">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">板块标识（英文）</label>
+        <input id="newSectionName" type="text" placeholder="如：game、music" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">板块名称</label>
+        <input id="newSectionLabel" type="text" placeholder="如：游戏、音乐" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">简介（可选）</label>
+        <input id="newSectionDesc" type="text" placeholder="板块简介" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">图标（emoji，可选）</label>
+        <input id="newSectionIcon" type="text" placeholder="如：🎮" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+    </div>
+    <button onclick="doCreateSection()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">创建</button>
+  </div>
+</div>
+
 <script src="/js/common.js"></script>
 <script>
 // ============================================================
@@ -567,20 +596,51 @@ async function loadCategories() {
 /** 渲染侧边栏分类导航 */
 function renderCategoryNav() {
   const nav = document.getElementById('categoryNav');
-  const icons = ['tech','life','notice','game','movie','book','music','food','travel','other'];
-  nav.innerHTML = categoriesData.map((c, i) =>
-    `<button onclick="filterCategory('${escAttr(c.name)}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4"/></svg>
-      ${esc(c.label)}
-    </button>`
-  ).join('');
+  const special = categoriesData.filter(c => c.section_type === 'announcement' || c.section_type === 'hot');
+  const normal = categoriesData.filter(c => c.section_type === 'normal');
+
+  let html = '';
+
+  // 特殊板块
+  if (special.length) {
+    special.forEach(c => {
+      const icon = c.icon || (c.section_type === 'announcement' ? '📢' : '🔥');
+      html += `<button onclick="filterCategory('${escAttr(c.name)}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <span class="text-lg">${icon}</span>
+        <span class="font-medium">${esc(c.label)}</span>
+      </button>`;
+    });
+  }
+
+  // 普通板块
+  if (normal.length) {
+    html += '<div class="mt-2 mb-1 px-3"><p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">普通板块</p></div>';
+    normal.forEach(c => {
+      const icon = c.icon || '💬';
+      html += `<button onclick="filterCategory('${escAttr(c.name)}')" data-cat="${c.name}" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <span class="text-base">${icon}</span>
+        ${esc(c.label)}
+      </button>`;
+    });
+  }
+
+  // 用户创建板块按钮
+  if (state.user) {
+    html += `<button onclick="showCreateSectionModal()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:text-primary-600 hover:bg-gray-50 transition mt-1">
+      <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+      创建板块
+    </button>`;
+  }
+
+  nav.innerHTML = html;
 }
 
-/** 更新发帖弹窗的分类下拉 */
+/** 更新发帖弹窗的分类下拉（排除热门板块） */
 function updatePostCategorySelect() {
   const sel = document.getElementById('postCategory');
   if (!sel) return;
-  sel.innerHTML = categoriesData.map(c => `<option value="${c.name}">${esc(c.label)}</option>`).join('');
+  const postable = categoriesData.filter(c => c.section_type !== 'hot');
+  sel.innerHTML = postable.map(c => `<option value="${c.name}">${esc(c.label)}</option>`).join('');
 }
 
 // 全局状态
@@ -1502,6 +1562,40 @@ function setSort(sort) {
 }
 
 // ============================================================
+// 创建板块
+// ============================================================
+function showCreateSectionModal() {
+  document.getElementById('newSectionName').value = '';
+  document.getElementById('newSectionLabel').value = '';
+  document.getElementById('newSectionDesc').value = '';
+  document.getElementById('newSectionIcon').value = '';
+  document.getElementById('createSectionModal').classList.remove('hidden');
+  document.getElementById('createSectionModal').classList.add('flex');
+}
+
+function hideCreateSectionModal() {
+  document.getElementById('createSectionModal').classList.add('hidden');
+  document.getElementById('createSectionModal').classList.remove('flex');
+}
+
+async function doCreateSection() {
+  const name = document.getElementById('newSectionName').value.trim();
+  const label = document.getElementById('newSectionLabel').value.trim();
+  const description = document.getElementById('newSectionDesc').value.trim();
+  const icon = document.getElementById('newSectionIcon').value.trim();
+  if (!name || !label) { toast('请填写标识和名称'); return; }
+  try {
+    await api('/api/categories/user', {
+      method: 'POST',
+      body: JSON.stringify({ name, label, description, icon })
+    });
+    hideCreateSectionModal();
+    await loadCategories();
+    toast('板块创建成功');
+  } catch (e) { toast(e.message); }
+}
+
+// ============================================================
 // 分类筛选 / 搜索
 // ============================================================
 function filterCategory(cat) {
@@ -1509,8 +1603,25 @@ function filterCategory(cat) {
   state.currentTag = null;
   state.currentSearch = null;
   document.querySelectorAll('.sidebar-link').forEach(el => el.classList.toggle('active', el.dataset.cat === cat));
-  document.getElementById('pageTitle').textContent = CAT_MAP[cat];
-  document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
+
+  const catData = categoriesData.find(c => c.name === cat);
+  const catMap = { all: '全部话题' };
+  categoriesData.forEach(c => { catMap[c.name] = c.label; });
+  document.getElementById('pageTitle').textContent = catMap[cat] || cat;
+
+  // 根据板块类型显示不同副标题
+  if (cat === 'all') {
+    document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
+  } else if (catData && catData.section_type === 'announcement') {
+    document.getElementById('pageSub').textContent = '官方公告和通知';
+  } else if (catData && catData.section_type === 'hot') {
+    document.getElementById('pageSub').textContent = '根据你的兴趣推荐的热门帖子';
+  } else if (catData && catData.description) {
+    document.getElementById('pageSub').textContent = catData.description;
+  } else {
+    document.getElementById('pageSub').textContent = '欢迎来到社区，参与讨论吧';
+  }
+
   loadPosts(1);
   if (window.innerWidth < 1024) toggleSidebar();
 }
@@ -1885,16 +1996,23 @@ function hideCategoryModal() {
 function renderCategoryList() {
   const el = document.getElementById('categoryList');
   if (!categoriesData.length) { el.innerHTML = '<p class="text-sm text-gray-400 text-center py-4">暂无分类</p>'; return; }
-  el.innerHTML = categoriesData.map(c => `
+  el.innerHTML = categoriesData.map(c => {
+    const icon = c.icon || (c.section_type === 'announcement' ? '📢' : c.section_type === 'hot' ? '🔥' : '💬');
+    const typeBadge = c.section_type === 'announcement' ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">公告</span>' :
+                      c.section_type === 'hot' ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">热门</span>' :
+                      c.created_by ? '<span class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">用户</span>' : '';
+    return `
     <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+      <span class="text-lg">${icon}</span>
       <span class="text-xs px-2 py-1 rounded-full ${c.color}">${esc(c.label)}</span>
       <span class="text-xs text-gray-400 font-mono">${esc(c.name)}</span>
+      ${typeBadge}
       <div class="ml-auto flex items-center gap-1">
         <button onclick="editCategory(${c.id})" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-lg transition">编辑</button>
-        <button onclick="deleteCategory(${c.id},'${escAttr(c.name)}')" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>
+        ${c.section_type !== 'announcement' && c.section_type !== 'hot' ? `<button onclick="deleteCategory(${c.id},'${escAttr(c.name)}')" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>` : ''}
       </div>
-    </div>
-  `).join('');
+    </div>`;
+  }).join('');
 }
 
 async function createCategory() {
@@ -1902,7 +2020,7 @@ async function createCategory() {
   const label = document.getElementById('newCatLabel').value.trim();
   if (!name || !label) { toast('请填写标识和名称'); return; }
   try {
-    await api('/api/categories', { method: 'POST', body: JSON.stringify({ name, label }) });
+    await api('/api/categories', { method: 'POST', body: JSON.stringify({ name, label, section_type: 'normal' }) });
     document.getElementById('newCatName').value = '';
     document.getElementById('newCatLabel').value = '';
     await loadCategories();
@@ -1916,8 +2034,10 @@ async function editCategory(id) {
   if (!cat) return;
   const newLabel = prompt('分类显示名称：', cat.label);
   if (!newLabel || newLabel === cat.label) return;
+  const newDesc = prompt('分类简介（可选）：', cat.description || '');
+  const newIcon = prompt('图标（emoji，可选）：', cat.icon || '');
   try {
-    await api('/api/categories/' + id, { method: 'PUT', body: JSON.stringify({ label: newLabel }) });
+    await api('/api/categories/' + id, { method: 'PUT', body: JSON.stringify({ label: newLabel, description: newDesc || '', icon: newIcon || '' }) });
     await loadCategories();
     renderCategoryList();
     toast('分类已更新');

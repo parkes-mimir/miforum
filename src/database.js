@@ -26,9 +26,10 @@ const DEFAULT_SHOP_ITEMS = [
 
 // 默认分类
 const DEFAULT_CATEGORIES = [
-  { name: 'tech', label: '技术', color: 'bg-blue-100 text-blue-700', sort_order: 1 },
-  { name: 'life', label: '生活', color: 'bg-pink-100 text-pink-700', sort_order: 2 },
-  { name: 'notice', label: '公告', color: 'bg-amber-100 text-amber-700', sort_order: 3 }
+  { name: 'notice', label: '公告', description: '官方公告和通知', color: 'bg-amber-100 text-amber-700', icon: '📢', section_type: 'announcement', sort_order: 1 },
+  { name: 'hot', label: '热门', description: '热门帖子自动聚合', color: 'bg-red-100 text-red-700', icon: '🔥', section_type: 'hot', sort_order: 2 },
+  { name: 'tech', label: '技术', description: '技术交流与讨论', color: 'bg-blue-100 text-blue-700', icon: '💻', section_type: 'normal', sort_order: 3 },
+  { name: 'life', label: '生活', description: '日常生活分享', color: 'bg-pink-100 text-pink-700', icon: '🌿', section_type: 'normal', sort_order: 4 }
 ];
 
 let db = null;
@@ -186,7 +187,11 @@ function createTables() {
       id INTEGER PRIMARY KEY AUTOINCREMENT,
       name TEXT UNIQUE NOT NULL,
       label TEXT NOT NULL,
+      description TEXT DEFAULT '',
       color TEXT DEFAULT 'bg-gray-100 text-gray-700',
+      icon TEXT DEFAULT '',
+      section_type TEXT DEFAULT 'normal',
+      created_by INTEGER REFERENCES profiles(id),
       sort_order INTEGER DEFAULT 0
     );
 
@@ -281,6 +286,10 @@ function createTables() {
   ensureColumn('profiles', 'avatar_frame', 'TEXT');
   ensureColumn('profiles', 'force_password_change', 'INTEGER DEFAULT 0');
   ensureColumn('posts', 'private', 'INTEGER DEFAULT 0');
+  ensureColumn('categories', 'description', "TEXT DEFAULT ''");
+  ensureColumn('categories', 'icon', "TEXT DEFAULT ''");
+  ensureColumn('categories', 'section_type', "TEXT DEFAULT 'normal'");
+  ensureColumn('categories', 'created_by', 'INTEGER');
 
   // 迁移：更新超管 display_id 从 '000' 到 '000000'
   const admin = db.prepare("SELECT id, display_id FROM profiles WHERE email = 'root@miforum.local'").get();
@@ -347,11 +356,21 @@ function initDefaultData() {
   const catCount = db.prepare('SELECT COUNT(*) as count FROM categories').get().count;
   if (catCount === 0) {
     const insert = db.prepare(`
-      INSERT INTO categories (name, label, color, sort_order)
-      VALUES (?, ?, ?, ?)
+      INSERT INTO categories (name, label, description, color, icon, section_type, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?)
     `);
     for (const cat of DEFAULT_CATEGORIES) {
-      insert.run(cat.name, cat.label, cat.color, cat.sort_order);
+      insert.run(cat.name, cat.label, cat.description || '', cat.color, cat.icon || '', cat.section_type || 'normal', cat.sort_order);
+    }
+  } else {
+    // 迁移：更新已有分类的 section_type
+    const notice = db.prepare("SELECT id FROM categories WHERE name = 'notice'").get();
+    if (notice) {
+      db.prepare("UPDATE categories SET section_type = 'announcement', icon = '📢', description = '官方公告和通知' WHERE name = 'notice' AND (section_type IS NULL OR section_type = 'normal')").run();
+    }
+    const hot = db.prepare("SELECT id FROM categories WHERE name = 'hot'").get();
+    if (!hot) {
+      db.prepare("INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)").run('hot', '热门', '热门帖子自动聚合', 'bg-red-100 text-red-700', '🔥', 'hot', 2);
     }
   }
 }

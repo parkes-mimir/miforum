@@ -3,6 +3,7 @@ const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../util
 const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
 const { createPoll } = require('./polls');
+const { getHotPosts } = require('../services/hotPosts');
 
 module.exports = function (app, db) {
   /** 获取帖子列表（支持分页、分类、标签、搜索、排序，过滤私密帖子） */
@@ -12,9 +13,15 @@ module.exports = function (app, db) {
     const page = Math.max(1, parseInt(req.query.page) || 1);
     const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
     const offset = (page - 1) * limit;
+    const userId = req.session.userId || null;
+
+    // 热门板块使用独立算法
+    if (category === 'hot') {
+      const result = getHotPosts(db, userId, page, limit);
+      return res.json(result);
+    }
 
     // 获取当前用户信息（用于过滤私密帖子）
-    const userId = req.session.userId || null;
     let userRole = 'user';
     if (userId) {
       const u = db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId);
@@ -175,6 +182,20 @@ module.exports = function (app, db) {
   app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags, private: isPrivate, pollQuestion, pollOptions, pollType, pollMaxChoices, pollCloseAt } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+
+    // 检查板块权限
+    if (category) {
+      const cat = db.prepare('SELECT section_type FROM categories WHERE name = ?').get(category);
+      if (cat && cat.section_type === 'announcement') {
+        const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
+        if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+          return res.status(403).json({ error: '公告板块仅管理员可发帖' });
+        }
+      }
+      if (cat && cat.section_type === 'hot') {
+        return res.status(400).json({ error: '热门板块不支持直接发帖' });
+      }
+    }
 
     const privateVal = (isPrivate === true || isPrivate === 'true' || isPrivate === '1' || isPrivate === 1) ? 1 : 0;
 

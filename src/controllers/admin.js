@@ -111,41 +111,70 @@ module.exports = function (app, db) {
 
   app.get('/api/categories', (req, res) => {
     const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
-    res.json({ categories: cats.map(c => ({ id: c.id, name: c.name, label: c.label, color: c.color, order: c.sort_order })) });
+    res.json({ categories: cats.map(c => ({ id: c.id, name: c.name, label: c.label, description: c.description || '', color: c.color, icon: c.icon || '', section_type: c.section_type || 'normal', order: c.sort_order, created_by: c.created_by })) });
   });
 
   app.post('/api/categories', requireAdmin, (req, res) => {
-    const { name, label, color } = req.body;
+    const { name, label, description, color, icon, section_type } = req.body;
     if (!name || !label) return res.status(400).json({ error: '请填写分类标识和名称' });
     const exists = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
     if (exists) return res.status(400).json({ error: '分类标识已存在' });
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM categories').get();
     const order = (maxOrder.m || 0) + 1;
+    const type = section_type || 'normal';
 
     const result = db.prepare(`
-      INSERT INTO categories (name, label, color, sort_order) VALUES (?, ?, ?, ?)
-    `).run(name.slice(0, 20), label, color || 'bg-gray-100 text-gray-700', order);
+      INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)
+    `).run(name.slice(0, 20), label, description || '', color || 'bg-gray-100 text-gray-700', icon || '', type, order);
 
-    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, color: color || 'bg-gray-100 text-gray-700', order } });
+    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', section_type: type, order } });
+  });
+
+  /** 用户创建普通板块 */
+  app.post('/api/categories/user', requireAuth, (req, res) => {
+    const { name, label, description, color, icon } = req.body;
+    if (!name || !label) return res.status(400).json({ error: '请填写板块标识和名称' });
+    if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).json({ error: '板块标识只能包含英文、数字、下划线' });
+    if (name.length < 2 || name.length > 20) return res.status(400).json({ error: '板块标识2-20字符' });
+    if (label.length < 1 || label.length > 10) return res.status(400).json({ error: '板块名称1-10字' });
+
+    const exists = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
+    if (exists) return res.status(400).json({ error: '板块标识已存在' });
+
+    // 检查用户创建数量限制（每人最多5个）
+    const userCats = db.prepare('SELECT COUNT(*) as count FROM categories WHERE created_by = ?').get(req.session.userId);
+    if (userCats.count >= 5) return res.status(400).json({ error: '每人最多创建5个板块' });
+
+    const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM categories').get();
+    const order = (maxOrder.m || 0) + 1;
+
+    const result = db.prepare(`
+      INSERT INTO categories (name, label, description, color, icon, section_type, created_by, sort_order) VALUES (?, ?, ?, ?, ?, 'normal', ?, ?)
+    `).run(name.slice(0, 20), label, description || '', color || 'bg-gray-100 text-gray-700', icon || '', req.session.userId, order);
+
+    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', section_type: 'normal', order } });
   });
 
   app.put('/api/categories/:id', requireAdmin, (req, res) => {
-    const { label, color, order } = req.body;
+    const { label, description, color, icon, order } = req.body;
     const cid = Number(req.params.id);
     const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
     if (!cat) return res.status(404).json({ error: '分类不存在' });
 
-    db.prepare('UPDATE categories SET label = ?, color = ?, sort_order = ? WHERE id = ?')
-      .run(label || cat.label, color || cat.color, order !== undefined ? Number(order) : cat.sort_order, cid);
+    db.prepare('UPDATE categories SET label = ?, description = ?, color = ?, icon = ?, sort_order = ? WHERE id = ?')
+      .run(label || cat.label, description !== undefined ? description : cat.description, color || cat.color, icon !== undefined ? icon : cat.icon, order !== undefined ? Number(order) : cat.sort_order, cid);
 
-    res.json({ ok: true, category: { id: cid, name: cat.name, label: label || cat.label, color: color || cat.color, order: order !== undefined ? Number(order) : cat.sort_order } });
+    res.json({ ok: true, category: { id: cid, name: cat.name, label: label || cat.label, description: description !== undefined ? description : cat.description, color: color || cat.color, icon: icon !== undefined ? icon : cat.icon, order: order !== undefined ? Number(order) : cat.sort_order } });
   });
 
   app.delete('/api/categories/:id', requireAdmin, (req, res) => {
     const cid = Number(req.params.id);
-    const cat = db.prepare('SELECT name FROM categories WHERE id = ?').get(cid);
+    const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
     if (!cat) return res.status(404).json({ error: '分类不存在' });
+    if (cat.section_type === 'announcement' || cat.section_type === 'hot') {
+      return res.status(400).json({ error: '特殊板块不可删除' });
+    }
 
     db.transaction(() => {
       db.prepare('UPDATE posts SET category = ? WHERE category = ?').run('uncategorized', cat.name);

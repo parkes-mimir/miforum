@@ -135,7 +135,11 @@ CREATE TABLE IF NOT EXISTS categories (
   id INTEGER PRIMARY KEY AUTOINCREMENT,
   name TEXT UNIQUE NOT NULL,
   label TEXT NOT NULL,
+  description TEXT DEFAULT '',
   color TEXT DEFAULT 'bg-gray-100 text-gray-700',
+  icon TEXT DEFAULT '',
+  section_type TEXT DEFAULT 'normal',
+  created_by INTEGER REFERENCES profiles(id),
   sort_order INTEGER DEFAULT 0
 );
 

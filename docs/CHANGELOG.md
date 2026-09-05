@@ -4,6 +4,38 @@
 
 ---
 
+## [1.1.5] - 2026-09-05 - 贡献者：parkes-mimir
+
+### 新增
+
+- **板块重构**：支持特殊板块和普通板块
+  - 📢 公告板块：仅管理员可发帖
+  - 🔥 热门板块：Discourse 启发的个性化推荐算法，不可直接发帖
+  - 普通板块：用户可自行创建（每人限5个）
+  - 板块支持 emoji 图标、简介描述
+- **热门帖子算法**：
+  - 评分公式：`(点赞×3 + 评论×2 + 收藏×1) ÷ (小时+2)^1.5`
+  - 个性化：用户交互过的分类/作者获得加权
+  - 时间衰减：仅展示30天内帖子
+  - 随机因子：±10% 防止千人一面
+- **用户创建板块**：`POST /api/categories/user`
+  - 标识2-20字符（英文/数字/下划线）
+  - 名称1-10字
+  - 每人最多5个板块
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/database.js | categories 表新增 description/icon/section_type/created_by 字段 |
+| src/services/hotPosts.js | 新建热门帖子算法服务 |
+| src/controllers/admin.js | 板块 CRUD 支持新字段、用户创建板块 API |
+| src/controllers/posts.js | 热门板块走独立算法、公告板块发帖权限控制 |
+| public/forum.html | 侧边栏分区展示、创建板块弹窗、板块管理更新 |
+| schema.sql | categories 表同步更新 |
+
+---
+
 ## [1.1.4] - 2026-09-05 - 贡献者：parkes-mimir
 
 ### 新增
