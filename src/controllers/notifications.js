@@ -82,7 +82,7 @@ module.exports = function (app, db) {
   app.put('/api/notifications/read-all', requireAuth, (req, res) => {
     const type = req.query.type || null;
     if (type && ['like', 'comment', 'bookmark'].includes(type)) {
-      db.prepare("UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0 AND type = ?").run(req.session.userId, type);
+      db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0 AND type = ?').run(req.session.userId, type);
     } else {
       db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0').run(req.session.userId);
     }

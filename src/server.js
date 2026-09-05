@@ -9,7 +9,7 @@
  */
 
 // 加载环境变量（必须在最前面）
-require('dotenv').config({ path: require('path').join(__dirname, '../.env') });
+require('dotenv').config({ path: require('path').join(__dirname, '../.env'), quiet: true });
 
 const express = require('express');
 const session = require('express-session');
