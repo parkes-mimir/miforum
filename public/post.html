@@ -80,6 +80,8 @@
       <span id="postPrivateBadge" class="hidden text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 ml-2 align-middle">私密</span>
       <div id="postImages" class="flex flex-wrap gap-2 mb-4"></div>
       <div id="postContent" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <!-- 投票区域 -->
+      <div id="pollSection" class="hidden mt-4"></div>
       <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
         <button id="likeBtn" onclick="toggleLike()" class="flex items-center gap-1 text-sm text-gray-400 hover:text-red-500 transition">
           <svg id="likeIcon" class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
@@ -117,6 +119,44 @@
         <div id="editTagWrap" class="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl min-h-[38px] cursor-text" onclick="document.getElementById('editTagInput').focus()">
           <span id="editTagPills"></span>
           <input id="editTagInput" type="text" class="flex-1 min-w-[50px] text-sm outline-none bg-transparent" placeholder="回车添加" onkeydown="handleEditTagKey(event)">
+        </div>
+      </div>
+      <!-- 投票管理 -->
+      <div id="editPollSection" class="hidden">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">当前投票</label>
+          <button onclick="deleteExistingPoll()" id="deletePollBtn" class="text-xs text-red-500 hover:text-red-700 transition">删除投票</button>
+        </div>
+        <div id="editPollInfo" class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-600"></div>
+      </div>
+      <div id="editAddPollSection" class="hidden">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">添加投票</label>
+          <button onclick="toggleEditPollForm()" id="toggleEditPollBtn" class="text-xs text-primary-500 hover:text-primary-700 transition">添加投票</button>
+        </div>
+        <div id="editPollForm" class="hidden space-y-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+          <input id="editPollQuestion" type="text" placeholder="投票问题" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+          <div id="editPollOptionsWrap" class="space-y-2">
+            <div class="flex gap-2"><input type="text" placeholder="选项1" class="edit-poll-option flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removeEditPollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+            <div class="flex gap-2"><input type="text" placeholder="选项2" class="edit-poll-option flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removeEditPollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+          </div>
+          <button onclick="addEditPollOption()" class="text-xs text-primary-500 hover:text-primary-700">+ 添加选项</button>
+          <label class="flex items-center gap-1.5 text-sm">
+            <input id="editPollType" type="checkbox" class="w-3.5 h-3.5 rounded text-primary-600">
+            <span>允许多选</span>
+          </label>
+          <div>
+            <label class="text-xs text-gray-500">投票时长</label>
+            <select id="editPollDuration" class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none">
+              <option value="">不限时</option>
+              <option value="1h">1小时</option>
+              <option value="6h">6小时</option>
+              <option value="1d">1天</option>
+              <option value="3d">3天</option>
+              <option value="7d">7天</option>
+              <option value="30d">30天</option>
+            </select>
+          </div>
         </div>
       </div>
       <!-- 私密帖子 -->
@@ -522,7 +562,7 @@ async function loadPage() {
   if (!pid) { document.getElementById('loading').innerHTML = '<p class="text-center text-gray-400 py-20">帖子不存在</p>'; return; }
 
   try {
-    const { post } = await api('/api/posts/' + pid);
+    const { post, poll } = await api('/api/posts/' + pid);
     state.post = post;
 
     // 设置页面标题和元信息
@@ -581,6 +621,9 @@ async function loadPage() {
       }
     }
 
+    // 渲染投票
+    renderPoll(poll);
+
     // 帖子图片
     const imgsEl = document.getElementById('postImages');
     if (post.images && post.images.length > 0) {
@@ -617,6 +660,106 @@ async function loadPage() {
 // ============================================================
 // 点赞
 // ============================================================
+// ============================================================
+// 投票功能
+// ============================================================
+let currentPoll = null;
+
+function renderPoll(poll) {
+  const section = document.getElementById('pollSection');
+  if (!poll) { section.classList.add('hidden'); return; }
+  currentPoll = poll;
+  section.classList.remove('hidden');
+
+  const isMultiple = poll.pollType === 'multiple';
+  const hasVoted = poll.hasVoted;
+  const isClosed = poll.status === 'closed';
+  const totalVotes = poll.totalVotes || 0;
+
+  let countdown = '';
+  if (poll.closeAt && !isClosed) {
+    const remaining = new Date(poll.closeAt) - new Date();
+    if (remaining > 0) {
+      const hours = Math.floor(remaining / 3600000);
+      const mins = Math.floor((remaining % 3600000) / 60000);
+      countdown = hours > 24 ? `<span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">剩余${Math.floor(hours/24)}天</span>` :
+                  hours > 0 ? `<span class="text-xs px-2 py-0.5 rounded-full bg-blue-100 text-blue-700">剩余${hours}时${mins}分</span>` :
+                  `<span class="text-xs px-2 py-0.5 rounded-full bg-orange-100 text-orange-700">剩余${mins}分钟</span>`;
+    }
+  }
+
+  let html = `<div class="bg-gradient-to-br from-primary-50 to-indigo-50 rounded-2xl p-5 border border-primary-100">
+    <div class="flex items-center gap-2 mb-4">
+      <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+      <h3 class="text-base font-bold text-gray-900">${esc(poll.question)}</h3>
+      ${isMultiple ? '<span class="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">多选</span>' : ''}
+      ${countdown}
+      ${isClosed ? '<span class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">已结束</span>' : ''}
+    </div>
+    <div class="space-y-2.5">`;
+
+  poll.options.forEach(opt => {
+    const isSelected = poll.userVotes.includes(opt.id);
+    const votes = opt.votes || 0;
+    const percent = totalVotes > 0 ? Math.round(votes / totalVotes * 100) : 0;
+
+    if (hasVoted || isClosed) {
+      html += `<div class="relative overflow-hidden rounded-xl ${isSelected ? 'ring-2 ring-primary-500' : ''}">
+        <div class="absolute inset-0 bg-primary-100 transition-all duration-500" style="width:${percent}%"></div>
+        <div class="relative flex items-center justify-between px-4 py-3">
+          <div class="flex items-center gap-2">
+            ${isSelected ? '<svg class="w-4 h-4 text-primary-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>' : ''}
+            <span class="text-sm font-medium text-gray-800">${esc(opt.text)}</span>
+          </div>
+          <span class="text-sm font-semibold text-gray-600">${votes}票 ${percent}%</span>
+        </div>
+      </div>`;
+    } else {
+      const inputType = isMultiple ? 'checkbox' : 'radio';
+      html += `<label class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-primary-300 cursor-pointer transition">
+        <input type="${inputType}" name="pollOption" value="${opt.id}" class="w-4 h-4 text-primary-600 focus:ring-primary-500">
+        <span class="text-sm text-gray-800">${esc(opt.text)}</span>
+      </label>`;
+    }
+  });
+
+  html += '</div>';
+
+  html += `<div class="flex items-center justify-between mt-4 pt-3 border-t border-primary-100">`;
+  html += `<span class="text-xs text-gray-500">共 ${totalVotes} 人投票</span>`;
+
+  if (!hasVoted && !isClosed && state.user) {
+    html += `<button onclick="castVote()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">投票</button>`;
+  } else if (hasVoted && !isClosed) {
+    html += `<button onclick="removeVote()" class="px-4 py-2 text-gray-500 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition">撤销投票</button>`;
+  }
+
+  html += '</div></div>';
+  section.innerHTML = html;
+}
+
+async function castVote() {
+  if (!state.user) { toast('请先登录'); showAuthModal(); return; }
+  if (!currentPoll) return;
+  const selected = Array.from(document.querySelectorAll('input[name="pollOption"]:checked')).map(i => Number(i.value));
+  if (!selected.length) { toast('请选择一个选项'); return; }
+  try {
+    await api('/api/polls/' + currentPoll.id + '/vote', { method: 'POST', body: JSON.stringify({ optionIds: selected }) });
+    toast('投票成功');
+    await loadPage();
+  } catch (e) { toast(e.message); }
+}
+
+async function removeVote() {
+  if (!currentPoll) return;
+  if (!confirm('确定撤销投票？')) return;
+  try {
+    await api('/api/polls/' + currentPoll.id + '/vote', { method: 'DELETE' });
+    toast('已撤销投票');
+    await loadPage();
+  } catch (e) { toast(e.message); }
+}
+
 function renderLike() {
   const btn = document.getElementById('likeBtn');
   const icon = document.getElementById('likeIcon');
@@ -676,22 +819,101 @@ function startEditPost() {
   document.getElementById('editPrivate').checked = !!state.post.private;
   renderEditImages(state.post.images || []);
   renderEditTagPills();
+
+  // 投票管理
+  const pollSection = document.getElementById('editPollSection');
+  const addPollSection = document.getElementById('editAddPollSection');
+  if (currentPoll) {
+    pollSection.classList.remove('hidden');
+    addPollSection.classList.add('hidden');
+    const hasVotes = currentPoll.totalVotes > 0;
+    document.getElementById('editPollInfo').innerHTML = `<p><strong>${esc(currentPoll.question)}</strong></p><p class="text-xs text-gray-500 mt-1">${currentPoll.pollType === 'multiple' ? '多选' : '单选'} · ${currentPoll.totalVotes}人已投 · ${hasVotes ? '已有投票，不可编辑' : '暂无投票'}</p>`;
+    document.getElementById('deletePollBtn').classList.remove('hidden');
+  } else {
+    pollSection.classList.add('hidden');
+    addPollSection.classList.remove('hidden');
+    document.getElementById('editPollForm').classList.add('hidden');
+    document.getElementById('toggleEditPollBtn').textContent = '添加投票';
+  }
+
   document.getElementById('editPostArea').classList.remove('hidden');
   document.getElementById('postTitle').classList.add('hidden');
   document.getElementById('postContent').classList.add('hidden');
   document.getElementById('postImages').classList.add('hidden');
   document.getElementById('postTags').classList.add('hidden');
+  document.getElementById('pollSection').classList.add('hidden');
   const privateBadge = document.getElementById('postPrivateBadge');
   if (privateBadge) privateBadge.classList.add('hidden');
 }
 
+// ============================================================
+// 编辑模式投票管理
+// ============================================================
+let deletePollFlag = false;
+
+function deleteExistingPoll() {
+  if (!confirm('确定删除投票？删除后不可恢复。')) return;
+  deletePollFlag = true;
+  document.getElementById('editPollSection').classList.add('hidden');
+  document.getElementById('editAddPollSection').classList.remove('hidden');
+  toast('投票将在保存后删除');
+}
+
+function toggleEditPollForm() {
+  const form = document.getElementById('editPollForm');
+  const btn = document.getElementById('toggleEditPollBtn');
+  if (form.classList.contains('hidden')) {
+    form.classList.remove('hidden');
+    btn.textContent = '取消';
+  } else {
+    form.classList.add('hidden');
+    btn.textContent = '添加投票';
+  }
+}
+
+function addEditPollOption() {
+  const wrap = document.getElementById('editPollOptionsWrap');
+  if (wrap.children.length >= 10) { toast('最多10个选项'); return; }
+  const count = wrap.children.length + 1;
+  const div = document.createElement('div');
+  div.className = 'flex gap-2';
+  div.innerHTML = `<input type="text" placeholder="选项${count}" class="edit-poll-option flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removeEditPollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+  wrap.appendChild(div);
+}
+
+function removeEditPollOption(btn) {
+  const wrap = document.getElementById('editPollOptionsWrap');
+  if (wrap.children.length <= 2) { toast('至少需要2个选项'); return; }
+  btn.parentElement.remove();
+}
+
+function getEditPollData() {
+  const question = document.getElementById('editPollQuestion').value.trim();
+  if (!question) return null;
+  const options = Array.from(document.querySelectorAll('.edit-poll-option')).map(i => i.value.trim()).filter(Boolean);
+  if (options.length < 2) return null;
+  const duration = document.getElementById('editPollDuration').value;
+  const durationMap = { '1h': 1, '6h': 6, '1d': 24, '3d': 72, '7d': 168, '30d': 720 };
+  const hours = durationMap[duration];
+  const closeAt = hours ? new Date(Date.now() + hours * 3600000).toISOString() : null;
+  return {
+    question,
+    options,
+    pollType: document.getElementById('editPollType').checked ? 'multiple' : 'single',
+    maxChoices: options.length,
+    closeAt
+  };
+}
+
 /** 取消编辑 */
 function cancelEditPost() {
+  deletePollFlag = false;
   document.getElementById('editPostArea').classList.add('hidden');
   document.getElementById('postTitle').classList.remove('hidden');
   document.getElementById('postContent').classList.remove('hidden');
   document.getElementById('postImages').classList.remove('hidden');
   document.getElementById('postTags').classList.remove('hidden');
+  document.getElementById('pollSection').classList.remove('hidden');
   // 恢复私密标记
   const privateBadge = document.getElementById('postPrivateBadge');
   if (privateBadge && state.post && state.post.private) {
@@ -770,9 +992,22 @@ async function saveEditPost() {
     fd.append('private', document.getElementById('editPrivate').checked);
     if (editRemoveImages.length > 0) fd.append('removeImages', JSON.stringify(editRemoveImages));
     editNewImages.forEach(f => fd.append('images', f));
+
+    // 投票操作
+    if (deletePollFlag) fd.append('deletePoll', true);
+    const editPollData = getEditPollData();
+    if (editPollData) {
+      fd.append('pollQuestion', editPollData.question);
+      fd.append('pollOptions', JSON.stringify(editPollData.options));
+      fd.append('pollType', editPollData.pollType);
+      fd.append('pollMaxChoices', editPollData.maxChoices);
+      if (editPollData.closeAt) fd.append('pollCloseAt', editPollData.closeAt);
+    }
+
     const res = await fetch('/api/posts/' + state.post.id, { method: 'PUT', body: fd });
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || '修改失败');
+    deletePollFlag = false;
     toast('修改成功');
     cancelEditPost();
     await loadPage();

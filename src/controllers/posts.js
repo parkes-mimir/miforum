@@ -2,6 +2,7 @@ const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
+const { createPoll } = require('./polls');
 
 module.exports = function (app, db) {
   /** 获取帖子列表（支持分页、分类、标签、搜索、排序，过滤私密帖子） */
@@ -119,6 +120,42 @@ module.exports = function (app, db) {
       }
     }
 
+    // 获取帖子关联的投票
+    const poll = db.prepare('SELECT * FROM polls WHERE post_id = ?').get(pid);
+    let pollData = null;
+    if (poll) {
+      // 自动关闭过期投票
+      if (poll.status === 'open' && poll.close_at && new Date(poll.close_at) <= new Date()) {
+        db.prepare("UPDATE polls SET status = 'closed' WHERE id = ?").run(poll.id);
+        poll.status = 'closed';
+      }
+
+      const options = db.prepare('SELECT id, text, sort_order FROM poll_options WHERE poll_id = ? ORDER BY sort_order ASC').all(poll.id);
+      const userId = req.session.userId || null;
+      const voteCounts = db.prepare('SELECT option_id, COUNT(*) AS count FROM poll_votes WHERE poll_id = ? GROUP BY option_id').all(poll.id);
+      const countMap = {};
+      voteCounts.forEach(v => { countMap[v.option_id] = v.count; });
+      const userVotes = userId ? db.prepare('SELECT option_id FROM poll_votes WHERE poll_id = ? AND user_id = ?').all(poll.id, userId) : [];
+      const userVotedOptionIds = userVotes.map(v => v.option_id);
+      const hasVoted = userVotedOptionIds.length > 0;
+      const totalVotes = voteCounts.reduce((sum, v) => sum + v.count, 0);
+      pollData = {
+        id: poll.id,
+        question: poll.question,
+        pollType: poll.poll_type,
+        maxChoices: poll.max_choices,
+        status: poll.status,
+        closeAt: poll.close_at || null,
+        totalVotes,
+        options: options.map(opt => ({
+          id: opt.id, text: opt.text,
+          votes: countMap[opt.id] || 0
+        })),
+        userVotes: userVotedOptionIds,
+        hasVoted
+      };
+    }
+
     res.json({
       post: {
         ...p,
@@ -130,15 +167,27 @@ module.exports = function (app, db) {
         author_title: p.author_title || null,
         author_avatar_frame: p.author_avatar_frame || null,
         author_level_info: getLevelInfo(p.author_exp || 0)
-      }
+      },
+      poll: pollData
     });
   });
 
   app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
-    const { title, content, category, tags, private: isPrivate } = req.body;
+    const { title, content, category, tags, private: isPrivate, pollQuestion, pollOptions, pollType, pollMaxChoices, pollCloseAt } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
     const privateVal = (isPrivate === true || isPrivate === 'true' || isPrivate === '1' || isPrivate === 1) ? 1 : 0;
+
+    // 解析投票数据
+    let parsedPollOptions = null;
+    if (pollQuestion && pollOptions) {
+      try {
+        parsedPollOptions = typeof pollOptions === 'string' ? JSON.parse(pollOptions) : pollOptions;
+      } catch (e) { parsedPollOptions = null; }
+      if (!Array.isArray(parsedPollOptions) || parsedPollOptions.length < 2) {
+        parsedPollOptions = null;
+      }
+    }
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
     let parsedTags = [];
@@ -157,6 +206,17 @@ module.exports = function (app, db) {
         VALUES (?, ?, ?, ?, ?, ?, ?, datetime('now'))
       `).run(title, content, category || 'tech', JSON.stringify(parsedTags), req.session.userId, JSON.stringify(images), privateVal);
 
+      const postId = result.lastInsertRowid;
+
+      // 创建投票
+      if (parsedPollOptions && pollQuestion) {
+        createPoll(db, postId, pollQuestion, parsedPollOptions, {
+          pollType: pollType || 'single',
+          maxChoices: Number(pollMaxChoices) || 1,
+          closeAt: pollCloseAt || null
+        });
+      }
+
       db.prepare('UPDATE profiles SET points = points + 5 WHERE id = ?').run(req.session.userId);
       addExp(db, req.session.userId, EXP_REWARDS.post);
       const user = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
@@ -168,7 +228,7 @@ module.exports = function (app, db) {
   });
 
   app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
-    const { title, content, category, tags, removeImages, private: isPrivate } = req.body;
+    const { title, content, category, tags, removeImages, private: isPrivate, deletePoll, pollQuestion, pollOptions, pollType, pollMaxChoices, pollCloseAt } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
 
     const pid = Number(req.params.id);
@@ -204,10 +264,34 @@ module.exports = function (app, db) {
       finalTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
     }
 
-    db.prepare(`
-      UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, private = ?, updated_at = datetime('now')
-      WHERE id = ?
-    `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), privateVal, pid);
+    const editPost = db.transaction(() => {
+      db.prepare(`
+        UPDATE posts SET title = ?, content = ?, category = ?, tags = ?, images = ?, private = ?, updated_at = datetime('now')
+        WHERE id = ?
+      `).run(title, content, category || post.category, JSON.stringify(finalTags), JSON.stringify(currentImages), privateVal, pid);
+
+      // 删除投票
+      if (deletePoll === true || deletePoll === 'true' || deletePoll === 1) {
+        db.prepare('DELETE FROM polls WHERE post_id = ?').run(pid);
+      }
+
+      // 新增投票（仅当帖子没有投票时）
+      if (pollQuestion && pollOptions) {
+        const existingPoll = db.prepare('SELECT id FROM polls WHERE post_id = ?').get(pid);
+        if (!existingPoll) {
+          let parsedPollOptions;
+          try { parsedPollOptions = typeof pollOptions === 'string' ? JSON.parse(pollOptions) : pollOptions; } catch (e) { parsedPollOptions = null; }
+          if (Array.isArray(parsedPollOptions) && parsedPollOptions.length >= 2) {
+            createPoll(db, pid, pollQuestion, parsedPollOptions, {
+              pollType: pollType || 'single',
+              maxChoices: Number(pollMaxChoices) || 1,
+              closeAt: pollCloseAt || null
+            });
+          }
+        }
+      }
+    });
+    editPost();
 
     res.json({ ok: true });
   });

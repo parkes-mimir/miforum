@@ -258,6 +258,37 @@
         </div>
         <p class="text-xs text-gray-400 mt-1">回车添加，每个标签最多20字</p>
       </div>
+      <!-- 投票（可选） -->
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">投票（可选）</label>
+          <button onclick="togglePollForm()" id="togglePollBtn" class="text-xs text-primary-500 hover:text-primary-700 transition">添加投票</button>
+        </div>
+        <div id="pollForm" class="hidden space-y-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+          <input id="pollQuestion" type="text" placeholder="投票问题" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+          <div id="pollOptionsWrap" class="space-y-2">
+            <div class="flex gap-2"><input type="text" placeholder="选项1" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+            <div class="flex gap-2"><input type="text" placeholder="选项2" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>
+          </div>
+          <button onclick="addPollOption()" class="text-xs text-primary-500 hover:text-primary-700">+ 添加选项</button>
+          <label class="flex items-center gap-1.5 text-sm">
+            <input id="pollType" type="checkbox" class="w-3.5 h-3.5 rounded text-primary-600">
+            <span>允许多选</span>
+          </label>
+          <div>
+            <label class="text-xs text-gray-500">投票时长</label>
+            <select id="pollDuration" class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none">
+              <option value="">不限时</option>
+              <option value="1h">1小时</option>
+              <option value="6h">6小时</option>
+              <option value="1d">1天</option>
+              <option value="3d">3天</option>
+              <option value="7d">7天</option>
+              <option value="30d">30天</option>
+            </select>
+          </div>
+        </div>
+      </div>
       <!-- 私密帖子 -->
       <label class="flex items-center gap-2 cursor-pointer">
         <input id="postPrivate" type="checkbox" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500">
@@ -1109,6 +1140,57 @@ function renderTagPills() {
 
 function removeTag(i) { postTags.splice(i, 1); renderTagPills(); }
 
+// ============================================================
+// 投票表单
+// ============================================================
+function togglePollForm() {
+  const form = document.getElementById('pollForm');
+  const btn = document.getElementById('togglePollBtn');
+  if (form.classList.contains('hidden')) {
+    form.classList.remove('hidden');
+    btn.textContent = '取消投票';
+  } else {
+    form.classList.add('hidden');
+    btn.textContent = '添加投票';
+    document.getElementById('pollQuestion').value = '';
+    document.getElementById('pollOptionsWrap').innerHTML = '<div class="flex gap-2"><input type="text" placeholder="选项1" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div><div class="flex gap-2"><input type="text" placeholder="选项2" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
+  }
+}
+
+function addPollOption() {
+  const wrap = document.getElementById('pollOptionsWrap');
+  const count = wrap.children.length + 1;
+  if (count > 10) { toast('最多10个选项'); return; }
+  const div = document.createElement('div');
+  div.className = 'flex gap-2';
+  div.innerHTML = `<input type="text" placeholder="选项${count}" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>`;
+  wrap.appendChild(div);
+}
+
+function removePollOption(btn) {
+  const wrap = document.getElementById('pollOptionsWrap');
+  if (wrap.children.length <= 2) { toast('至少需要2个选项'); return; }
+  btn.parentElement.remove();
+}
+
+function getPollData() {
+  const question = document.getElementById('pollQuestion').value.trim();
+  if (!question) return null;
+  const options = Array.from(document.querySelectorAll('.poll-option-input')).map(i => i.value.trim()).filter(Boolean);
+  if (options.length < 2) return null;
+  const duration = document.getElementById('pollDuration').value;
+  const durationMap = { '1h': 1, '6h': 6, '1d': 24, '3d': 72, '7d': 168, '30d': 720 };
+  const hours = durationMap[duration];
+  const closeAt = hours ? new Date(Date.now() + hours * 3600000).toISOString() : null;
+  return {
+    question,
+    options,
+    pollType: document.getElementById('pollType').checked ? 'multiple' : 'single',
+    maxChoices: options.length,
+    closeAt
+  };
+}
+
 function resetPostForm() {
   document.getElementById('postTitle').value = '';
   document.getElementById('postContent').value = '';
@@ -1119,6 +1201,11 @@ function resetPostForm() {
   renderSelectedImages();
   renderTagPills();
   document.getElementById('newPostTitle').textContent = '发布新话题';
+  // 重置投票表单
+  document.getElementById('pollForm').classList.add('hidden');
+  document.getElementById('togglePollBtn').textContent = '添加投票';
+  document.getElementById('pollQuestion').value = '';
+  document.getElementById('pollOptionsWrap').innerHTML = '<div class="flex gap-2"><input type="text" placeholder="选项1" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div><div class="flex gap-2"><input type="text" placeholder="选项2" class="poll-option-input flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300"><button onclick="removePollOption(this)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button></div>';
 }
 
 /** 加载帖子列表 + 标签云 */
@@ -1345,6 +1432,16 @@ async function doNewPost() {
     formData.append('tags', JSON.stringify(postTags));
     formData.append('private', document.getElementById('postPrivate').checked);
     selectedImages.forEach(f => formData.append('images', f));
+
+    // 添加投票数据
+    const pollData = getPollData();
+    if (pollData) {
+      formData.append('pollQuestion', pollData.question);
+      formData.append('pollOptions', JSON.stringify(pollData.options));
+      formData.append('pollType', pollData.pollType);
+      formData.append('pollMaxChoices', pollData.maxChoices);
+      if (pollData.closeAt) formData.append('pollCloseAt', pollData.closeAt);
+    }
 
     const res = await fetch('/api/posts', { method: 'POST', body: formData });
     const data = await res.json();

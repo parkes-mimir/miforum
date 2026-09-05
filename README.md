@@ -191,7 +191,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.3** — 消息中心、通知系统、私信功能
+**最新版本 v1.1.4** — 投票功能（单选/多选/时间限制/自动过期）
 
 ## 贡献者
 

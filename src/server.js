@@ -184,6 +184,7 @@ function registerRoutes(app, db) {
   require('./controllers/admin')(app, db);
   require('./controllers/notifications')(app, db);
   require('./controllers/messages')(app, db);
+  require('./controllers/polls')(app, db);
 }
 
 // ============================================================
