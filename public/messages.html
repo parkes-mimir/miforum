@@ -109,6 +109,9 @@ body{background:#f0f2f5}
             </div>
             <div id="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3"></div>
             <div class="flex gap-2 p-3 border-t border-gray-100 flex-shrink-0">
+              <div class="relative">
+                <button id="chatEmojiBtn" class="px-3 py-2.5 text-gray-500 hover:text-primary-600 rounded-xl transition">😀</button>
+              </div>
               <input id="chatInput" type="text" placeholder="输入消息..." class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" onkeydown="if(event.key==='Enter')sendChatMsg()">
               <button onclick="sendChatMsg()" class="flex-shrink-0 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition whitespace-nowrap">发送</button>
             </div>
@@ -153,6 +156,7 @@ body{background:#f0f2f5}
 <div id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2"></div>
 
 <script src="/js/common.js"></script>
+<script src="/js/emoji-picker.js"></script>
 <script>
 let state = { user: null };
 let currentSection = 'messages';
@@ -301,7 +305,7 @@ async function loadChatMessages(silent) {
     list.innerHTML = data.messages.reverse().map(m => `
       <div class="flex ${m.sender_id === state.user.id ? 'justify-end' : 'justify-start'}">
         <div class="msg-bubble ${m.sender_id === state.user.id ? 'msg-sent' : 'msg-recv'}">
-          ${esc(m.content)}
+          ${renderEmojiInText(m.content)}
           <div class="text-[10px] ${m.sender_id === state.user.id ? 'text-white/50' : 'text-gray-400'} mt-1">${relTime(m.created_at)}</div>
         </div>
       </div>
@@ -379,6 +383,12 @@ async function loadBadges() {
   }
 
   loadBadges();
+
+  // 初始化表情选择器
+  new EmojiPicker({
+    trigger: document.getElementById('chatEmojiBtn'),
+    target: document.getElementById('chatInput')
+  });
 })();
 </script>
 </body>

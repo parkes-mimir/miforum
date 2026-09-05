@@ -187,6 +187,11 @@
               图片 <span id="commentImageCount" class="text-gray-400"></span>
             </button>
             <input type="file" id="commentImages" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" onchange="handleCommentImageSelect(this)">
+            <div class="relative">
+              <button id="commentEmojiBtn" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+                😀 表情
+              </button>
+            </div>
           </div>
           <button onclick="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button>
         </div>
@@ -292,6 +297,7 @@
 <style>.skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}@keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}</style>
 
 <script src="/js/common.js"></script>
+<script src="/js/emoji-picker.js"></script>
 <script>
 // ============================================================
 // 配置常量
@@ -609,7 +615,7 @@ async function loadPage() {
     } else { tagsEl.innerHTML = ''; }
     document.getElementById('postTime').textContent = relTime(post.created_at) + (post.updated_at ? ' (已编辑)' : '');
     document.getElementById('postTitle').textContent = post.title;
-    document.getElementById('postContent').textContent = post.content;
+    document.getElementById('postContent').innerHTML = renderEmojiInText(post.content);
 
     // 私密标记
     const privateBadge = document.getElementById('postPrivateBadge');
@@ -1082,7 +1088,7 @@ function renderComments(cl, postOwnerId, pagination) {
               ${canDelete ? `<button onclick="deleteComment(${c.id})" class="text-gray-400 hover:text-red-600 transition" title="删除"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg></button>` : ''}
             </div>
           </div>
-          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${esc(c.content)}</p>` : '<p class="text-sm text-gray-700 comment-content hidden"></p>'}
+          ${c.content ? `<p class="text-sm text-gray-700 comment-content">${renderEmojiInText(c.content)}</p>` : '<p class="text-sm text-gray-700 comment-content hidden"></p>'}
           ${hasImgs ? `<div class="flex flex-wrap gap-1.5 mt-2">${c.images.map(url => `<img src="${url}" class="rounded-lg max-h-32 object-cover cursor-pointer" onclick="openLightbox('${escAttr(url)}')">`).join('')}</div>` : ''}
         </div>
       </div>`;
@@ -1284,6 +1290,13 @@ async function deleteComment(cid) {
   // 检查是否需要强制修改密码
   if (state.user && state.user.force_password_change) {
     setTimeout(() => showChangePasswordModal(), 1000);
+  }
+  // 初始化表情选择器
+  if (state.user) {
+    new EmojiPicker({
+      trigger: document.getElementById('commentEmojiBtn'),
+      target: document.getElementById('commentInput')
+    });
   }
 })();
 </script>

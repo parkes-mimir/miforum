@@ -560,6 +560,7 @@
 </div>
 
 <script src="/js/common.js"></script>
+<script src="/js/emoji-picker.js"></script>
 <script>
 // ============================================================
 // 配置常量
@@ -1360,7 +1361,7 @@ function renderPosts() {
             ${isAdmin ? `<span class="ml-auto flex items-center gap-1"><button onclick="event.stopPropagation();togglePinPost(${p.id},${!!p.pinned})" class="text-xs px-2 py-0.5 rounded-lg ${p.pinned ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'} hover:bg-amber-200 transition">${p.pinned ? '取消置顶' : '置顶'}</button><button onclick="event.stopPropagation();adminDeletePost(${p.id})" class="text-xs px-2 py-0.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button></span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
-          <p class="text-sm text-gray-500 line-clamp-2">${esc(p.content).replace(/\n/g, ' ')}</p>
+          <p class="text-sm text-gray-500 line-clamp-2">${renderEmojiInText(p.content).replace(/\n/g, ' ')}</p>
           ${p.tags && p.tags.length ? `<div class="flex flex-wrap gap-1.5 mt-1.5">${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}${p.tags.length > 3 ? `<span id="tags-more-${p.id}" class="hidden">${p.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}</span><button onclick="event.stopPropagation();toggleTags(${p.id})" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" id="tags-btn-${p.id}">展开全部</button>` : ''}</div>` : ''}
           ${firstImg ? `<img src="${firstImg}" class="mt-2 rounded-lg max-h-24 object-cover" onclick="event.stopPropagation();openLightbox('${escAttr(firstImg)}')">` : ''}
           <div class="flex items-center gap-4 mt-3">

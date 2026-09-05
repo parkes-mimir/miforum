@@ -380,11 +380,22 @@ module.exports = function (app, db) {
         // Docker 环境：从 GitHub 下载最新 release 源码包
         const pkg = require('../../package.json');
         const repo = 'parkes-mimir/miforum';
+        const githubMirror = process.env.GITHUB_MIRROR || ''; // 可配置镜像，如 https://ghproxy.com
+
+        // 构建镜像 URL
+        function mirrorUrl(url) {
+          if (githubMirror && url.startsWith('https://github.com')) {
+            return githubMirror + '/' + url;
+          }
+          return url;
+        }
 
         // 获取最新 release 信息
         const releaseData = await new Promise((resolve, reject) => {
-          const req = https.get(`https://api.github.com/repos/${repo}/releases/latest`, {
-            headers: { 'User-Agent': 'MiForum/' + pkg.version }
+          const apiUrl = mirrorUrl(`https://api.github.com/repos/${repo}/releases/latest`);
+          const req = https.get(apiUrl, {
+            headers: { 'User-Agent': 'MiForum/' + pkg.version },
+            timeout: 15000
           }, (res) => {
             let data = '';
             res.on('data', chunk => data += chunk);
@@ -394,11 +405,11 @@ module.exports = function (app, db) {
             });
           });
           req.on('error', reject);
-          req.setTimeout(10000, () => { req.destroy(); reject(new Error('请求超时')); });
+          req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时，请检查网络或配置 GITHUB_MIRROR 环境变量')); });
         });
 
         const latestTag = releaseData.tag_name;
-        const tarUrl = `https://github.com/${repo}/archive/refs/tags/${latestTag}.tar.gz`;
+        const tarUrl = mirrorUrl(`https://github.com/${repo}/archive/refs/tags/${latestTag}.tar.gz`);
 
         // 下载并解压到临时目录
         const tmpDir = path.join(projectRoot, '.update-tmp');

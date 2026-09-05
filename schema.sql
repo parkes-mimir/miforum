@@ -229,3 +229,24 @@ CREATE TABLE IF NOT EXISTS poll_votes (
 );
 CREATE INDEX IF NOT EXISTS idx_poll_votes_poll ON poll_votes(poll_id);
 CREATE INDEX IF NOT EXISTS idx_poll_votes_user ON poll_votes(user_id);
+
+-- 自定义表情表
+CREATE TABLE IF NOT EXISTS custom_emoji (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  name TEXT NOT NULL,
+  image_url TEXT NOT NULL,
+  category TEXT DEFAULT 'custom',
+  created_by INTEGER REFERENCES profiles(id),
+  created_at TEXT DEFAULT (datetime('now'))
+);
+CREATE INDEX IF NOT EXISTS idx_custom_emoji_creator ON custom_emoji(created_by);
+
+-- 用户表情收藏表
+CREATE TABLE IF NOT EXISTS user_emoji (
+  id INTEGER PRIMARY KEY AUTOINCREMENT,
+  user_id INTEGER NOT NULL REFERENCES profiles(id),
+  emoji_id INTEGER NOT NULL REFERENCES custom_emoji(id) ON DELETE CASCADE,
+  added_at TEXT DEFAULT (datetime('now')),
+  UNIQUE(user_id, emoji_id)
+);
+CREATE INDEX IF NOT EXISTS idx_user_emoji_user ON user_emoji(user_id);

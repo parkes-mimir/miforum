@@ -277,6 +277,27 @@ function createTables() {
     );
     CREATE INDEX IF NOT EXISTS idx_poll_votes_poll ON poll_votes(poll_id);
     CREATE INDEX IF NOT EXISTS idx_poll_votes_user ON poll_votes(user_id);
+
+    -- 自定义表情表
+    CREATE TABLE IF NOT EXISTS custom_emoji (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      name TEXT NOT NULL,
+      image_url TEXT NOT NULL,
+      category TEXT DEFAULT 'custom',
+      created_by INTEGER REFERENCES profiles(id),
+      created_at TEXT DEFAULT (datetime('now'))
+    );
+    CREATE INDEX IF NOT EXISTS idx_custom_emoji_creator ON custom_emoji(created_by);
+
+    -- 用户表情收藏表
+    CREATE TABLE IF NOT EXISTS user_emoji (
+      id INTEGER PRIMARY KEY AUTOINCREMENT,
+      user_id INTEGER NOT NULL REFERENCES profiles(id),
+      emoji_id INTEGER NOT NULL REFERENCES custom_emoji(id) ON DELETE CASCADE,
+      added_at TEXT DEFAULT (datetime('now')),
+      UNIQUE(user_id, emoji_id)
+    );
+    CREATE INDEX IF NOT EXISTS idx_user_emoji_user ON user_emoji(user_id);
   `);
 
   // 字段迁移：旧库没有的列自动补上
@@ -313,7 +334,7 @@ function createTables() {
  */
 function ensureColumn(table, column, definition) {
   // 白名单校验，防止 SQL 注入
-  const allowedTables = ['profiles', 'posts', 'comments', 'check_ins', 'post_likes', 'bookmarks', 'shop_items', 'shop_orders', 'categories', 'verification_codes', 'settings', 'exp_log'];
+  const allowedTables = ['profiles', 'posts', 'comments', 'check_ins', 'post_likes', 'bookmarks', 'shop_items', 'shop_orders', 'categories', 'verification_codes', 'settings', 'exp_log', 'custom_emoji', 'user_emoji'];
   const columnRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   if (!allowedTables.includes(table) || !columnRegex.test(column)) {
     console.error(`  ✗ ensureColumn 参数无效: table=${table}, column=${column}`);
