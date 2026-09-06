@@ -4,6 +4,23 @@
 
 ---
 
+## [1.1.10] - 2026-09-06 - 贡献者：parkes-mimir
+
+### 修复
+
+- **个人中心等级徽章显示**：个人资料页头像旁新增等级徽章（⭐Lv2 等），等级信息更醒目
+- **登录接口缺少等级数据**：`/api/login` 响应补充 `exp` 和 `level_info` 字段，修复登录后 `state.user` 无等级信息导致部分页面等级显示不一致
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| public/profile.html | 头像旁新增等级徽章，加载时渲染 `level_info` |
+| src/controllers/auth.js | `/api/login` 响应补充 `exp`、`level_info` |
+| package.json | 版本号 → 1.1.10 |
+
+---
+
 ## [1.1.9] - 2026-09-06 - 贡献者：parkes-mimir
 
 ### 修复
