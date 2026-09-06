@@ -1,7 +1,8 @@
 const { requireAuth } = require('../middleware/auth');
-const { deleteFile, parseJsonField, boolToInt, intToBool } = require('../utils/helpers');
+const { deleteFile, boolToInt, intToBool } = require('../utils/helpers');
 const { avatarUpload, multerUpload } = require('../utils/upload');
-const { getLevelInfo } = require('./level');
+const { getLevelInfo } = require('../services/level');
+const { formatPost, parsePagination } = require('../services/postHelper');
 
 module.exports = function (app, db) {
   app.get('/api/users/:id', (req, res) => {
@@ -146,9 +147,7 @@ module.exports = function (app, db) {
       return res.status(403).json({ error: '该用户设置了私密资料' });
     }
 
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
 
     // 过滤私密帖子：仅作者和管理员可见
     let privacyFilter = '';
@@ -167,18 +166,7 @@ module.exports = function (app, db) {
       WHERE p.author_id = ?${privacyFilter}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...queryParams, limit, offset).map(p => ({
-      ...p,
-      tags: parseJsonField(p.tags, []),
-      images: parseJsonField(p.images, []),
-      pinned: intToBool(p.pinned),
-      private: intToBool(p.private),
-      author_display_id: user.display_id,
-      author_name: user.username,
-      author_avatar_url: user.avatar_url || null,
-      author_title: user.title || null,
-      author_avatar_frame: user.avatar_frame || null
-    }));
+    `).all(...queryParams, limit, offset).map(p => formatPost(p));
 
     res.json({
       posts,
@@ -197,9 +185,7 @@ module.exports = function (app, db) {
     const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
     const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
 
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
 
     // 过滤私密帖子
     let privacyFilter = '';
@@ -221,16 +207,7 @@ module.exports = function (app, db) {
       WHERE pl.user_id = ?${privacyFilter}
       ORDER BY pl.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(uid, limit, offset).map(p => ({
-      ...p,
-      tags: parseJsonField(p.tags, []),
-      images: parseJsonField(p.images, []),
-      pinned: intToBool(p.pinned),
-      private: intToBool(p.private),
-      author_avatar_url: p.author_avatar_url || null,
-      author_title: p.author_title || null,
-      author_avatar_frame: p.author_avatar_frame || null
-    }));
+    `).all(uid, limit, offset).map(p => formatPost(p));
 
     res.json({
       posts,

@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<%- include('partials/head', { title: 'MiForum' }) %>
+<style>
+  @media (max-width: 639px) {
+    .comment-item:active{background:#f9fafb}
+  }
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<%- include('partials/header', { subtitle: '' }) %>
+
+<div x-data="postPage()" x-cloak>
+
+<!-- Loading skeleton -->
+<div x-show="loading" class="max-w-4xl mx-auto p-4 lg:p-6">
+  <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+    <div class="flex gap-3"><div class="w-10 h-10 rounded-full bg-gray-100 skeleton"></div><div class="space-y-2 flex-1"><div class="h-4 w-24 bg-gray-100 rounded skeleton"></div><div class="h-3 w-16 bg-gray-100 rounded skeleton"></div></div></div>
+    <div class="h-6 w-3/4 bg-gray-100 rounded skeleton"></div>
+    <div class="space-y-2"><div class="h-4 w-full bg-gray-100 rounded skeleton"></div><div class="h-4 w-5/6 bg-gray-100 rounded skeleton"></div><div class="h-4 w-2/3 bg-gray-100 rounded skeleton"></div></div>
+  </div>
+</div>
+
+<!-- Error -->
+<div x-show="error" class="max-w-4xl mx-auto p-4 lg:p-6">
+  <p class="text-center text-red-400 py-20" x-text="error"></p>
+</div>
+
+<!-- Post Content -->
+<div x-show="!loading && !error && post" x-cloak class="max-w-4xl mx-auto p-4 lg:p-6">
+  <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+    <!-- Post Header -->
+    <div class="p-5 sm:p-6 border-b border-gray-100">
+      <div class="flex items-center gap-3 mb-4">
+        <a :href="'/profile.html?id=' + post?.author_id" class="flex-shrink-0">
+          <div x-html="postAvatarHtml"></div>
+        </a>
+        <div>
+          <div class="flex items-center gap-2 flex-wrap">
+            <span x-text="post?.author_name" class="text-sm font-semibold"></span>
+            <span x-show="post?.author_level_info" x-html="authorLevelHtml" class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
+            <span x-show="post?.author_title" x-text="post?.author_title" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"></span>
+            <span class="text-xs text-gray-400" x-text="'#' + post?.author_display_id"></span>
+            <span :class="categoryClass" x-text="categoryLabel" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" @click="window.open('/?category=' + encodeURIComponent(post?.category), '_blank')"></span>
+          </div>
+          <span class="text-xs text-gray-400" x-text="relTime(post?.created_at) + (post?.updated_at ? ' (已编辑)' : '')"></span>
+          <div x-show="post?.tags && post?.tags.length" class="mt-1.5">
+            <div class="flex flex-wrap gap-1.5">
+              <template x-for="(tag, ti) in (showAllTags ? post?.tags : (post?.tags || []).slice(0, 3))" :key="ti">
+                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" x-text="'#' + tag" @click="location.href='/?tag=' + encodeURIComponent(tag)"></span>
+              </template>
+              <button x-show="post?.tags && post?.tags.length > 3" @click="showAllTags = !showAllTags" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" x-text="showAllTags ? '收起' : '展开全部'"></button>
+            </div>
+          </div>
+        </div>
+        <div x-show="isAuthor || isAdmin" class="ml-auto flex items-center gap-1">
+          <button x-show="isAuthor" @click="startEditPost()" class="p-1.5 rounded-lg hover:bg-gray-100 text-gray-400 hover:text-primary-600 transition" title="编辑">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+          </button>
+          <button x-show="isAdmin" @click="togglePinPost()" class="p-1.5 rounded-lg hover:bg-amber-50 text-gray-400 hover:text-amber-600 transition" title="置顶/取消置顶">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+          </button>
+          <button x-show="isAuthor || isAdmin" @click="deletePost()" class="p-1.5 rounded-lg hover:bg-red-50 text-gray-400 hover:text-red-600 transition" title="删除">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          </button>
+        </div>
+      </div>
+      <h1 x-show="!editing" x-text="post?.title" class="text-2xl font-bold mb-4 inline"></h1>
+      <span x-show="!editing && post?.private" class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500 ml-2 align-middle">私密</span>
+      <div x-show="!editing && hasInlineImages" x-html="postContentHtml" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <div x-show="!editing && !hasInlineImages && post?.images && post?.images.length > 0" class="flex flex-wrap gap-2 mb-4">
+        <template x-for="(url, ii) in post?.images" :key="ii">
+          <img :src="url" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" @click="openLightbox(url)">
+        </template>
+      </div>
+      <div x-show="!editing && !hasInlineImages" x-html="postContentOnly" class="text-gray-700 leading-relaxed whitespace-pre-wrap"></div>
+      <!-- Poll -->
+      <div x-show="!editing && poll" class="mt-4">
+        <div class="bg-gradient-to-br from-primary-50 to-indigo-50 rounded-2xl p-5 border border-primary-100">
+          <div class="flex items-center gap-2 mb-4">
+            <svg class="w-5 h-5 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2m-6 9l2 2 4-4"/></svg>
+            <h3 class="text-base font-bold text-gray-900" x-text="poll?.question"></h3>
+            <span x-show="poll?.pollType === 'multiple'" class="text-xs px-2 py-0.5 rounded-full bg-primary-100 text-primary-700">多选</span>
+            <span x-show="pollCountdown" x-html="pollCountdown" class="text-xs"></span>
+            <span x-show="poll?.status === 'closed'" class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">已结束</span>
+          </div>
+          <div class="space-y-2.5">
+            <template x-for="opt in poll?.options" :key="opt.id">
+              <div>
+                <!-- Voted / Closed: show results -->
+                <div x-show="poll?.hasVoted || poll?.status === 'closed'" :class="poll?.userVotes.includes(opt.id) ? 'ring-2 ring-primary-500' : ''" class="relative overflow-hidden rounded-xl">
+                  <div class="absolute inset-0 bg-primary-100 transition-all duration-500" :style="'width:' + pollPercent(opt) + '%'"></div>
+                  <div class="relative flex items-center justify-between px-4 py-3">
+                    <div class="flex items-center gap-2">
+                      <svg x-show="poll?.userVotes.includes(opt.id)" class="w-4 h-4 text-primary-600" fill="currentColor" viewBox="0 0 20 20"><path fill-rule="evenodd" d="M16.707 5.293a1 1 0 010 1.414l-8 8a1 1 0 01-1.414 0l-4-4a1 1 0 011.414-1.414L8 12.586l7.293-7.293a1 1 0 011.414 0z" clip-rule="evenodd"/></svg>
+                      <span class="text-sm font-medium text-gray-800" x-text="opt.text"></span>
+                    </div>
+                    <span class="text-sm font-semibold text-gray-600" x-text="opt.votes + '票 ' + pollPercent(opt) + '%'"></span>
+                  </div>
+                </div>
+                <!-- Not voted: show options -->
+                <label x-show="!poll?.hasVoted && poll?.status !== 'closed'" class="flex items-center gap-3 px-4 py-3 rounded-xl border-2 border-gray-200 hover:border-primary-300 cursor-pointer transition">
+                  <input :type="poll?.pollType === 'multiple' ? 'checkbox' : 'radio'" name="pollOption" :value="opt.id" class="w-4 h-4 text-primary-600 focus:ring-primary-500 poll-input">
+                  <span class="text-sm text-gray-800" x-text="opt.text"></span>
+                </label>
+              </div>
+            </template>
+          </div>
+          <div class="flex items-center justify-between mt-4 pt-3 border-t border-primary-100">
+            <span class="text-xs text-gray-500" x-text="'共 ' + (poll?.totalVotes || 0) + ' 人投票'"></span>
+            <button x-show="!poll?.hasVoted && poll?.status !== 'closed' && user" @click="castVote()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">投票</button>
+            <button x-show="poll?.hasVoted && poll?.status !== 'closed'" @click="removeVote()" class="px-4 py-2 text-gray-500 text-sm border border-gray-200 rounded-xl hover:bg-gray-50 transition">撤销投票</button>
+          </div>
+        </div>
+      </div>
+      <!-- Actions -->
+      <div class="flex items-center gap-4 mt-4 pt-4 border-t border-gray-100">
+        <button @click="toggleLike()" :class="liked ? 'text-red-500' : 'text-gray-400'" class="flex items-center gap-1 text-sm hover:text-red-500 transition">
+          <svg class="w-5 h-5" :fill="liked ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+          <span x-text="post?.likes_count"></span>
+        </button>
+        <span class="flex items-center gap-1 text-sm text-gray-400">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+          <span x-text="commentTotal"></span> 评论
+        </span>
+        <button @click="toggleBookmark()" :class="bookmarked ? 'text-yellow-500' : 'text-gray-400'" class="flex items-center gap-1 text-sm hover:text-yellow-500 transition">
+          <svg class="w-5 h-5" :fill="bookmarked ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+          <span x-text="bookmarked ? '已收藏' : '收藏'"></span>
+        </button>
+        <button @click="shareCurrentPost($event)" class="flex items-center gap-1 text-sm text-gray-400 hover:text-primary-500 transition ml-auto">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+          <span>分享</span>
+        </button>
+      </div>
+    </div>
+
+    <!-- Edit Post Area -->
+    <div x-show="editing" x-cloak class="p-5 sm:p-6 border-b border-gray-100 space-y-3">
+      <input x-model="editTitle" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标题">
+      <select x-model="editCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+        <option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option>
+      </select>
+      <textarea x-model="editContent" rows="6" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="正文"></textarea>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">图片管理</label>
+        <div class="flex flex-wrap gap-2 mb-2">
+          <template x-for="(img, idx) in editImagesList" :key="idx">
+            <div class="relative w-16 h-16 rounded overflow-hidden" :class="img.removed ? 'opacity-40' : ''">
+              <img :src="img.url" class="w-full h-full object-cover">
+              <button x-show="!img.removed" @click="markRemoveImg(idx)" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+              <button x-show="img.removed" @click="undoRemoveImg(idx)" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>
+            </div>
+          </template>
+          <template x-for="(f, idx) in editNewImages" :key="'new-'+idx">
+            <div class="relative w-16 h-16 rounded-lg ring-2 ring-green-400 group">
+              <img :src="f.objectUrl" class="w-full h-full object-cover rounded-lg">
+              <div class="absolute inset-0 flex flex-col items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition bg-black/30 rounded-lg">
+                <button @click="insertEditImageAtCursor(editExistingCount + idx)" class="w-full py-0.5 bg-primary-600/90 text-white text-[10px] font-medium hover:bg-primary-700 transition">插入</button>
+                <button @click="removeEditNewImg(idx)" class="w-full py-0.5 bg-red-500/90 text-white text-[10px] font-medium hover:bg-red-600 transition">删除</button>
+              </div>
+              <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-green-500/80 text-white text-[9px] rounded-full flex items-center justify-center font-bold" x-text="editExistingCount + idx + 1"></span>
+            </div>
+          </template>
+        </div>
+        <div @click="$refs.editNewImagesInput.click()" class="w-16 h-16 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-300 transition">
+          <svg class="w-6 h-6 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        </div>
+        <input type="file" x-ref="editNewImagesInput" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" @change="handleEditImageSelect($event)">
+      </div>
+      <!-- Tags -->
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">标签（最多10个）</label>
+        <div class="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl min-h-[38px] cursor-text" @click="$refs.editTagInput.focus()">
+          <template x-for="(tag, ti) in editTags" :key="ti">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded-full text-xs">
+              <span x-text="tag"></span>
+              <button @click="editTags.splice(ti, 1)" class="hover:text-primary-900">&times;</button>
+            </span>
+          </template>
+          <input x-ref="editTagInput" type="text" class="flex-1 min-w-[50px] text-sm outline-none bg-transparent" placeholder="回车添加" @keydown.enter.prevent="addEditTag()" @keydown.,="addEditTag()">
+        </div>
+      </div>
+      <!-- Poll management -->
+      <div x-show="editHasExistingPoll">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">当前投票</label>
+          <button @click="deleteExistingPoll()" class="text-xs text-red-500 hover:text-red-700 transition">删除投票</button>
+        </div>
+        <div class="p-3 bg-gray-50 rounded-xl border border-gray-200 text-sm text-gray-600" x-html="editPollInfoHtml"></div>
+      </div>
+      <div x-show="!editHasExistingPoll">
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">添加投票</label>
+          <button @click="editShowPollForm = !editShowPollForm" class="text-xs text-primary-500 hover:text-primary-700 transition" x-text="editShowPollForm ? '取消' : '添加投票'"></button>
+        </div>
+        <div x-show="editShowPollForm" class="space-y-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+          <input x-model="editPollQuestion" type="text" placeholder="投票问题" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+          <div class="space-y-2">
+            <template x-for="(opt, oi) in editPollOptions" :key="oi">
+              <div class="flex gap-2">
+                <input x-model="editPollOptions[oi]" type="text" :placeholder="'选项' + (oi+1)" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                <button @click="removeEditPollOption(oi)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              </div>
+            </template>
+          </div>
+          <button @click="addEditPollOption()" class="text-xs text-primary-500 hover:text-primary-700">+ 添加选项</button>
+          <label class="flex items-center gap-1.5 text-sm">
+            <input x-model="editPollMultiple" type="checkbox" class="w-3.5 h-3.5 rounded text-primary-600">
+            <span>允许多选</span>
+          </label>
+          <div>
+            <label class="text-xs text-gray-500">投票时长</label>
+            <select x-model="editPollDuration" class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none">
+              <option value="">不限时</option>
+              <option value="1h">1小时</option>
+              <option value="6h">6小时</option>
+              <option value="1d">1天</option>
+              <option value="3d">3天</option>
+              <option value="7d">7天</option>
+              <option value="30d">30天</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input x-model="editPrivate" type="checkbox" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500">
+        <span class="text-sm text-gray-600">私密帖子（仅自己可见）</span>
+      </label>
+      <div class="flex gap-2 justify-end">
+        <button @click="cancelEditPost()" class="px-4 py-2 text-sm text-gray-500 hover:text-gray-700 rounded-xl transition">取消</button>
+        <button @click="saveEditPost()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">保存修改</button>
+      </div>
+    </div>
+
+    <!-- Comments Section -->
+    <div class="p-5 sm:p-6">
+      <h2 class="text-base font-semibold mb-4">评论 <span class="text-gray-400 font-normal" x-text="'(' + commentTotal + ')'"></span></h2>
+      <div class="space-y-4 mb-6">
+        <template x-for="c in comments" :key="c.id">
+          <div :id="'comment-' + c.id" :class="c.pinned ? 'bg-amber-50 rounded-xl p-3 -mx-3' : ''" class="flex gap-3">
+            <a :href="'/profile.html?id=' + c.author_id" @click.stop class="flex-shrink-0" x-html="commentAvatarHtml(c)"></a>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 mb-1 flex-wrap">
+                <span class="text-sm font-semibold text-gray-900" x-text="c.author_name"></span>
+                <span x-show="c.author_title" x-text="c.author_title" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"></span>
+                <span class="text-xs text-gray-400" x-text="'#' + c.author_display_id"></span>
+                <span x-show="c.is_post_owner" class="text-xs px-1.5 py-0.5 rounded bg-primary-100 text-primary-700">楼主</span>
+                <span x-show="c.pinned" class="text-xs px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">置顶</span>
+                <span class="text-xs text-gray-400" x-text="'#' + c.floor"></span>
+                <span class="text-xs text-gray-400" x-text="relTime(c.created_at)"></span>
+                <div class="ml-auto flex items-center gap-1">
+                  <button x-show="isPostOwner" @click="togglePinComment(c.id)" class="text-gray-400 hover:text-amber-500 transition" :title="c.pinned ? '取消置顶' : '置顶'">
+                    <svg class="w-4 h-4" :fill="c.pinned ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 5a2 2 0 012-2h10a2 2 0 012 2v16l-7-3.5L5 21V5z"/></svg>
+                  </button>
+                  <button x-show="user && c.author_id === user.id" @click="startEditComment(c)" class="text-gray-400 hover:text-primary-600 transition" title="编辑">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11 5H6a2 2 0 00-2 2v11a2 2 0 002 2h11a2 2 0 002-2v-5m-1.414-9.414a2 2 0 112.828 2.828L11.828 15H9v-2.828l8.586-8.586z"/></svg>
+                  </button>
+                  <button x-show="canDeleteComment(c)" @click="deleteComment(c.id)" class="text-gray-400 hover:text-red-600 transition" title="删除">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+                  </button>
+                </div>
+              </div>
+              <!-- View mode -->
+              <div x-show="!c._editing">
+                <p x-show="c.content" x-html="renderEmoji(c.content)" class="text-sm text-gray-700 comment-content"></p>
+                <div x-show="c.images && c.images.length > 0" class="flex flex-wrap gap-1.5 mt-2">
+                  <template x-for="(url, ii) in (c.images || [])" :key="ii">
+                    <img :src="url" class="rounded-lg max-h-32 object-cover cursor-pointer" @click="openLightbox(url)">
+                  </template>
+                </div>
+              </div>
+              <!-- Edit mode -->
+              <div x-show="c._editing" class="mt-2 space-y-2">
+                <textarea x-model="c._editContent" rows="2" class="w-full px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 resize-none"></textarea>
+                <div class="flex flex-wrap gap-1.5">
+                  <template x-for="(url, ei) in (c._editExistingImages || [])" :key="ei">
+                    <div class="relative w-14 h-14 rounded overflow-hidden" :class="(c._editRemoveImages || []).includes(url) ? 'opacity-40' : ''">
+                      <img :src="url" class="w-full h-full object-cover">
+                      <button x-show="!(c._editRemoveImages || []).includes(url)" @click="markRemoveCImg(c, url)" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition">
+                        <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                      <button x-show="(c._editRemoveImages || []).includes(url)" @click="undoRemoveCImg(c, url)" class="absolute inset-0 flex items-center justify-center bg-black/30 text-white text-xs font-bold">撤销</button>
+                    </div>
+                  </template>
+                  <template x-for="(f, ni) in (c._editNewImages || [])" :key="'cn-'+ni">
+                    <div class="relative w-14 h-14 rounded overflow-hidden ring-2 ring-green-400">
+                      <img :src="f.objectUrl" class="w-full h-full object-cover">
+                      <button @click="removeEditCNewImg(c, ni)" class="absolute top-0 right-0 w-4 h-4 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition">
+                        <svg class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+                      </button>
+                    </div>
+                  </template>
+                </div>
+                <div class="flex items-center justify-between">
+                  <button @click="$refs['editCImgs-'+c.id]?.click()" class="flex items-center gap-1 px-2 py-1 text-xs text-gray-500 hover:text-primary-600 rounded transition">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+                    图片
+                  </button>
+                  <input type="file" :id="'editCImgs-'+c.id" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" @change="handleEditCImgSelect($event, c)">
+                  <div class="flex gap-2">
+                    <button @click="cancelEditComment(c)" class="px-3 py-1 text-xs text-gray-500 hover:text-gray-700 rounded-lg">取消</button>
+                    <button @click="saveEditComment(c)" class="px-3 py-1 text-xs bg-primary-600 text-white rounded-lg hover:bg-primary-700">保存</button>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </template>
+        <p x-show="comments.length === 0" class="text-sm text-gray-400 text-center py-8">暂无评论，快来抢沙发吧</p>
+      </div>
+      <!-- Pagination -->
+      <div x-show="commentPages > 1" class="flex items-center justify-center gap-2 mt-4">
+        <button x-show="commentPage > 1" @click="loadComments(commentPage - 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>
+        <template x-for="p in commentPageNumbers" :key="p">
+          <button @click="loadComments(p)" :class="p === commentPage ? 'w-8 h-8 text-sm bg-primary-600 text-white rounded-lg' : 'w-8 h-8 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition'" x-text="p"></button>
+        </template>
+        <button x-show="commentPage < commentPages" @click="loadComments(commentPage + 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>
+      </div>
+      <!-- Comment Form -->
+      <div x-show="user" x-cloak>
+        <textarea x-model="commentInput" rows="3" placeholder="写下你的评论..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+        <div x-show="commentImages.length > 0" class="flex flex-wrap gap-2 mt-2">
+          <template x-for="(f, ci) in commentImages" :key="ci">
+            <div class="relative w-16 h-16 rounded-lg overflow-hidden group">
+              <img :src="f.objectUrl" class="w-full h-full object-cover">
+              <button @click="commentImages.splice(ci, 1)" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
+                <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
+              </button>
+            </div>
+          </template>
+        </div>
+        <div class="flex items-center justify-between mt-2">
+          <div class="flex items-center gap-2">
+            <button @click="$refs.commentImagesInput.click()" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 16l4.586-4.586a2 2 0 012.828 0L16 16m-2-2l1.586-1.586a2 2 0 012.828 0L20 14m-6-6h.01M6 20h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z"/></svg>
+              图片 <span x-show="commentImages.length > 0" x-text="commentImages.length + '/3'" class="text-gray-400"></span>
+            </button>
+            <input type="file" x-ref="commentImagesInput" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" @change="handleCommentImageSelect($event)">
+            <div class="relative">
+              <button x-ref="commentEmojiBtn" class="flex items-center gap-1 px-3 py-1.5 text-xs text-gray-500 hover:text-primary-600 rounded-lg transition">
+                😀 表情
+              </button>
+            </div>
+          </div>
+          <button @click="doComment()" class="px-4 py-2 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">发表评论</button>
+        </div>
+      </div>
+      <p x-show="!user" class="text-sm text-gray-400 text-center py-4">请先<a href="#" @click.prevent="$store.auth.showLogin = true" class="text-primary-600 font-medium">登录</a>后评论</p>
+    </div>
+  </div>
+</div>
+
+</div><!-- /postPage -->
+
+<!-- Auth Modal -->
+<div x-data="authModal()" x-show="open" x-transition.opacity @click.self="hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">欢迎</h2>
+      <button @click="hide()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
+      <button @click="tab='login'" :class="tab==='login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">登录</button>
+      <button @click="tab='register'" :class="tab==='register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">注册</button>
+    </div>
+    <div x-show="tab==='login'" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="loginEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input x-model="loginPassword" type="password" placeholder="输入密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
+      <button @click="doLogin()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">登录</button>
+    </div>
+    <div x-show="tab==='register'" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">用户名</label><input x-model="regUsername" type="text" placeholder="你的昵称" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="regEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">密码</label>
+        <input x-model="regPassword" type="password" placeholder="至少 6 位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div x-show="regPassword" class="mt-2">
+          <div class="flex gap-1 mb-1">
+            <template x-for="i in 4" :key="i">
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= regPasswordStrength.score ? regPasswordStrength.color : '#e5e7eb')"></div>
+            </template>
+          </div>
+          <p class="text-xs" :style="'color:' + regPasswordStrength.color" x-text="regPasswordStrength.label"></p>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">验证码</label>
+        <div class="flex gap-2">
+          <input x-model="regCode" type="text" placeholder="输入验证码" maxlength="6" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doRegister()">
+          <button @click="sendCode()" :disabled="codeCooldown > 0" class="px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition whitespace-nowrap" x-text="codeCooldown > 0 ? codeCooldown + 's' : '发送验证码'"></button>
+        </div>
+      </div>
+      <button @click="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Lightbox -->
+<div x-data="{ open: false, src: '' }" x-show="$store.lightbox.open" x-transition.opacity @click="$store.lightbox.open=false" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" style="display:none">
+  <button @click="$store.lightbox.open=false" class="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  <img :src="$store.lightbox.src" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" @click.stop>
+</div>
+
+<!-- Change Password Modal -->
+<div x-data="changePasswordModal()" x-show="open" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="text-center mb-5">
+      <div class="w-16 h-16 mx-auto mb-3 bg-amber-100 rounded-full flex items-center justify-center">
+        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/>
+        </svg>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900 mb-1">安全提示</h3>
+      <p class="text-sm text-gray-500">检测到您正在使用默认密码，为了账号安全，请立即修改密码</p>
+    </div>
+    <div class="space-y-3 mb-5">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label>
+        <input x-model="oldPassword" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
+        <input x-model="newPassword" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div x-show="newPassword" class="mt-2">
+          <div class="flex gap-1 mb-1">
+            <template x-for="i in 4" :key="i">
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= passwordStrength.score ? passwordStrength.color : '#e5e7eb')"></div>
+            </template>
+          </div>
+          <p class="text-xs" :style="'color:' + passwordStrength.color" x-text="passwordStrength.label"></p>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label>
+        <input x-model="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+    </div>
+    <button @click="submit()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+    <p class="text-xs text-gray-400 text-center mt-3">修改后此提示将不再出现</p>
+  </div>
+</div>
+
+<!-- Toast -->
+<div x-data="toastContainer()" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] space-y-2">
+  <template x-for="t in toasts" :key="t.id">
+    <div x-text="t.message" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
+  </template>
+</div>
+
+<%- include('partials/scripts') %>
+<script src="/js/pages/post.js"></script>
+<script>
+  // 注入交互组件到页面
+  injectToast();
+  injectAuthModal();
+  injectChangePasswordModal();
+  injectLightbox();
+</script>
+<script src="/js/alpine.min.js"></script>
+</body>
+</html>

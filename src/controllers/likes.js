@@ -3,12 +3,11 @@
  */
 
 const { requireAuth } = require('../middleware/auth');
-const { parseJsonField, intToBool } = require('../utils/helpers');
-const { createNotification } = require('./notifications');
+const { createNotification } = require('../services/notification');
+const { formatPost } = require('../services/postHelper');
+const { addExp, EXP_REWARDS } = require('../services/level');
 
 module.exports = function(app, db) {
-  const { addExp, EXP_REWARDS } = require('./level');
-
   /** 获取当前用户点赞的帖子 ID 列表 */
   app.get('/api/likes', (req, res) => {
     if (!req.session.userId) return res.json({ ids: [] });
@@ -109,15 +108,7 @@ module.exports = function(app, db) {
       LIMIT ? OFFSET ?
     `).all(userId, limit, offset);
 
-    const posts = rows.map(p => ({
-      ...p,
-      tags: parseJsonField(p.tags, []),
-      images: parseJsonField(p.images, []),
-      pinned: intToBool(p.pinned),
-      author_avatar_url: p.author_avatar_url || null,
-      author_title: p.author_title || null,
-      author_avatar_frame: p.author_avatar_frame || null
-    }));
+    const posts = rows.map(p => formatPost(p));
 
     res.json({
       posts,

@@ -6,10 +6,22 @@ const fs = require('fs');
 const path = require('path');
 const crypto = require('crypto');
 
+// 加密配置（AES-256-GCM）
 const ENC_ALGO = 'aes-256-gcm';
+let _encKey = null;
+
+/**
+ * 获取加密密钥（从 SESSION_SECRET 派生，启动时警告如果未设置）
+ */
 function getEncKey() {
-  const secret = process.env.SESSION_SECRET || 'miforum-default-key-change-me';
-  return crypto.createHash('sha256').update(secret).digest();
+  if (!_encKey) {
+    const secret = process.env.SESSION_SECRET;
+    if (!secret) {
+      console.error('  ⚠ 警告: SESSION_SECRET 未设置，使用不安全的默认密钥！请在 .env 中设置 SESSION_SECRET');
+    }
+    _encKey = crypto.createHash('sha256').update(secret || 'miforum-insecure-default').digest();
+  }
+  return _encKey;
 }
 
 function encryptText(text) {

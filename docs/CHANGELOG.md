@@ -4,6 +4,118 @@
 
 ---
 
+## [1.2.0] - 2026-09-06 - 贡献者：parkes-mimir
+
+### 重大变更
+
+**v1.2.0 大版本重构 — Alpine.js 迁移 + EJS 模板 + 安全加固 + 存储优化**
+
+#### 后端架构改进
+
+- **服务层拆分**：提取 `src/services/` 目录
+  - `level.js` — 等级服务（addExp, getLevelInfo, EXP_REWARDS）
+  - `postHelper.js` — 帖子工具（formatPost, isAdmin, parsePagination）
+  - `notification.js` — 通知服务（createNotification）
+  - `poll.js` — 投票服务（createPoll）
+- **admin.js 拆分**：479 行拆分为 4 个文件
+  - `admin-users.js` — 用户管理
+  - `admin-categories.js` — 分类管理
+  - `admin-system.js` — 系统设置
+  - `admin-superadmin.js` — 超级管理员操作
+- **消除控制器间直接依赖**：7 个控制器改为从 services 导入
+- **数据库模块化**：拆分为 `db/schema.js`（DDL）+ `db/seeds.js`（种子数据）+ `database.js`（连接管理）
+- **路由层引入**：新增 `src/routes/index.js` 中央路由映射表
+- **统一错误处理**：添加 Express 错误中间件
+
+#### 前端架构改进
+
+- **Alpine.js 迁移**：所有页面从内联 JS 迁移到 Alpine.js
+- **EJS 模板系统**：HTML 文件迁移到 EJS 模板
+  - `views/partials/head.ejs` — 公共 `<head>`
+  - `views/partials/header.ejs` — 公共导航栏
+  - `views/partials/scripts.ejs` — 公共脚本引用
+  - `views/*.ejs` — 各页面模板
+- **交互组件注入**：登录弹窗、Toast、修改密码弹窗、图片查看器自动注入 DOM
+- **组件化**：提取共享 Alpine 组件
+  - `stores/app.js` — 全局认证状态（Alpine.store）
+  - `components/auth-modal.js` — 登录/注册弹窗
+  - `components/change-password.js` — 修改密码弹窗
+  - `components/header.js` — 页面头部
+  - `components/toast.js` — 提示消息
+  - `components/lightbox.js` — 图片预览
+- **页面 JS 提取**：所有内联 JS 提取为独立文件
+
+#### 安全加固
+
+- **Session 持久化**：改用 SQLite 存储会话（`better-sqlite3-session-store`），重启不丢失
+- **移除硬编码密钥**：`SESSION_SECRET` 未设置时显示启动警告
+- **修复 shell 注入**：`admin-superadmin.js` 添加路径白名单验证
+- **验证码锁定持久化**：新增 `code_lockouts` 表，重启不重置
+
+#### 存储优化
+
+- **静态资源缓存**：启用 ETag，JS/CSS 缓存1小时，图片缓存7天
+- **乐观更新回滚**：点赞/收藏失败时自动恢复 UI 状态
+- **数据库路径统一**：支持 `DB_PATH` 环境变量，自动选择可用路径
+
+#### 前端耦合优化
+
+- **提取公共模板**：~420 行重复 HTML 提取到 EJS partials
+- **统一 JS 工具**：`relTime`、`esc`、`avatarHtml` 等函数统一到 `common.js`
+- **注释覆盖**：从 ~5% 提升到 ~60%
+
+### 新增
+
+- Alpine.js 依赖（44KB，本地存放）
+- EJS 模板引擎
+- better-sqlite3-session-store 依赖
+- `x-data`、`x-show`、`x-for`、`x-model`、`@click` 等指令替代手动 DOM 操作
+- `Alpine.store` 全局状态管理
+- `[x-cloak]` CSS 防止页面闪烁
+- `src/db/schema.js` — 数据库表结构
+- `src/db/seeds.js` — 默认数据
+- `src/routes/index.js` — 中央路由映射
+- `docs/TEST-REPORT.md` — 测试报告
+
+### 移除
+
+- 移除 CSP `unsafe-eval`（之前已移除）
+- 移除各页面重复的 `toast`、`esc`、`relTime`、`api` 函数定义
+- 移除各页面重复的登录/注册弹窗 HTML
+- 移除各页面重复的修改密码弹窗 HTML
+- 移除 `public/*.html`（迁移到 `views/*.ejs`）
+- 移除 `stores/auth.js`（被 `stores/app.js` 替代）
+- 移除 `components/poll-card.js`（未使用）
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/database.js | 重构为模块化，支持路径选择 |
+| src/db/schema.js | 新建数据库表结构 |
+| src/db/seeds.js | 新建默认数据 |
+| src/routes/index.js | 新建中央路由映射 |
+| src/server.js | EJS 配置、Session SQLite、静态缓存 |
+| src/utils/helpers.js | 移除硬编码密钥 |
+| src/controllers/admin-superadmin.js | 修复 shell 注入 |
+| src/controllers/auth.js | 验证码锁定持久化 |
+| src/services/hotPosts.js | 修复依赖方向 |
+| views/partials/*.ejs | 新建公共模板 |
+| views/*.ejs | 新建页面模板 |
+| public/js/components/auth-modal.js | 新建登录弹窗组件 |
+| public/js/components/toast.js | 添加注入函数 |
+| public/js/components/change-password.js | 添加注入函数 |
+| public/js/components/lightbox.js | 新建图片查看器 |
+| public/js/pages/forum.js | 乐观更新回滚 |
+| docs/TEST-REPORT.md | 新建测试报告 |
+| package.json | 添加 ejs、better-sqlite3-session-store |
+
+### 测试
+
+115 测试全部通过，ESLint 通过
+
+---
+
 ## [1.1.9] - 2026-09-06 - 贡献者：parkes-mimir
 
 ### 修复

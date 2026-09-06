@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<%- include('partials/head', { title: '消息中心 - MiForum' }) %>
+<style>
+.msg-bubble{max-width:75%;padding:0.625rem 0.875rem;border-radius:1rem;font-size:0.875rem;line-height:1.4;word-break:break-word}
+.msg-sent{background:#4f46e5;color:#fff;border-bottom-right:0.25rem}
+.msg-recv{background:#f3f4f6;color:#1f2937;border-bottom-left:0.25rem}
+.sidebar-item{display:flex;align-items:center;gap:0.75rem;padding:0.75rem 1rem;border-radius:0.75rem;cursor:pointer;transition:all .15s;font-size:0.875rem;color:#4b5563}
+.sidebar-item:hover{background:#f3f4f6}
+.sidebar-item.active{background:#eef2ff;color:#4f46e5;font-weight:600}
+.sidebar-badge{min-width:1.25rem;height:1.25rem;padding:0 0.25rem;background:#ef4444;color:#fff;font-size:10px;font-weight:700;border-radius:9999px;display:none;align-items:center;justify-content:center}
+.sidebar-badge.show{display:flex}
+@media (max-width:639px){
+  .page-layout{flex-direction:column}
+  .page-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid #e5e7eb;max-height:44px;overflow:hidden;transition:max-height .3s}
+  .page-sidebar.open{max-height:300px}
+  .page-main{min-height:calc(100vh - 56px - 44px)}
+  .msg-chat-layout{flex-direction:column}
+  .msg-chat-sidebar{width:100%!important;border-right:none!important;border-bottom:1px solid #e5e7eb;max-height:50vh}
+}
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<%- include('partials/header', { subtitle: '' }) %>
+
+<div x-data="messagesPage()" x-cloak class="max-w-7xl mx-auto flex page-layout" style="min-height:calc(100vh - 56px)">
+  <!-- 左侧导航 -->
+  <aside :class="['page-sidebar', 'flex-shrink-0', 'w-56', 'bg-white', 'border-r', 'border-gray-100', 'p-3', 'space-y-1', sidebarOpen && 'open']">
+    <button @click="sidebarOpen = !sidebarOpen" class="sm:hidden w-full flex items-center justify-between px-3 py-2 text-sm font-medium text-gray-700 rounded-lg bg-gray-50 mb-1">
+      <span x-text="sectionLabels[currentSection]">消息中心</span>
+      <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+    </button>
+    <template x-for="sec in sections" :key="sec.key">
+      <div @click="switchSection(sec.key)" :class="['sidebar-item', currentSection === sec.key && 'active']">
+        <svg class="w-5 h-5 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24" x-html="sec.icon"></svg>
+        <span class="flex-1" x-text="sec.label"></span>
+        <span :class="['sidebar-badge', badges[sec.key] > 0 && 'show']" x-text="badges[sec.key] > 99 ? '99+' : badges[sec.key]"></span>
+      </div>
+    </template>
+  </aside>
+
+  <!-- 右侧内容 -->
+  <main class="page-main flex-1 min-w-0">
+
+    <!-- 我的私信 -->
+    <div x-show="currentSection === 'messages'" class="h-full">
+      <div class="flex bg-white msg-chat-layout" style="height:calc(100vh - 56px)">
+        <div class="msg-chat-sidebar flex-shrink-0 w-72 flex flex-col border-r border-gray-100">
+          <div class="p-3 border-b border-gray-100 flex items-center justify-between">
+            <h3 class="text-sm font-bold text-gray-900">会话列表</h3>
+            <button @click="loadConversations()" class="p-1 rounded hover:bg-gray-100" title="刷新"><svg class="w-4 h-4 text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/></svg></button>
+          </div>
+          <div class="flex-1 overflow-y-auto">
+            <template x-if="convLoading">
+              <div class="text-center py-20 text-gray-400 text-sm">加载中...</div>
+            </template>
+            <template x-if="!convLoading && conversations.length === 0">
+              <div class="text-center py-16"><p class="text-gray-400">暂无私信</p></div>
+            </template>
+            <template x-for="c in conversations" :key="c.id">
+              <div @click="openConversation(c)" :class="['flex', 'items-center', 'gap-3', 'p-3', 'cursor-pointer', 'hover:bg-gray-50', 'transition', currentConvId === c.id && 'bg-primary-50', c.unread > 0 && 'font-medium']">
+                <div x-html="convAvatarHtml(c)" class="flex-shrink-0"></div>
+                <div class="flex-1 min-w-0">
+                  <div class="flex items-center justify-between">
+                    <span class="text-sm text-gray-900 truncate" x-text="c.other_username"></span>
+                    <span class="text-[10px] text-gray-400 flex-shrink-0 ml-2" x-text="relTime(c.last_message_at)"></span>
+                  </div>
+                  <p class="text-xs text-gray-500 truncate mt-0.5" x-text="c.last_message || '暂无消息'"></p>
+                </div>
+                <template x-if="c.unread > 0">
+                  <span class="w-5 h-5 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center flex-shrink-0" x-text="c.unread > 9 ? '9+' : c.unread"></span>
+                </template>
+              </div>
+            </template>
+          </div>
+        </div>
+        <div class="flex-1 flex flex-col min-w-0">
+          <div x-show="!currentConvId" class="flex-1 flex items-center justify-center text-gray-400 text-sm">
+            <div class="text-center">
+              <svg class="w-16 h-16 mx-auto text-gray-200 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+              <p>选择一个会话开始聊天</p>
+            </div>
+          </div>
+          <div x-show="currentConvId" class="flex-1 flex flex-col min-h-0">
+            <div class="flex items-center gap-3 px-4 py-3 border-b border-gray-100 flex-shrink-0">
+              <button @click="backToConvList()" class="sm:hidden p-1 rounded hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg></button>
+              <a :href="'/profile.html?id=' + chatOtherUserId" class="flex items-center gap-2 hover:opacity-80 transition">
+                <div x-html="chatAvatarHtml" class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold"></div>
+                <span class="text-sm font-bold text-gray-900" x-text="chatTitle"></span>
+              </a>
+            </div>
+            <div x-ref="chatMessages" class="flex-1 overflow-y-auto p-4 space-y-3">
+              <template x-for="m in chatMessages" :key="m.id || m.created_at">
+                <div :class="['flex', m.sender_id === user?.id ? 'justify-end' : 'justify-start']">
+                  <div :class="['msg-bubble', m.sender_id === user?.id ? 'msg-sent' : 'msg-recv']">
+                    <span x-html="renderEmoji(m.content)"></span>
+                    <div :class="['text-[10px]', m.sender_id === user?.id ? 'text-white/50' : 'text-gray-400', 'mt-1']" x-text="relTime(m.created_at)"></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+            <div class="flex gap-2 p-3 border-t border-gray-100 flex-shrink-0">
+              <div class="relative">
+                <button x-ref="emojiBtn" class="px-3 py-2.5 text-gray-500 hover:text-primary-600 rounded-xl transition">😀</button>
+              </div>
+              <input x-ref="chatInput" x-model="chatInput" @keydown.enter="sendChatMsg()" type="text" placeholder="输入消息..." class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+              <button @click="sendChatMsg()" class="flex-shrink-0 px-5 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition whitespace-nowrap">发送</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- 回复我的 -->
+    <div x-show="currentSection === 'replies'" class="p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">回复我的</h2>
+        <button @click="markTypeRead('comment')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div class="space-y-2">
+        <template x-if="notifData.replies.items.length === 0 && !notifData.replies.loading">
+          <div class="text-center py-16"><p class="text-gray-400">暂无消息</p></div>
+        </template>
+        <template x-for="n in notifData.replies.items" :key="n.id">
+          <div @click="readNotif(n)" :class="['flex', 'items-start', 'gap-3', 'p-4', 'rounded-xl', 'cursor-pointer', 'transition', n.read ? 'bg-white hover:bg-gray-50' : 'bg-blue-50', 'border', 'border-gray-100']">
+            <span class="text-xl flex-shrink-0">💬</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800"><strong class="font-semibold" x-text="n.from_username || '系统'"></strong> 评论了你的帖子</p>
+              <template x-if="n.post_title">
+                <p class="text-xs text-gray-500 mt-1 cursor-pointer hover:text-primary-600" @click.stop="window.open('/post.html?id=' + n.post_id, '_blank')" x-text="n.post_title"></p>
+              </template>
+              <p class="text-[11px] text-gray-400 mt-1.5" x-text="relTime(n.created_at)"></p>
+            </div>
+            <template x-if="!n.read">
+              <div class="w-2.5 h-2.5 bg-primary-500 rounded-full flex-shrink-0 mt-1.5"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div x-show="notifData.replies.totalPages > 1" class="flex justify-center mt-4 gap-2">
+        <button x-show="notifData.replies.page > 1" @click="notifData.replies.page--; loadNotifications('replies')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>
+        <span class="px-3 py-1.5 text-sm text-gray-500" x-text="notifData.replies.page + ' / ' + notifData.replies.totalPages"></span>
+        <button x-show="notifData.replies.page < notifData.replies.totalPages" @click="notifData.replies.page++; loadNotifications('replies')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>
+      </div>
+    </div>
+
+    <!-- 收到的赞 -->
+    <div x-show="currentSection === 'likes'" class="p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">收到的赞</h2>
+        <button @click="markTypeRead('like')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div class="space-y-2">
+        <template x-if="notifData.likes.items.length === 0 && !notifData.likes.loading">
+          <div class="text-center py-16"><p class="text-gray-400">暂无消息</p></div>
+        </template>
+        <template x-for="n in notifData.likes.items" :key="n.id">
+          <div @click="readNotif(n)" :class="['flex', 'items-start', 'gap-3', 'p-4', 'rounded-xl', 'cursor-pointer', 'transition', n.read ? 'bg-white hover:bg-gray-50' : 'bg-red-50', 'border', 'border-gray-100']">
+            <span class="text-xl flex-shrink-0">❤️</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800"><strong class="font-semibold" x-text="n.from_username || '系统'"></strong> 赞了你的帖子</p>
+              <template x-if="n.post_title">
+                <p class="text-xs text-gray-500 mt-1 cursor-pointer hover:text-primary-600" @click.stop="window.open('/post.html?id=' + n.post_id, '_blank')" x-text="n.post_title"></p>
+              </template>
+              <p class="text-[11px] text-gray-400 mt-1.5" x-text="relTime(n.created_at)"></p>
+            </div>
+            <template x-if="!n.read">
+              <div class="w-2.5 h-2.5 bg-primary-500 rounded-full flex-shrink-0 mt-1.5"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div x-show="notifData.likes.totalPages > 1" class="flex justify-center mt-4 gap-2">
+        <button x-show="notifData.likes.page > 1" @click="notifData.likes.page--; loadNotifications('likes')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>
+        <span class="px-3 py-1.5 text-sm text-gray-500" x-text="notifData.likes.page + ' / ' + notifData.likes.totalPages"></span>
+        <button x-show="notifData.likes.page < notifData.likes.totalPages" @click="notifData.likes.page++; loadNotifications('likes')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>
+      </div>
+    </div>
+
+    <!-- 收藏我的 -->
+    <div x-show="currentSection === 'bookmarks'" class="p-4">
+      <div class="flex items-center justify-between mb-4">
+        <h2 class="text-base font-bold text-gray-900">收藏我的</h2>
+        <button @click="markTypeRead('bookmark')" class="text-xs text-primary-500 hover:text-primary-700 px-3 py-1.5 rounded-lg hover:bg-primary-50 transition">全部已读</button>
+      </div>
+      <div class="space-y-2">
+        <template x-if="notifData.bookmarks.items.length === 0 && !notifData.bookmarks.loading">
+          <div class="text-center py-16"><p class="text-gray-400">暂无消息</p></div>
+        </template>
+        <template x-for="n in notifData.bookmarks.items" :key="n.id">
+          <div @click="readNotif(n)" :class="['flex', 'items-start', 'gap-3', 'p-4', 'rounded-xl', 'cursor-pointer', 'transition', n.read ? 'bg-white hover:bg-gray-50' : 'bg-amber-50', 'border', 'border-gray-100']">
+            <span class="text-xl flex-shrink-0">⭐</span>
+            <div class="flex-1 min-w-0">
+              <p class="text-sm text-gray-800"><strong class="font-semibold" x-text="n.from_username || '系统'"></strong> 收藏了你的帖子</p>
+              <template x-if="n.post_title">
+                <p class="text-xs text-gray-500 mt-1 cursor-pointer hover:text-primary-600" @click.stop="window.open('/post.html?id=' + n.post_id, '_blank')" x-text="n.post_title"></p>
+              </template>
+              <p class="text-[11px] text-gray-400 mt-1.5" x-text="relTime(n.created_at)"></p>
+            </div>
+            <template x-if="!n.read">
+              <div class="w-2.5 h-2.5 bg-primary-500 rounded-full flex-shrink-0 mt-1.5"></div>
+            </template>
+          </div>
+        </template>
+      </div>
+      <div x-show="notifData.bookmarks.totalPages > 1" class="flex justify-center mt-4 gap-2">
+        <button x-show="notifData.bookmarks.page > 1" @click="notifData.bookmarks.page--; loadNotifications('bookmarks')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>
+        <span class="px-3 py-1.5 text-sm text-gray-500" x-text="notifData.bookmarks.page + ' / ' + notifData.bookmarks.totalPages"></span>
+        <button x-show="notifData.bookmarks.page < notifData.bookmarks.totalPages" @click="notifData.bookmarks.page++; loadNotifications('bookmarks')" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>
+      </div>
+    </div>
+
+  </main>
+</div>
+
+<!-- Toast -->
+<div x-data="{ toasts: [], add(m) { const t = { id: Date.now(), msg: m }; this.toasts.push(t); setTimeout(() => { this.toasts = this.toasts.filter(x => x.id !== t.id); }, 2500); } }" x-on:toast.window="add($event.detail)" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2">
+  <template x-for="t in toasts" :key="t.id">
+    <div x-text="t.msg" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
+  </template>
+</div>
+
+<%- include('partials/scripts') %>
+<script src="/js/pages/messages.js"></script>
+<script>
+  // 注入交互组件到页面
+  injectToast();
+  injectAuthModal();
+  injectChangePasswordModal();
+  injectLightbox();
+</script>
+<script src="/js/alpine.min.js"></script>
+</body>
+</html>

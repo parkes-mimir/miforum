@@ -201,7 +201,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.9** — 修复登录状态丢失、签到时区、表情选择器溢出
+**最新版本 v1.2.0** — Alpine.js 迁移 + 后端服务层拆分 + 前端组件化
 
 ## 贡献者
 

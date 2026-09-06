@@ -1,0 +1,629 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<%- include('partials/head', { title: 'MiForum - 现代微论坛' }) %>
+<style>
+  .post-card:hover{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  .sidebar-link.active{background:#eef2ff;color:#4f46e5;font-weight:600}
+  .streak-num{font-size:1.5rem;font-weight:700;line-height:1}
+  .cal-month{display:grid;grid-template-columns:repeat(7,1fr);gap:4px;text-align:center}
+  .cal-head{font-size:11px;color:#9ca3af;font-weight:500;padding:4px 0}
+  .cal-cell{aspect-ratio:1;display:flex;align-items:center;justify-content:center;border-radius:6px;font-size:13px;cursor:default;transition:all .15s;position:relative;color:#1f2937}
+  .cal-cell.checked{position:relative}
+  .cal-cell.checked::before{content:'\2713';position:absolute;top:0;left:0;font-size:10px;font-weight:900;color:#fff;background:#16a34a;width:18px;height:18px;display:flex;align-items:center;justify-content:center;border-radius:6px 0 6px 0;line-height:1;z-index:2}
+  .cal-cell.missed{cursor:pointer;position:relative}
+  .cal-cell.missed::after{content:'\8865';position:absolute;font-size:20px;font-weight:700;color:rgba(239,68,68,.12);pointer-events:none;z-index:0}
+  .cal-cell.missed:hover{transform:scale(1.15)}
+  .cal-cell.missed:hover::after{color:rgba(239,68,68,.25)}
+  .cal-cell.missed span{position:relative;z-index:1}
+  .cal-cell.today{outline:2px solid #6366f1;outline-offset:1px;font-weight:700}
+  @media (max-width: 639px) {
+    .cal-month{gap:2px}
+    .cal-cell{font-size:12px}
+    .cal-head{font-size:10px;padding:2px 0}
+    .streak-num{font-size:1.25rem}
+    .post-card:active{transform:scale(0.98)}
+    .sidebar-link:active{background:#eef2ff}
+  }
+  @media (hover: none) {
+    .post-card:hover{box-shadow:none}
+    .post-card:active{box-shadow:0 4px 24px rgba(0,0,0,.08)}
+  }
+  @media (max-width: 639px) {
+    .search-desktop { display: none !important; }
+    .search-mobile { display: block !important; }
+  }
+  @media (min-width: 640px) {
+    .search-desktop { display: block !important; }
+    .search-mobile { display: none !important; }
+  }
+</style>
+</head>
+<body class="min-h-screen text-gray-800" x-data="forumPage()" x-cloak>
+
+<%- include('partials/header', { subtitle: '' }) %>
+
+<!-- Sidebar overlay -->
+<div x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-black/30 z-30 lg:hidden" x-transition.opacity></div>
+
+<div class="max-w-7xl mx-auto flex relative">
+  <!-- Sidebar -->
+  <aside :class="sidebarOpen ? 'translate-x-0' : '-translate-x-full lg:translate-x-0'" class="fixed lg:sticky top-14 left-0 z-30 w-64 h-[calc(100vh-3.5rem)] bg-white border-r border-gray-200/60 overflow-y-auto transition-transform flex-shrink-0">
+    <nav class="p-4 space-y-1">
+      <div class="flex items-center justify-between mb-3 px-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">版块分类</p>
+        <button x-show="isAdmin" @click="showCategoryModal()" class="text-xs text-gray-400 hover:text-primary-600 transition" title="管理分类">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        </button>
+      </div>
+      <button @click="filterCategory('all')" :class="currentCat === 'all' ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
+        全部话题
+      </button>
+      <template x-for="c in specialCategories" :key="c.id">
+        <button @click="filterCategory(c.name)" :data-cat="c.name" :class="currentCat === c.name ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+          <span class="text-lg" x-text="c.icon || (c.section_type === 'announcement' ? '📢' : '🔥')"></span>
+          <span class="font-medium" x-text="c.label"></span>
+        </button>
+      </template>
+      <template x-if="normalCategories.length > 0">
+        <div class="mt-2 mb-1 px-3"><p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">普通板块</p></div>
+      </template>
+      <template x-for="c in normalCategories" :key="c.id">
+        <button @click="filterCategory(c.name)" :data-cat="c.name" :class="currentCat === c.name ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+          <span class="text-base" x-text="c.icon || '💬'"></span>
+          <span x-text="c.label"></span>
+        </button>
+      </template>
+      <button x-show="isLoggedIn" @click="showCreateSectionModal()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:text-primary-600 hover:bg-gray-50 transition mt-1">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        创建板块
+      </button>
+      <a href="/shop" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
+        积分商店
+      </a>
+    </nav>
+    <div class="p-4">
+      <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">热门标签</p>
+      <div class="flex flex-wrap gap-1.5 px-1">
+        <template x-for="t in tagCloud" :key="t.name">
+          <button @click="filterByTag(t.name)" :class="currentTag === t.name ? 'bg-primary-100 text-primary-700' : ''" class="px-2 py-0.5 text-xs rounded-full bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">
+            #<span x-text="t.name"></span> <span class="text-gray-300" x-text="t.count"></span>
+          </button>
+        </template>
+        <span x-show="tagCloud.length === 0" class="text-xs text-gray-300">暂无标签</span>
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl p-4 text-white">
+        <div class="flex items-center justify-between mb-3">
+          <div class="flex items-center gap-2">
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
+            <span class="font-semibold text-sm">每日签到</span>
+          </div>
+          <span x-show="isLoggedIn" x-text="userPoints + ' 积分'" class="text-xs bg-white/20 px-2 py-0.5 rounded-full"></span>
+        </div>
+        <div x-show="isLoggedIn && checkinLoaded" class="flex gap-4 mb-3 text-center">
+          <div class="flex-1"><div class="streak-num" x-text="checkinStreak">0</div><div class="text-xs text-white/60">连续签到</div></div>
+          <div class="flex-1"><div class="streak-num" x-text="checkinTotal">0</div><div class="text-xs text-white/60">累计签到</div></div>
+        </div>
+        <div x-show="isLoggedIn && todayCheckedIn" class="text-center text-sm text-white/80 mb-2">✓ 今日已签到</div>
+        <button @click="showCheckinHistory()" class="w-full py-1.5 bg-white/10 hover:bg-white/20 text-white text-xs rounded-xl transition">查看签到日历</button>
+      </div>
+    </div>
+    <div class="p-4">
+      <div class="bg-gray-50 rounded-2xl p-4 space-y-3">
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">社区统计</p>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">话题数</span><span class="font-semibold" x-text="statPosts">-</span></div>
+        <div class="flex justify-between text-sm"><span class="text-gray-500">评论数</span><span class="font-semibold" x-text="statComments">-</span></div>
+      </div>
+    </div>
+  </aside>
+  <main class="flex-1 min-w-0 p-4 lg:p-6">
+    <div class="flex items-center justify-between mb-6">
+      <div>
+        <h1 class="text-xl font-bold text-gray-900" x-text="pageTitle">全部话题</h1>
+        <p class="text-sm text-gray-500 mt-0.5" x-text="pageSub">欢迎来到社区，参与讨论吧</p>
+      </div>
+      <button @click="showNewPostModal()" class="flex items-center gap-2 px-4 py-2.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 shadow-lg shadow-primary-600/20 transition">
+        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+        发布新话题
+      </button>
+    </div>
+    <div class="flex items-center gap-1 mb-4 overflow-x-auto">
+      <template x-for="s in sortOptions" :key="s.value">
+        <button @click="setSort(s.value)" :class="currentSort === s.value ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 text-xs font-medium rounded-lg transition whitespace-nowrap" x-text="s.label"></button>
+      </template>
+    </div>
+    <div x-show="loading" class="space-y-3">
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+      <div class="bg-white rounded-xl border border-gray-100 p-5"><div class="flex gap-3"><div class="w-9 h-9 rounded-full skeleton flex-shrink-0"></div><div class="flex-1 space-y-2"><div class="h-4 w-24 skeleton rounded"></div><div class="h-5 w-3/4 skeleton rounded"></div><div class="h-4 w-full skeleton rounded"></div></div></div></div>
+    </div>
+    <div x-show="!loading" class="space-y-3">
+      <template x-for="p in posts" :key="p.id">
+        <div class="post-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer transition hover:border-gray-200" @click="location.href='/post.html?id=' + p.id">
+          <div class="flex items-start gap-3">
+            <a :href="'/profile.html?id=' + p.author_id" @click.stop class="flex-shrink-0" x-html="postAvatarHtml(p)"></a>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-semibold text-gray-900" x-text="p.author_name"></span>
+                <span x-show="p.author_title" x-text="p.author_title" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"></span>
+                <span x-show="p.author_level_info" x-html="authorLevelHtml(p)" class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
+                <span class="text-xs text-gray-400" x-text="'#' + p.author_display_id"></span>
+                <span class="text-xs text-gray-400" x-text="relTime(p.created_at)"></span>
+                <span :class="catColorClass(p.category)" x-text="catLabel(p.category)" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" @click.stop="filterCategory(p.category)"></span>
+                <span x-show="p.updated_at" class="text-xs text-gray-400">(已编辑)</span>
+                <span x-show="p.images && p.images.length > 1" class="text-xs text-gray-400" x-text="'📷' + p.images.length"></span>
+                <span x-show="p.pinned" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>
+                <span x-show="p.private" class="text-xs px-2 py-0.5 rounded-full bg-gray-200 text-gray-500">私密</span>
+                <template x-if="isAdmin">
+                  <span class="ml-auto flex items-center gap-1">
+                    <button @click.stop="togglePinPost(p)" :class="p.pinned ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'" class="text-xs px-2 py-0.5 rounded-lg hover:bg-amber-200 transition" x-text="p.pinned ? '取消置顶' : '置顶'"></button>
+                    <button @click.stop="adminDeletePost(p.id)" class="text-xs px-2 py-0.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button>
+                  </span>
+                </template>
+              </div>
+              <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1" x-text="p.title"></h3>
+              <p class="text-sm text-gray-500 line-clamp-2" x-html="renderPostPreview(p)"></p>
+              <div x-show="p.tags && p.tags.length" class="flex flex-wrap gap-1.5 mt-1.5">
+                <template x-for="(tag, ti) in (p._showAllTags ? p.tags : (p.tags || []).slice(0, 3))" :key="tag">
+                  <span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" @click.stop="filterByTag(tag)" x-text="'#' + tag"></span>
+                </template>
+                <button x-show="p.tags && p.tags.length > 3" @click.stop="p._showAllTags = !p._showAllTags" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" x-text="p._showAllTags ? '收起' : '展开全部'"></button>
+              </div>
+              <img x-show="p.images && p.images.length > 0" :src="p.images && p.images[0]" class="mt-2 rounded-lg max-h-24 object-cover" @click.stop="openLightbox(p.images[0])">
+              <div class="flex items-center gap-4 mt-3">
+                <button @click.stop="toggleLike(p)" :class="likedIds.has(p.id) ? 'text-red-500' : 'text-gray-400'" class="flex items-center gap-1 text-xs hover:text-red-500 transition">
+                  <svg class="w-4 h-4" :fill="likedIds.has(p.id) ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4.318 6.318a4.5 4.5 0 000 6.364L12 20.364l7.682-7.682a4.5 4.5 0 00-6.364-6.364L12 7.636l-1.318-1.318a4.5 4.5 0 00-6.364 0z"/></svg>
+                  <span x-text="p.likes_count || 0"></span>
+                </button>
+                <span class="flex items-center gap-1 text-xs text-gray-400">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+                  <span x-text="p.comments_count || 0"></span>
+                </span>
+                <button @click.stop="toggleBookmark(p)" :class="bookmarkedIds.has(p.id) ? 'text-yellow-500' : 'text-gray-400'" class="flex items-center gap-1 text-xs hover:text-yellow-500 transition" title="收藏">
+                  <svg class="w-4 h-4" :fill="bookmarkedIds.has(p.id) ? 'currentColor' : 'none'" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M11.049 2.927c.3-.921 1.603-.921 1.902 0l1.519 4.674a1 1 0 00.95.69h4.915c.969 0 1.371 1.24.588 1.81l-3.976 2.888a1 1 0 00-.363 1.118l1.518 4.674c.3.922-.755 1.688-1.538 1.118l-3.976-2.888a1 1 0 00-1.176 0l-3.976 2.888c-.783.57-1.838-.197-1.538-1.118l1.518-4.674a1 1 0 00-.363-1.118l-3.976-2.888c-.784-.57-.38-1.81.588-1.81h4.914a1 1 0 00.951-.69l1.519-4.674z"/></svg>
+                </button>
+                <button @click.stop="sharePost({id:p.id,title:p.title,content:(p.content||'').slice(0,100)}, $event)" class="flex items-center gap-1 text-xs text-gray-400 hover:text-primary-500 transition" title="分享">
+                  <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8.684 13.342C8.886 12.938 9 12.482 9 12c0-.482-.114-.938-.316-1.342m0 2.684a3 3 0 110-2.684m0 2.684l6.632 3.316m-6.632-6l6.632-3.316m0 0a3 3 0 105.367-2.684 3 3 0 00-5.367 2.684zm0 9.316a3 3 0 105.368 2.684 3 3 0 00-5.368-2.684z"/></svg>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div x-show="!loading && posts.length === 0" class="text-center py-20">
+      <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z"/></svg>
+      <p class="text-gray-400">暂无话题，快来发布第一条吧</p>
+    </div>
+    <div x-show="pagination.pages > 1" class="flex items-center justify-center gap-2 mt-6">
+      <button x-show="pagination.page > 1" @click="loadPosts(pagination.page - 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>
+      <template x-for="pg in paginationRange" :key="pg">
+        <button @click="loadPosts(pg)" :class="pg === pagination.page ? 'w-8 h-8 text-sm bg-primary-600 text-white rounded-lg' : 'w-8 h-8 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition'" x-text="pg"></button>
+      </template>
+      <button x-show="pagination.page < pagination.pages" @click="loadPosts(pagination.page + 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>
+      <span class="text-xs text-gray-400 ml-2" x-text="'共 ' + pagination.total + ' 条'"></span>
+    </div>
+  </main>
+</div>
+
+<!-- Auth Modal -->
+<div x-data="authModal()" x-show="open" x-transition.opacity @click.self="hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">欢迎</h2>
+      <button @click="hide()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
+      <button @click="tab='login'" :class="tab==='login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">登录</button>
+      <button @click="tab='register'" :class="tab==='register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">注册</button>
+    </div>
+    <div x-show="tab==='login'" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="loginEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input x-model="loginPassword" type="password" placeholder="输入密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
+      <button @click="doLogin()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">登录</button>
+    </div>
+    <div x-show="tab==='register'" class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">用户名</label><input x-model="regUsername" type="text" placeholder="你的昵称" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="regEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">密码</label>
+        <input x-model="regPassword" type="password" placeholder="至少 6 位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div x-show="regPassword" class="mt-2">
+          <div class="flex gap-1 mb-1">
+            <template x-for="i in 4" :key="i">
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= regPasswordStrength.score ? regPasswordStrength.color : '#e5e7eb')"></div>
+            </template>
+          </div>
+          <p class="text-xs" :style="'color:' + regPasswordStrength.color" x-text="regPasswordStrength.label"></p>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">验证码</label>
+        <div class="flex gap-2">
+          <input x-model="regCode" type="text" placeholder="输入验证码" maxlength="6" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doRegister()">
+          <button @click="sendCode()" :disabled="codeCooldown > 0" class="px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition whitespace-nowrap" x-text="codeCooldown > 0 ? codeCooldown + 's' : '发送验证码'"></button>
+        </div>
+      </div>
+      <button @click="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
+    </div>
+  </div>
+</div>
+
+<!-- New Post Modal -->
+<div x-show="newPostOpen" x-transition.opacity @click.self="newPostOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
+      <h2 class="text-lg font-bold" x-text="editingPostId ? '编辑话题' : '发布新话题'">发布新话题</h2>
+      <button @click="newPostOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">标题</label><input x-model="newPostTitle" type="text" placeholder="请输入话题标题" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">分类</label><select x-model="newPostCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+        <template x-for="c in postableCategories" :key="c.name">
+          <option :value="c.name" x-text="c.label"></option>
+        </template>
+      </select></div>
+      <div><label class="block text-sm font-medium text-gray-700 mb-1">正文</label><textarea x-model="newPostContent" rows="5" placeholder="分享你的想法..." class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea></div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">图片（可选，最多30张，每张10MB）</label>
+        <div class="flex flex-wrap gap-2">
+          <template x-for="(f, idx) in selectedImages" :key="idx">
+            <div class="relative w-20 h-20 rounded-lg group" draggable="true" @dragstart="dragImageIdx = idx" @dragover.prevent @drop.prevent="dropImage(idx)">
+              <img :src="f._url" class="w-full h-full object-cover rounded-lg">
+              <div class="absolute inset-0 flex flex-col items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition bg-black/30 rounded-lg">
+                <button @click="insertImageAtCursor(idx)" class="w-full py-1 bg-primary-600/90 text-white text-[11px] font-medium hover:bg-primary-700 transition">插入正文</button>
+                <button @click="selectedImages.splice(idx, 1)" class="w-full py-1 bg-red-500/90 text-white text-[11px] font-medium hover:bg-red-600 transition">删除</button>
+              </div>
+              <span class="absolute top-1 left-1 w-5 h-5 bg-black/60 text-white text-[10px] rounded-full flex items-center justify-center font-bold" x-text="idx + 1"></span>
+            </div>
+          </template>
+          <div x-show="selectedImages.length < 30" @click="$refs.postImagesInput.click()" class="w-20 h-20 border-2 border-dashed border-gray-200 rounded-lg flex items-center justify-center cursor-pointer hover:border-primary-300 transition mt-2">
+            <svg class="w-8 h-8 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+          </div>
+        </div>
+        <input type="file" x-ref="postImagesInput" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" multiple class="hidden" @change="handleImageSelect($event)">
+        <p class="text-xs text-gray-400 mt-1">支持 JPG / PNG / GIF / WebP / BMP，单张最大 10MB</p>
+      </div>
+      <div>
+        <label class="block text-sm font-medium text-gray-700 mb-1">标签（可选，最多10个）</label>
+        <div class="flex flex-wrap gap-1.5 p-2 border border-gray-200 rounded-xl min-h-[42px] cursor-text" @click="$refs.tagInputRef.focus()">
+          <template x-for="(tag, ti) in newPostTags" :key="ti">
+            <span class="inline-flex items-center gap-1 px-2 py-0.5 bg-primary-50 text-primary-700 rounded-full text-xs">
+              <span x-text="tag"></span>
+              <button @click="newPostTags.splice(ti, 1)" class="hover:text-primary-900">&times;</button>
+            </span>
+          </template>
+          <input x-ref="tagInputRef" type="text" class="flex-1 min-w-[60px] text-sm outline-none bg-transparent" placeholder="输入标签回车确认" @keydown.enter.prevent="addTag()" @keydown.,="addTag()">
+        </div>
+        <p class="text-xs text-gray-400 mt-1">回车添加，每个标签最多20字</p>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-2">
+          <label class="text-sm font-medium text-gray-700">投票（可选）</label>
+          <button @click="showPollForm = !showPollForm" class="text-xs text-primary-500 hover:text-primary-700 transition" x-text="showPollForm ? '取消投票' : '添加投票'"></button>
+        </div>
+        <div x-show="showPollForm" class="space-y-3 p-3 bg-gray-50 rounded-xl border border-gray-200">
+          <input x-model="pollQuestion" type="text" placeholder="投票问题" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+          <div class="space-y-2">
+            <template x-for="(opt, oi) in pollOptions" :key="oi">
+              <div class="flex gap-2">
+                <input x-model="pollOptions[oi]" type="text" :placeholder="'选项' + (oi+1)" class="flex-1 px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300">
+                <button @click="removePollOption(oi)" class="text-gray-400 hover:text-red-500"><svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+              </div>
+            </template>
+          </div>
+          <button @click="addPollOption()" class="text-xs text-primary-500 hover:text-primary-700">+ 添加选项</button>
+          <label class="flex items-center gap-1.5 text-sm">
+            <input x-model="pollMultiple" type="checkbox" class="w-3.5 h-3.5 rounded text-primary-600">
+            <span>允许多选</span>
+          </label>
+          <div>
+            <label class="text-xs text-gray-500">投票时长</label>
+            <select x-model="pollDuration" class="w-full px-3 py-1.5 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none">
+              <option value="">不限时</option>
+              <option value="1h">1小时</option>
+              <option value="6h">6小时</option>
+              <option value="1d">1天</option>
+              <option value="3d">3天</option>
+              <option value="7d">7天</option>
+              <option value="30d">30天</option>
+            </select>
+          </div>
+        </div>
+      </div>
+      <label class="flex items-center gap-2 cursor-pointer">
+        <input x-model="newPostPrivate" type="checkbox" class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500">
+        <span class="text-sm text-gray-600">私密帖子（仅自己可见）</span>
+      </label>
+    </div>
+    <div class="p-5 border-t border-gray-100 flex-shrink-0">
+      <button @click="doNewPost()" :disabled="submittingPost" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition" x-text="submittingPost ? '发布中...' : '发布话题'"></button>
+    </div>
+  </div>
+</div>
+
+<!-- Image Lightbox -->
+<div x-data="{ open: false, src: '' }" x-show="$store.lightbox.open" x-transition.opacity @click="$store.lightbox.open=false" class="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" style="display:none">
+  <button @click="$store.lightbox.open=false" class="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+  <img :src="$store.lightbox.src" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" @click.stop>
+</div>
+
+<!-- Change Password Modal -->
+<div x-data="changePasswordModal()" x-show="open" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="text-center mb-5">
+      <div class="w-16 h-16 mx-auto mb-3 bg-amber-100 rounded-full flex items-center justify-center">
+        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+      </div>
+      <h3 class="text-lg font-bold text-gray-900 mb-1">安全提示</h3>
+      <p class="text-sm text-gray-500">检测到您正在使用默认密码，为了账号安全，请立即修改密码</p>
+    </div>
+    <div class="space-y-3 mb-5">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label><input x-model="oldPassword" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
+        <input x-model="newPassword" @input="updateStrength()" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        <div x-show="newPassword" class="mt-2">
+          <div class="flex gap-1 mb-1">
+            <template x-for="i in 4" :key="i">
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= passwordStrength.score ? passwordStrength.color : '#e5e7eb')"></div>
+            </template>
+          </div>
+          <p class="text-xs" :style="'color:' + passwordStrength.color" x-text="passwordStrength.label"></p>
+        </div>
+      </div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label><input x-model="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+    </div>
+    <button @click="submit()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+    <p class="text-xs text-gray-400 text-center mt-3">修改后此提示将不再出现</p>
+  </div>
+</div>
+
+<!-- Category Management Modal -->
+<div x-show="categoryModalOpen" x-transition.opacity @click.self="categoryModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[80vh] flex flex-col">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">分类管理</h2>
+      <button @click="categoryModalOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto space-y-2 mb-4">
+      <template x-for="c in categoriesData" :key="c.id">
+        <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+          <span class="text-lg" x-text="c.icon || (c.section_type === 'announcement' ? '📢' : c.section_type === 'hot' ? '🔥' : '💬')"></span>
+          <span class="text-xs px-2 py-1 rounded-full" :class="c.color" x-text="c.label"></span>
+          <span class="text-xs text-gray-400 font-mono" x-text="c.name"></span>
+          <span x-show="c.section_type === 'announcement'" class="text-[10px] px-1.5 py-0.5 rounded bg-amber-100 text-amber-700">公告</span>
+          <span x-show="c.section_type === 'hot'" class="text-[10px] px-1.5 py-0.5 rounded bg-red-100 text-red-700">热门</span>
+          <span x-show="c.created_by && c.section_type === 'normal'" class="text-[10px] px-1.5 py-0.5 rounded bg-green-100 text-green-700">用户</span>
+          <div class="ml-auto flex items-center gap-1">
+            <button @click="editCategory(c)" class="px-2 py-1 text-xs bg-gray-200 hover:bg-gray-300 rounded-lg transition">编辑</button>
+            <button x-show="c.section_type !== 'announcement' && c.section_type !== 'hot'" @click="deleteCategory(c)" class="px-2 py-1 text-xs bg-red-50 text-red-500 hover:bg-red-100 rounded-lg transition">删除</button>
+          </div>
+        </div>
+      </template>
+      <p x-show="categoriesData.length === 0" class="text-sm text-gray-400 text-center py-4">暂无分类</p>
+    </div>
+    <div class="border-t border-gray-100 pt-4 space-y-2">
+      <p class="text-xs font-medium text-gray-500">添加新分类</p>
+      <div class="flex gap-2 items-center">
+        <input x-model="newCatName" type="text" class="w-24 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标识">
+        <input x-model="newCatLabel" type="text" class="flex-1 min-w-0 px-3 py-2 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="显示名">
+        <button @click="createCategory()" class="shrink-0 px-3 py-2 bg-primary-600 text-white text-sm rounded-xl hover:bg-primary-700 transition">添加</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Check-in History Modal -->
+<div x-show="checkinModalOpen" x-transition.opacity @click.self="checkinModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">签到日历</h2>
+      <button @click="checkinModalOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-5">
+      <div class="grid grid-cols-4 gap-3">
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-primary-600" x-text="calStats.currentStreak">0</div><div class="text-xs text-gray-500 mt-1">连续签到</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-amber-500" x-text="calStats.longestStreak">0</div><div class="text-xs text-gray-500 mt-1">最长连续</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-green-600" x-text="calStats.totalDays">0</div><div class="text-xs text-gray-500 mt-1">累计签到</div></div>
+        <div class="bg-gray-50 rounded-xl p-3 text-center"><div class="streak-num text-gray-400" x-text="calStats.missedCount">0</div><div class="text-xs text-gray-500 mt-1">可补签</div></div>
+      </div>
+      <div>
+        <div class="flex items-center justify-between mb-3">
+          <h3 class="text-sm font-semibold text-gray-700">签到日历</h3>
+          <div class="flex items-center gap-3 text-xs text-gray-400">
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-green-500 inline-block"></span>已签</span>
+            <span class="flex items-center gap-1"><span class="w-3 h-3 rounded-full bg-red-200 inline-block"></span>未签</span>
+          </div>
+        </div>
+        <div class="flex items-center justify-between mb-3">
+          <button @click="calPrev()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 19l-7-7 7-7"/></svg>
+          </button>
+          <div class="flex items-center gap-2">
+            <div class="relative">
+              <button @click="showMonthPicker = !showMonthPicker" class="text-base font-bold text-gray-800 hover:text-primary-600 transition cursor-pointer px-3 py-1 rounded-lg hover:bg-gray-100 flex items-center gap-1">
+                <span x-text="calYear + '年' + (calMonth + 1) + '月'"></span>
+                <svg class="w-3.5 h-3.5 inline-block text-gray-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"/></svg>
+              </button>
+              <div x-show="showMonthPicker" @click.outside="showMonthPicker = false" class="absolute top-full mt-2 bg-white rounded-xl shadow-xl border border-gray-100 p-3 z-10 fade-in" style="width:240px;left:50%;margin-left:-120px">
+                <div class="grid grid-cols-3 gap-2">
+                  <template x-for="(mn, mi) in monthNames" :key="mi">
+                    <button @click="selectMonth(mi)" :class="mi === calMonth ? 'bg-primary-600 text-white font-semibold' : 'text-gray-600 hover:bg-gray-100'" class="py-2 text-sm rounded-lg transition" x-text="mn"></button>
+                  </template>
+                </div>
+              </div>
+            </div>
+            <button @click="calGoToday()" class="text-xs px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 font-medium transition">今天</button>
+          </div>
+          <button @click="calNext()" class="p-1.5 rounded-lg hover:bg-gray-100 transition">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+          </button>
+        </div>
+        <div class="bg-gray-50 rounded-2xl p-4 overflow-hidden">
+          <div class="cal-month mb-2">
+            <span class="cal-head">日</span><span class="cal-head">一</span><span class="cal-head">二</span><span class="cal-head">三</span><span class="cal-head">四</span><span class="cal-head">五</span><span class="cal-head">六</span>
+          </div>
+          <div class="cal-month" style="transition:opacity .2s ease,transform .2s ease">
+            <template x-for="(cell, ci) in calendarCells" :key="ci">
+              <div :class="cell.cls" :style="cell.style" @click="cell.clickable ? doRetroactive(cell.dateStr) : null" :title="cell.title">
+                <span x-show="cell.missed" x-text="cell.day"></span>
+                <span x-show="!cell.missed" x-text="cell.day"></span>
+              </div>
+            </template>
+          </div>
+        </div>
+      </div>
+      <div x-show="calStats.missedCount > 0">
+        <h3 class="text-sm font-semibold text-gray-700 mb-2">补签</h3>
+        <p class="text-xs text-gray-500 mb-3">灰色格子为未签到日期，点击可补签，每次消耗 <strong>10 积分</strong></p>
+        <div class="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
+          <div class="flex-1">
+            <div class="text-sm font-medium text-amber-800">当前积分：<span x-text="userPoints">0</span></div>
+            <div class="text-xs text-amber-600">可补签 <span x-text="Math.min(calStats.missedCount, Math.floor(userPoints / 10))">0</span> 天</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Admin Panel Modal -->
+<div x-show="adminPanelOpen" x-transition.opacity @click.self="adminPanelOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <div class="flex items-center gap-3">
+        <h2 class="text-lg font-bold">管理面板</h2>
+        <span :class="isSuperAdmin ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'" class="text-xs px-2 py-0.5 rounded-full" x-text="isSuperAdmin ? '超级管理员' : '管理员'"></span>
+      </div>
+      <button @click="adminPanelOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex border-b border-gray-100">
+      <button @click="adminTab = 'users'" :class="adminTab === 'users' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">用户管理</button>
+      <button @click="adminTab = 'smtp'; loadSmtpConfig()" :class="adminTab === 'smtp' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">邮箱设置</button>
+      <button @click="adminTab = 'about'; loadVersionInfo()" :class="adminTab === 'about' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">关于</button>
+    </div>
+    <div x-show="adminTab === 'users'" class="flex-1 overflow-y-auto p-5 space-y-3">
+      <template x-for="u in adminUsers" :key="u.id">
+        <div class="bg-gray-50 rounded-xl p-3">
+          <div class="flex items-center gap-3">
+            <a :href="'/profile.html?id=' + u.id" class="flex-shrink-0" x-html="adminAvatarHtml(u)"></a>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2 flex-wrap">
+                <span class="text-sm font-semibold text-gray-900 truncate" x-text="u.username"></span>
+                <span class="text-xs text-gray-400" x-text="'#' + u.display_id"></span>
+                <span x-show="u.role === 'super_admin'" class="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white">超管</span>
+                <span x-show="u.role === 'admin'" class="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white">管理</span>
+                <span x-show="u.muted" class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-0.5"><span x-text="u.email"></span> · <span x-text="u.points + '积分'"></span></div>
+            </div>
+          </div>
+          <div class="flex items-center gap-1.5 mt-2 flex-wrap">
+            <template x-if="isSuperAdmin && u.role !== 'super_admin'">
+              <span class="contents">
+                <button x-show="u.role !== 'admin'" @click="grantAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">设为管理</button>
+                <button x-show="u.role === 'admin'" @click="revokeAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>
+                <button @click="transferSuperAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
+              </span>
+            </template>
+            <template x-if="u.role !== 'super_admin'">
+              <span class="contents">
+                <button @click="rewardPoints(u)" class="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">奖励积分</button>
+                <button @click="toggleMute(u)" :class="u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="text-xs px-2 py-1 rounded-lg transition" x-text="u.muted ? '解禁' : '禁言'"></button>
+                <button @click="adminDeleteUser(u)" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
+              </span>
+            </template>
+          </div>
+        </div>
+      </template>
+      <p x-show="adminUsers.length === 0" class="text-sm text-gray-400 text-center py-8">暂无用户</p>
+    </div>
+    <div x-show="adminTab === 'smtp'" class="flex-1 overflow-y-auto p-5">
+      <div class="space-y-4 max-w-md mx-auto">
+        <div><label class="block text-xs font-medium text-gray-500 mb-1">SMTP 主机</label><input x-model="smtp.host" type="text" placeholder="smtp.qq.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+        <div class="flex gap-3">
+          <div class="flex-1"><label class="block text-xs font-medium text-gray-500 mb-1">端口</label><input x-model="smtp.port" type="text" placeholder="465" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+          <div class="flex items-end pb-2.5"><label class="flex items-center gap-2 cursor-pointer"><input x-model="smtp.secure" type="checkbox" checked class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"><span class="text-sm text-gray-600">SSL</span></label></div>
+        </div>
+        <div><label class="block text-xs font-medium text-gray-500 mb-1">发件邮箱</label><input x-model="smtp.user" type="email" placeholder="your@qq.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">SMTP 密码/授权码</label>
+          <input x-model="smtp.pass" type="password" :placeholder="smtp.configured ? '已配置（留空不修改）' : '输入密码或授权码'" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+          <p class="text-xs text-gray-400 mt-1">QQ邮箱需要授权码，在邮箱设置中获取</p>
+        </div>
+        <div class="flex gap-3 pt-2">
+          <button @click="saveSmtpConfig()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存配置</button>
+          <button @click="testSmtpConfig()" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">测试连接</button>
+        </div>
+        <div x-show="smtpStatus" :class="smtpStatusOk ? 'text-green-600' : 'text-red-500'" class="text-center text-sm" x-text="smtpStatus"></div>
+      </div>
+    </div>
+    <div x-show="adminTab === 'about'" class="flex-1 overflow-y-auto p-5">
+      <div class="max-w-md mx-auto space-y-6">
+        <div class="text-center">
+          <div class="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center">
+            <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+          </div>
+          <h2 class="text-xl font-bold text-gray-900">MiForum</h2>
+          <p class="text-sm text-gray-500 mt-1">Flarum 风格的轻量论坛</p>
+        </div>
+        <div class="bg-gray-50 rounded-xl p-4 space-y-3">
+          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">当前版本</span><span class="text-sm font-medium text-gray-900" x-text="'v' + aboutVersion"></span></div>
+          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">许可证</span><span class="text-sm font-medium text-gray-900">MIT</span></div>
+          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">GitHub</span><a href="https://github.com/parkes-mimir/miforum" target="_blank" class="text-sm font-medium text-primary-600 hover:underline">parkes-mimir/miforum</a></div>
+        </div>
+        <div class="space-y-3">
+          <button @click="checkUpdate()" :disabled="updateChecking" class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition" x-text="updateChecking ? '检查中...' : '检查更新'"></button>
+          <div x-show="updateResult" :class="updateResultOk ? 'text-green-600' : 'text-amber-600'" class="text-center text-sm" x-html="updateResult"></div>
+          <button x-show="updateHasNew" @click="doUpdate()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">立即更新</button>
+        </div>
+        <div class="text-center text-xs text-gray-400 pt-4">
+          <p>Node.js + Express + SQLite</p>
+          <p class="mt-1">Tailwind CSS + Alpine.js</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Create Section Modal -->
+<div x-show="createSectionOpen" x-transition.opacity @click.self="createSectionOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">创建板块</h2>
+      <button @click="createSectionOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">板块标识（英文）</label><input x-model="newSection.name" type="text" placeholder="如：game、music" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">板块名称</label><input x-model="newSection.label" type="text" placeholder="如：游戏、音乐" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">简介（可选）</label><input x-model="newSection.description" type="text" placeholder="板块简介" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">图标（emoji，可选）</label><input x-model="newSection.icon" type="text" placeholder="如：🎮" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+    </div>
+    <button @click="doCreateSection()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">创建</button>
+  </div>
+</div>
+
+<!-- Toast -->
+<div x-data="toastContainer()" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] space-y-2">
+  <template x-for="t in toasts" :key="t.id">
+    <div x-text="t.message" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
+  </template>
+</div>
+
+<%- include('partials/scripts') %>
+<script src="/js/pages/forum.js"></script>
+<script>
+  // 注入交互组件到页面
+  injectToast();
+  injectAuthModal();
+  injectChangePasswordModal();
+  injectLightbox();
+</script>
+<script src="/js/alpine.min.js"></script>
+</body>
+</html>

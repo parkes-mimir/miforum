@@ -5,7 +5,7 @@
 const bcrypt = require('bcryptjs');
 const { requireAuth } = require('../middleware/auth');
 const { intToBool } = require('../utils/helpers');
-const { getLevelInfo, EXP_REWARDS, addExp } = require('./level');
+const { getLevelInfo, EXP_REWARDS, addExp } = require('../services/level');
 const { generateCode, sendVerificationCode } = require('../utils/email');
 const { getNextDisplayId } = require('../database');
 
@@ -15,8 +15,47 @@ const { getNextDisplayId } = require('../database');
  * @param {Object} db 数据库实例
  */
 function authRoutes(app, db) {
-  // 验证码错误锁定（内存存储，重启重置）
-  const codeLockouts = new Map(); // key -> { attempts, lockedUntil }
+  // 确保锁定表存在（兼容旧数据库）
+  db.exec(`CREATE TABLE IF NOT EXISTS code_lockouts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    lockout_key TEXT UNIQUE NOT NULL,
+    attempts INTEGER DEFAULT 0,
+    locked_until TEXT,
+    updated_at TEXT DEFAULT (datetime('now'))
+  )`);
+
+  /**
+   * 检查锁定状态
+   * @returns {Object|null} 锁定信息或 null
+   */
+  function getLockout(key) {
+    return db.prepare('SELECT * FROM code_lockouts WHERE lockout_key = ?').get(key);
+  }
+
+  /**
+   * 增加失败尝试次数
+   */
+  function incrementAttempts(key) {
+    const lockout = getLockout(key);
+    if (!lockout) {
+      db.prepare('INSERT INTO code_lockouts (lockout_key, attempts) VALUES (?, 1)').run(key);
+    } else {
+      const attempts = lockout.attempts + 1;
+      if (attempts >= 5) {
+        const lockedUntil = new Date(Date.now() + 10 * 60 * 1000).toISOString();
+        db.prepare('UPDATE code_lockouts SET attempts = 0, locked_until = ?, updated_at = datetime(\'now\') WHERE lockout_key = ?').run(lockedUntil, key);
+      } else {
+        db.prepare('UPDATE code_lockouts SET attempts = ?, updated_at = datetime(\'now\') WHERE lockout_key = ?').run(attempts, key);
+      }
+    }
+  }
+
+  /**
+   * 清除锁定状态
+   */
+  function clearLockout(key) {
+    db.prepare('DELETE FROM code_lockouts WHERE lockout_key = ?').run(key);
+  }
 
   // 发送验证码
   app.post('/api/send-code', async (req, res) => {
@@ -80,9 +119,9 @@ function authRoutes(app, db) {
     if (process.env.NODE_ENV !== 'test') {
       // 检查是否被锁定
       const lockoutKey = email + ':register';
-      const lockout = codeLockouts.get(lockoutKey);
-      if (lockout && lockout.lockedUntil > Date.now()) {
-        const remaining = Math.ceil((lockout.lockedUntil - Date.now()) / 60000);
+      const lockout = getLockout(lockoutKey);
+      if (lockout && lockout.locked_until && new Date(lockout.locked_until) > new Date()) {
+        const remaining = Math.ceil((new Date(lockout.locked_until) - Date.now()) / 60000);
         return res.status(429).json({ error: `验证码错误次数过多，请${remaining}分钟后再试` });
       }
 
@@ -91,18 +130,12 @@ function authRoutes(app, db) {
       ).get(email, code);
       if (!verification) {
         // 记录失败尝试
-        const current = codeLockouts.get(lockoutKey) || { attempts: 0, lockedUntil: 0 };
-        current.attempts++;
-        if (current.attempts >= 5) {
-          current.lockedUntil = Date.now() + 10 * 60 * 1000;
-          current.attempts = 0;
-        }
-        codeLockouts.set(lockoutKey, current);
+        incrementAttempts(lockoutKey);
         return res.status(400).json({ error: '验证码无效或已过期' });
       }
 
       // 验证成功，清除锁定
-      codeLockouts.delete(lockoutKey);
+      clearLockout(lockoutKey);
       // 标记验证码已使用
       db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
     }

@@ -22,6 +22,7 @@ const helmet = require('helmet');
 const rateLimit = require('express-rate-limit');
 const { getDb, closeDb } = require('./database');
 const { UPLOADS_DIR } = require('./utils/helpers');
+const { registerRoutes } = require('./routes');
 
 /**
  * 获取本机所有局域网 IP
@@ -53,7 +54,7 @@ function createApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
@@ -133,6 +134,10 @@ function createApp() {
   app.use(express.json({ limit: '2mb' }));
   app.use(express.urlencoded({ extended: true, limit: '2mb' }));
 
+  // 模板引擎配置（EJS）
+  app.set('view engine', 'ejs');
+  app.set('views', path.join(__dirname, '../views'));
+
   // HTML 文件禁用缓存
   app.use((req, res, next) => {
     if (req.path.endsWith('.html') || req.path === '/' || req.path === '/shop') {
@@ -143,16 +148,28 @@ function createApp() {
     next();
   });
 
-  // 静态文件
-  app.use(express.static(path.join(__dirname, '../public'), { etag: false, lastModified: false }));
-  app.use('/uploads', express.static(UPLOADS_DIR));
+  // 静态文件（启用 ETag 缓存，JS/CSS 缓存1小时，图片缓存7天）
+  app.use(express.static(path.join(__dirname, '../public'), {
+    etag: true,
+    lastModified: true,
+    maxAge: '1h',
+    setHeaders: (res, filePath) => {
+      // 图片等静态资源缓存更久
+      if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
+        res.setHeader('Cache-Control', 'public, max-age=604800'); // 7天
+      }
+    }
+  }));
+  app.use('/uploads', express.static(UPLOADS_DIR, { etag: true, lastModified: true, maxAge: '7d' }));
 
-  // 页面路由
-  app.get('/', (req, res) => res.sendFile(path.join(__dirname, '../public/forum.html')));
-  app.get('/shop', (req, res) => res.sendFile(path.join(__dirname, '../public/shop.html')));
-  app.get('/messages', (req, res) => res.sendFile(path.join(__dirname, '../public/messages.html')));
+  // 页面路由（使用 EJS 模板渲染）
+  app.get('/', (req, res) => res.render('forum'));
+  app.get('/shop', (req, res) => res.render('shop'));
+  app.get('/messages', (req, res) => res.render('messages'));
+  app.get('/post.html', (req, res) => res.render('post'));
+  app.get('/profile.html', (req, res) => res.render('profile'));
 
-  // Session 配置
+  // Session 配置（使用 SQLite 持久化存储）
   // 如果未设置 SESSION_SECRET 环境变量，则生成一个持久化的随机密钥
   let SESSION_SECRET = process.env.SESSION_SECRET;
   if (!SESSION_SECRET) {
@@ -170,8 +187,17 @@ function createApp() {
       SESSION_SECRET = crypto.randomBytes(32).toString('hex');
     }
   }
-  const cookieSecure = process.env.COOKIE_SECURE === 'true'; // 需要 HTTPS 环境变量开启
+
+  const cookieSecure = process.env.COOKIE_SECURE === 'true';
+  const SqliteStore = require('better-sqlite3-session-store')(session);
+  const sessionDb = require('better-sqlite3')(require('./database').DB_FILE);
+  sessionDb.pragma('journal_mode = WAL');
+
   app.use(session({
+    store: new SqliteStore({
+      client: sessionDb,
+      expired: { clear: true, intervalMs: 900000 } // 每15分钟清理过期会话
+    }),
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
@@ -184,25 +210,6 @@ function createApp() {
   }));
 
   return app;
-}
-
-// ============================================================
-// 注册路由
-// ============================================================
-function registerRoutes(app, db) {
-  require('./controllers/auth')(app, db);
-  require('./controllers/posts')(app, db);
-  require('./controllers/comments')(app, db);
-  require('./controllers/checkin')(app, db);
-  require('./controllers/likes')(app, db);
-  require('./controllers/shop')(app, db);
-  require('./controllers/level')(app, db);
-  require('./controllers/profile')(app, db);
-  require('./controllers/admin')(app, db);
-  require('./controllers/notifications')(app, db);
-  require('./controllers/messages')(app, db);
-  require('./controllers/polls')(app, db);
-  require('./controllers/emoji')(app, db);
 }
 
 // ============================================================
@@ -224,6 +231,21 @@ function startServer() {
   const db = getDb();
   const app = createApp();
   registerRoutes(app, db);
+
+  // 启动日志显示数据库路径
+  console.log(`  数据库: ${require('./database').DB_FILE}`);
+
+  // 统一错误处理中间件
+  // eslint-disable-next-line no-unused-vars
+  app.use((err, req, res, next) => {
+    console.error('  ✗ 未捕获错误:', err.message);
+    if (process.env.NODE_ENV !== 'production') {
+      console.error(err.stack);
+    }
+    res.status(err.status || 500).json({
+      error: err.message || '服务器内部错误'
+    });
+  });
 
   const server = app.listen(PORT, '0.0.0.0', () => {
     const ips = getLocalIps();

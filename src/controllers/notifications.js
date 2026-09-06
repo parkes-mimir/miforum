@@ -4,15 +4,6 @@
 
 const { requireAuth } = require('../middleware/auth');
 
-function createNotification(db, { userId, fromUserId, type, postId }) {
-  if (userId === fromUserId) return null;
-  const result = db.prepare(`
-    INSERT INTO notifications (user_id, from_user_id, type, post_id)
-    VALUES (?, ?, ?, ?)
-  `).run(userId, fromUserId, type, postId || null);
-  return result.lastInsertRowid;
-}
-
 module.exports = function (app, db) {
 
   /** 获取当前用户通知（分页，最新优先，支持按类型筛选） */
@@ -89,5 +80,3 @@ module.exports = function (app, db) {
     res.json({ ok: true });
   });
 };
-
-module.exports.createNotification = createNotification;

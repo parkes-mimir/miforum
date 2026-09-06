@@ -1,8 +1,8 @@
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { commentUpload, multerUpload } = require('../utils/upload');
-const { addExp, EXP_REWARDS } = require('./level');
-const { createNotification } = require('./notifications');
+const { addExp, EXP_REWARDS } = require('../services/level');
+const { createNotification } = require('../services/notification');
 
 module.exports = function (app, db) {
 

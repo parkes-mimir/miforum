@@ -1,0 +1,35 @@
+<!-- Topbar -->
+<header x-data="header()" class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
+  <div class="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
+    <div class="flex items-center gap-3">
+      <a href="/" class="flex items-center gap-2 font-bold text-xl text-primary-600">
+        <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
+        MiForum
+      </a>
+      <% if (typeof subtitle !== 'undefined' && subtitle) { %>
+        <span class="text-sm text-gray-400">/ <%= subtitle %></span>
+      <% } %>
+    </div>
+    <div class="flex items-center gap-2">
+      <template x-if="isLoggedIn">
+        <div class="flex items-center gap-1">
+          <a href="/messages" class="relative p-2 rounded-lg hover:bg-gray-100 transition" title="消息中心">
+            <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 8l7.89 5.26a2 2 0 002.22 0L21 8M5 19h14a2 2 0 002-2V7a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/></svg>
+            <span x-show="unreadCount > 0" x-text="unreadCount" class="absolute -top-1 -right-1 min-w-[18px] h-[18px] bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-1"></span>
+          </a>
+          <a :href="'/profile.html?id=' + user.id" class="flex items-center gap-2 hover:opacity-80 transition ml-1">
+            <div x-html="userAvatarHtml" class="flex-shrink-0"></div>
+            <div class="hidden sm:flex flex-col">
+              <span class="text-sm font-medium" x-text="user.username"></span>
+              <span x-show="user.title" x-text="user.title" class="text-[10px] text-gray-400"></span>
+            </div>
+          </a>
+          <button @click="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
+        </div>
+      </template>
+      <template x-if="!isLoggedIn">
+        <button @click="$store.auth.showLogin = true" class="px-4 py-1.5 bg-primary-600 text-white text-sm font-medium rounded-xl hover:bg-primary-700 transition">登录 / 注册</button>
+      </template>
+    </div>
+  </div>
+</header>

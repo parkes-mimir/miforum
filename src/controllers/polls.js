@@ -3,42 +3,9 @@
  */
 
 const { requireAuth } = require('../middleware/auth');
-
-/**
- * 创建投票（供 posts 控制器调用）
- * @param {Object} db - 数据库实例
- * @param {number} postId - 帖子 ID
- * @param {string} question - 投票问题
- * @param {string[]} options - 选项文本数组
- * @param {Object} [settings] - 投票设置
- * @param {string} [settings.pollType='single'] - 'single' 或 'multiple'
- * @param {number} [settings.maxChoices=1] - 多选最大选项数
- * @param {string} [settings.closeAt] - 投票关闭时间（ISO 字符串）
- * @returns {number} pollId
- */
-function createPoll(db, postId, question, options, settings = {}) {
-  const { pollType = 'single', maxChoices = 1, closeAt } = settings;
-
-  const result = db.prepare(`
-    INSERT INTO polls (post_id, question, poll_type, max_choices, close_at, created_at)
-    VALUES (?, ?, ?, ?, ?, datetime('now'))
-  `).run(postId, question, pollType, maxChoices, closeAt || null);
-
-  const pollId = result.lastInsertRowid;
-  const insertOption = db.prepare(`
-    INSERT INTO poll_options (poll_id, text, sort_order) VALUES (?, ?, ?)
-  `);
-
-  options.forEach((text, i) => {
-    insertOption.run(pollId, text, i);
-  });
-
-  return pollId;
-}
+const { addExp, EXP_REWARDS } = require('../services/level');
 
 module.exports = function (app, db) {
-  const { addExp, EXP_REWARDS } = require('./level');
-
   /** 获取投票详情（含选项和结果） */
   app.get('/api/polls/:id', (req, res) => {
     const pollId = Number(req.params.id);
@@ -195,5 +162,3 @@ module.exports = function (app, db) {
     res.json({ ok: true });
   });
 };
-
-module.exports.createPoll = createPoll;

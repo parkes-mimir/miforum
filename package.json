@@ -1,6 +1,6 @@
 {
   "name": "miforum",
-  "version": "1.1.9",
+  "version": "1.2.0",
   "private": true,
   "license": "MIT",
   "scripts": {
@@ -22,7 +22,9 @@
   "dependencies": {
     "bcryptjs": "^2.4.3",
     "better-sqlite3": "^13.0.3",
+    "better-sqlite3-session-store": "^0.1.0",
     "dotenv": "^17.4.2",
+    "ejs": "^6.0.1",
     "express": "^4.21.2",
     "express-rate-limit": "^8.7.0",
     "express-session": "^1.18.1",

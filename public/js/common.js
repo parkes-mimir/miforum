@@ -17,6 +17,7 @@ function toast(msg) {
 
 /** ISO time → relative time (X分钟前 / X小时前 / YYYY年M月D日) */
 function relTime(iso) {
+  if (!iso) return '';
   const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
   const m = Math.floor(d / 60000);
   if (m < 1) return '刚刚';

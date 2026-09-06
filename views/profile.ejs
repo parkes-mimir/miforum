@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<%- include('partials/head', { title: 'MiForum - 个人资料' }) %>
+<style>
+  @media (max-width: 639px) {
+    .profile-stat:active{background:#eef2ff}
+    .post-card:active{transform:scale(0.98)}
+  }
+</style>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<%- include('partials/header', { subtitle: '' }) %>
+
+<!-- Toast Container -->
+<div x-data="toastContainer()" id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2">
+  <template x-for="t in toasts" :key="t.id">
+    <div x-text="t.message" class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
+  </template>
+</div>
+
+<!-- Profile Page -->
+<div x-data="profilePage()" x-cloak>
+
+  <!-- Loading -->
+  <div x-show="loading" class="max-w-3xl mx-auto p-4 lg:p-6">
+    <div class="bg-white rounded-2xl border border-gray-100 p-6 space-y-4">
+      <div class="flex gap-4 items-end">
+        <div class="w-20 h-20 rounded-full bg-gray-100 skeleton"></div>
+        <div class="space-y-2 flex-1"><div class="h-6 w-40 bg-gray-100 rounded skeleton"></div><div class="h-4 w-24 bg-gray-100 rounded skeleton"></div></div>
+      </div>
+      <div class="h-4 w-full bg-gray-100 rounded skeleton"></div>
+      <div class="h-4 w-3/4 bg-gray-100 rounded skeleton"></div>
+    </div>
+  </div>
+
+  <!-- Error -->
+  <div x-show="error" class="max-w-3xl mx-auto p-4 lg:p-6">
+    <p class="text-center text-red-400 py-20" x-text="error"></p>
+  </div>
+
+  <!-- Profile Content -->
+  <div x-show="!loading && !error && profile" class="max-w-3xl mx-auto p-4 lg:p-6">
+    <!-- Profile Card -->
+    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden mb-6">
+      <!-- Hero -->
+      <div class="bg-gradient-to-br from-primary-500 to-primary-700 p-6 sm:p-8">
+        <div class="flex items-end gap-4">
+          <div class="w-20 h-20 rounded-full p-0.5" :style="avatarFrameStyle">
+            <div x-html="profileAvatarHtml" class="w-full h-full rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white border-4 border-white/30 overflow-hidden"></div>
+          </div>
+          <div class="flex-1 min-w-0 pb-1">
+            <div class="flex items-center gap-2 flex-wrap">
+              <h1 x-text="profile?.username" class="text-xl font-bold text-white"></h1>
+              <span x-show="profile?.title" x-text="profile?.title" class="text-xs px-2 py-0.5 rounded-full bg-white/20 text-white border border-white/30"></span>
+              <span x-text="'#' + (profile?.display_id || '')" class="text-xs text-white/60"></span>
+              <span x-show="roleLabel" x-text="roleLabel" :class="roleColorClass" class="text-xs px-2 py-0.5 rounded-full"></span>
+            </div>
+            <p x-text="'加入于 ' + relTime(profile?.created_at)" class="text-xs text-white/60 mt-1"></p>
+          </div>
+          <button x-show="isOwner" @click="showEditModal()" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-xl transition">编辑资料</button>
+          <button x-show="!isOwner && isLoggedIn" @click="goToChat()" class="px-4 py-2 bg-white/20 hover:bg-white/30 text-white text-sm font-medium rounded-xl transition">发私信</button>
+        </div>
+      </div>
+
+      <!-- Info -->
+      <div class="p-5 sm:p-6 space-y-4">
+        <!-- Bio -->
+        <div x-show="profile?.bio && !(isPrivate && !isOwner)">
+          <p x-text="profile?.bio" class="text-sm text-gray-600 leading-relaxed"></p>
+        </div>
+
+        <!-- Location & Website -->
+        <div x-show="hasMeta && !(isPrivate && !isOwner)" class="flex flex-wrap gap-3 text-xs text-gray-500">
+          <span x-show="profile?.location" class="flex items-center gap-1">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            <span x-text="profile?.location"></span>
+          </span>
+          <a x-show="profile?.website" :href="profile?.website" target="_blank" class="flex items-center gap-1 text-primary-600 hover:underline">
+            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
+            <span x-text="profile?.website"></span>
+          </a>
+        </div>
+
+        <!-- Privacy notice -->
+        <div x-show="isPrivate && !isOwner" class="text-center py-4">
+          <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
+          <p class="text-sm text-gray-400">该用户已设置隐私，资料不可见</p>
+        </div>
+
+        <!-- Stats -->
+        <div x-show="!(isPrivate && !isOwner)" class="grid grid-cols-3 gap-3">
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div x-text="profile?.posts_count || 0" class="text-lg font-bold text-gray-900"></div>
+            <div class="text-xs text-gray-500">帖子</div>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div x-text="profile?.comments_count || 0" class="text-lg font-bold text-gray-900"></div>
+            <div class="text-xs text-gray-500">评论</div>
+          </div>
+          <div class="bg-gray-50 rounded-xl p-3 text-center">
+            <div x-text="profile?.points || 0" class="text-lg font-bold text-primary-600"></div>
+            <div class="text-xs text-gray-500">积分</div>
+          </div>
+        </div>
+
+        <!-- Level Card -->
+        <div x-show="levelInfo" x-ref="levelCard" class="bg-gray-50 rounded-xl p-3">
+          <div class="flex items-center justify-between mb-2">
+            <div class="flex items-center gap-1.5">
+              <span x-html="levelBadgeHtml" class="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full text-white text-[10px] font-bold leading-none"></span>
+              <span class="text-[11px] text-gray-500">Lv<span x-text="levelInfo && levelInfo.level >= levelInfo.max_level ? 'MAX' : (levelInfo && levelInfo.next_level)"></span></span>
+            </div>
+            <div class="text-[10px] text-gray-500">
+              <span x-text="levelInfo && levelInfo.have" :style="'color:' + (levelInfo && levelInfo.accent_color)" class="font-bold"></span>
+              <span>/</span>
+              <span x-text="levelInfo && levelInfo.need"></span>
+              <span class="text-gray-400">EXP</span>
+            </div>
+          </div>
+          <!-- Progress bar -->
+          <div style="position:relative;margin-top:10px;">
+            <div style="width:100%;height:6px;border-radius:3px;background:#e5e7eb;overflow:hidden;position:relative;"></div>
+            <div :style="'position:absolute;top:0;left:0;height:6px;border-radius:3px;width:' + (levelInfo && levelInfo.progress) + '%;overflow:hidden;'">
+              <div :style="'width:100%;height:100%;border-radius:3px;background:' + (levelInfo && levelInfo.progress_fill)"></div>
+              <div style="position:absolute;top:0;left:0;width:40%;height:100%;background:linear-gradient(90deg,transparent,rgba(255,255,255,0.55),transparent);border-radius:3px;animation:level-shine 2.2s ease-in-out infinite;"></div>
+            </div>
+            <div x-ref="levelParticles" style="pointer-events:none;position:absolute;top:-9px;left:0;width:100%;height:24px;overflow:visible;"></div>
+          </div>
+          <div class="flex items-center justify-between mt-2 text-[10px] text-gray-400">
+            <span x-show="levelInfo && levelInfo.level < levelInfo.max_level">还需 <span x-text="levelInfo && levelInfo.remain"></span> 经验升级</span>
+            <span x-show="levelInfo && levelInfo.level >= levelInfo.max_level" :style="'color:' + (levelInfo && levelInfo.accent_color)" class="font-medium">已达最高级</span>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- Tabs Section -->
+    <div class="bg-white rounded-2xl border border-gray-100 overflow-hidden">
+      <!-- Tab Headers -->
+      <div class="flex border-b border-gray-100">
+        <button @click="switchTab('posts')" :class="activeTab === 'posts' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的帖子</button>
+        <button x-show="!(isPrivate && !isOwner)" @click="switchTab('likes')" :class="activeTab === 'likes' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的点赞</button>
+        <button x-show="!(isPrivate && !isOwner)" @click="switchTab('bookmarks')" :class="activeTab === 'bookmarks' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的收藏</button>
+      </div>
+      <!-- Tab Content -->
+      <div class="p-4 sm:p-5">
+        <!-- Posts tab -->
+        <div x-show="activeTab === 'posts'">
+          <div class="space-y-3">
+            <template x-for="p in posts" :key="p.id">
+              <div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" @click="location.href='/post.html?id=' + p.id">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span x-text="relTime(p.created_at)" class="text-xs text-gray-400"></span>
+                  <span x-text="catLabel(p.category)" :class="catColor(p.category)" class="text-xs px-2 py-0.5 rounded-full"></span>
+                  <span x-show="p.pinned" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">置顶</span>
+                </div>
+                <h3 x-text="p.title" class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1"></h3>
+                <p x-text="p.content && p.content.replace(/\n/g,' ')" class="text-xs text-gray-500 line-clamp-1"></p>
+                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                  <span x-text="'❤ ' + p.likes_count"></span>
+                  <span x-text="'💬 ' + p.comments_count"></span>
+                  <span x-show="p.images && p.images.length" x-text="'📷 ' + (p.images && p.images.length)"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div x-show="posts.length === 0" class="text-center py-10"><p class="text-sm text-gray-400">暂无帖子</p></div>
+          <div x-show="postsPagination && postsPagination.pages > 1" class="flex items-center justify-center gap-2 mt-4">
+            <button x-show="postsPagination && postsPagination.page > 1" @click="loadPosts(postsPagination.page - 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>
+            <template x-for="i in (postsPagination ? postsPagination.pages : 0)" :key="i">
+              <button @click="loadPosts(i)" :class="i === postsPagination.page ? 'bg-primary-600 text-white' : 'border border-gray-200 hover:bg-gray-50'" class="w-8 h-8 text-sm rounded-lg transition" x-text="i"></button>
+            </template>
+            <button x-show="postsPagination && postsPagination.page < postsPagination.pages" @click="loadPosts(postsPagination.page + 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>
+          </div>
+        </div>
+
+        <!-- Likes tab -->
+        <div x-show="activeTab === 'likes'">
+          <div class="space-y-3">
+            <template x-for="p in likes" :key="p.id">
+              <div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" @click="location.href='/post.html?id=' + p.id">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span x-text="relTime(p.created_at)" class="text-xs text-gray-400"></span>
+                  <span x-text="catLabel(p.category)" :class="catColor(p.category)" class="text-xs px-2 py-0.5 rounded-full"></span>
+                </div>
+                <h3 x-text="p.title" class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1"></h3>
+                <p x-text="p.content && p.content.replace(/\n/g,' ')" class="text-xs text-gray-500 line-clamp-1"></p>
+                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                  <span x-text="'❤ ' + p.likes_count"></span>
+                  <span x-text="'💬 ' + p.comments_count"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div x-show="likes.length === 0" class="text-center py-10"><p class="text-sm text-gray-400">暂无点赞</p></div>
+          <div x-show="likesPagination && likesPagination.pages > 1" class="flex items-center justify-center gap-2 mt-4">
+            <button x-show="likesPagination && likesPagination.page > 1" @click="loadLikes(likesPagination.page - 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>
+            <template x-for="i in (likesPagination ? likesPagination.pages : 0)" :key="i">
+              <button @click="loadLikes(i)" :class="i === likesPagination.page ? 'bg-primary-600 text-white' : 'border border-gray-200 hover:bg-gray-50'" class="w-8 h-8 text-sm rounded-lg transition" x-text="i"></button>
+            </template>
+            <button x-show="likesPagination && likesPagination.page < likesPagination.pages" @click="loadLikes(likesPagination.page + 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>
+          </div>
+        </div>
+
+        <!-- Bookmarks tab -->
+        <div x-show="activeTab === 'bookmarks'">
+          <div class="space-y-3">
+            <template x-for="p in bookmarks" :key="p.id">
+              <div class="bg-white rounded-xl border border-gray-100 p-4 cursor-pointer transition hover:border-gray-200 hover:shadow-sm" @click="location.href='/post.html?id=' + p.id">
+                <div class="flex items-center gap-2 mb-1 flex-wrap">
+                  <span x-text="relTime(p.created_at)" class="text-xs text-gray-400"></span>
+                  <span x-text="catLabel(p.category)" :class="catColor(p.category)" class="text-xs px-2 py-0.5 rounded-full"></span>
+                </div>
+                <h3 x-text="p.title" class="text-sm font-semibold text-gray-900 mb-1 line-clamp-1"></h3>
+                <p x-text="p.content && p.content.replace(/\n/g,' ')" class="text-xs text-gray-500 line-clamp-1"></p>
+                <div class="flex items-center gap-3 mt-2 text-xs text-gray-400">
+                  <span x-text="'❤ ' + p.likes_count"></span>
+                  <span x-text="'💬 ' + p.comments_count"></span>
+                </div>
+              </div>
+            </template>
+          </div>
+          <div x-show="bookmarks.length === 0" class="text-center py-10"><p class="text-sm text-gray-400">暂无收藏</p></div>
+          <div x-show="bookmarksPagination && bookmarksPagination.pages > 1" class="flex items-center justify-center gap-2 mt-4">
+            <button x-show="bookmarksPagination && bookmarksPagination.page > 1" @click="loadBookmarks(bookmarksPagination.page - 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">上一页</button>
+            <template x-for="i in (bookmarksPagination ? bookmarksPagination.pages : 0)" :key="i">
+              <button @click="loadBookmarks(i)" :class="i === bookmarksPagination.page ? 'bg-primary-600 text-white' : 'border border-gray-200 hover:bg-gray-50'" class="w-8 h-8 text-sm rounded-lg transition" x-text="i"></button>
+            </template>
+            <button x-show="bookmarksPagination && bookmarksPagination.page < bookmarksPagination.pages" @click="loadBookmarks(bookmarksPagination.page + 1)" class="px-3 py-1.5 text-sm border border-gray-200 rounded-lg hover:bg-gray-50 transition">下一页</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Edit Profile Modal -->
+  <div x-show="showEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[85vh] overflow-y-auto">
+      <div class="flex items-center justify-between mb-5">
+        <h2 class="text-lg font-bold">编辑资料</h2>
+        <button @click="hideEditModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      </div>
+      <div class="space-y-4">
+        <!-- Avatar -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-2">头像</label>
+          <!-- Cropper area (hidden by default) -->
+          <div x-show="showCropper" class="mb-3">
+            <div id="avatarCropper" class="relative w-48 h-48 mx-auto cursor-grab active:cursor-grabbing">
+              <canvas id="avatarCropCanvas" width="192" height="192" class="rounded-full"></canvas>
+              <div class="absolute inset-0 rounded-full pointer-events-none" style="box-shadow:0 0 0 3px rgba(99,102,241,0.4)"></div>
+            </div>
+            <img id="avatarCropImg" src="" class="hidden">
+            <!-- Zoom controls -->
+            <div class="flex items-center justify-center gap-3 mt-3">
+              <button onclick="zoomBtn(-0.15)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="缩小">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20 12H4"/></svg>
+              </button>
+              <span id="zoomLevel" class="text-xs text-gray-500 w-12 text-center">100%</span>
+              <button onclick="zoomBtn(0.15)" class="w-8 h-8 rounded-full bg-gray-100 hover:bg-gray-200 flex items-center justify-center text-gray-600 transition" title="放大">
+                <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              </button>
+            </div>
+            <p class="text-xs text-gray-400 text-center mt-2">拖动调整 · 滚轮/按钮缩放</p>
+            <!-- Preview -->
+            <div class="flex items-center justify-center gap-4 mt-3">
+              <div class="text-center">
+                <p class="text-xs text-gray-400 mb-1">预览</p>
+                <canvas id="avatarPreviewCanvas" width="64" height="64" class="rounded-full border-2 border-gray-200 mx-auto"></canvas>
+              </div>
+            </div>
+          </div>
+          <!-- Current avatar display -->
+          <div x-show="!showCropper" class="flex items-center gap-4">
+            <div x-html="editAvatarPreviewHtml" class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 overflow-hidden"></div>
+            <div>
+              <button @click="$refs.avatarInput.click()" class="px-3 py-1.5 text-xs bg-gray-100 hover:bg-gray-200 rounded-lg transition">更换头像</button>
+              <input type="file" x-ref="avatarInput" accept=".jpg,.jpeg,.png,.gif,.webp,.bmp" class="hidden" @change="handleAvatarSelect($event)">
+              <p class="text-xs text-gray-400 mt-1">JPG/PNG/GIF/WebP/BMP，最大 10MB</p>
+            </div>
+          </div>
+        </div>
+        <!-- Username -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">用户名</label>
+          <input x-model="editForm.username" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        </div>
+        <!-- Bio -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">简介</label>
+          <textarea x-model="editForm.bio" rows="3" maxlength="200" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="介绍一下自己..."></textarea>
+          <p class="text-xs text-gray-400 mt-1"><span x-text="(editForm.bio || '').length"></span>/200</p>
+        </div>
+        <!-- Location -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">所在地</label>
+          <input x-model="editForm.location" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="例如：北京">
+        </div>
+        <!-- Website -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">个人网站</label>
+          <input x-model="editForm.website" type="url" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="https://...">
+        </div>
+        <!-- Privacy -->
+        <div class="flex items-center justify-between p-3 bg-gray-50 rounded-xl">
+          <div>
+            <p class="text-sm font-medium text-gray-700">公开资料</p>
+            <p class="text-xs text-gray-400">关闭后他人无法查看你的简介、所在地和网站</p>
+          </div>
+          <label class="relative inline-flex items-center cursor-pointer">
+            <input type="checkbox" x-model="editForm.profile_public" class="sr-only peer">
+            <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-primary-600"></div>
+          </label>
+        </div>
+        <!-- Title -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-2">称号</label>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="t in titleOptions" :key="t.value">
+              <button @click="selectedTitle = t.value" :class="selectedTitle === t.value ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200'" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition" x-text="t.name"></button>
+            </template>
+            <span x-show="titleOptions.length === 0" class="text-xs text-gray-400">暂无称号，前往积分商店兑换</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">在积分商店购买称号后可在此更换</p>
+        </div>
+        <!-- Avatar Frame -->
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-2">头像框</label>
+          <div class="flex flex-wrap gap-2">
+            <template x-for="f in frameOptions" :key="f.value">
+              <button @click="selectedFrame = f.value" :class="selectedFrame === f.value ? 'bg-primary-100 text-primary-700 border-primary-300' : 'border-gray-200'" class="px-3 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition" x-text="f.name"></button>
+            </template>
+            <span x-show="frameOptions.length === 0" class="text-xs text-gray-400">暂无头像框，前往积分商店兑换</span>
+          </div>
+          <p class="text-xs text-gray-400 mt-1">在积分商店购买头像框后可在此更换</p>
+        </div>
+        <div class="flex gap-2">
+          <button @click="showChangePassword()" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">修改密码</button>
+          <button @click="saveProfile()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存修改</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Change Password Modal -->
+  <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+    <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+      <div class="text-center mb-5">
+        <div class="w-16 h-16 mx-auto mb-3 bg-primary-100 rounded-full flex items-center justify-center">
+          <svg class="w-8 h-8 text-primary-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"/>
+          </svg>
+        </div>
+        <h3 class="text-lg font-bold text-gray-900 mb-1">修改密码</h3>
+      </div>
+      <div class="space-y-3 mb-5">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label>
+          <input x-model="passwordForm.old" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
+          <input x-model="passwordForm.new" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+          <div x-show="passwordForm.new" class="mt-2">
+            <div class="flex gap-1 mb-1">
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background:' + passwordStrengthColor(1)"></div>
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background:' + passwordStrengthColor(2)"></div>
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background:' + passwordStrengthColor(3)"></div>
+              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background:' + passwordStrengthColor(4)"></div>
+            </div>
+            <p :style="'color:' + passwordStrength.labelColor" class="text-xs" x-text="passwordStrength.label"></p>
+          </div>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label>
+          <input x-model="passwordForm.confirm" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        </div>
+      </div>
+      <div class="flex gap-3">
+        <button @click="showPasswordModal = false" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">返回</button>
+        <button @click="doChangePassword()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<style>@keyframes level-shine { 0%{transform:translateX(-100%)} 100%{transform:translateX(300%)} }</style>
+
+<%- include('partials/scripts') %>
+<script src="/js/pages/profile.js"></script>
+<script>
+  // 注入交互组件到页面
+  injectToast();
+  injectAuthModal();
+  injectChangePasswordModal();
+  injectLightbox();
+</script>
+<script src="/js/alpine.min.js"></script>
+</body>
+</html>

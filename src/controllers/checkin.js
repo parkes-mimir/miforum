@@ -1,6 +1,6 @@
 const { requireAuth } = require('../middleware/auth');
 const { todayStr, addDays, daysBetween, dateStr } = require('../utils/helpers');
-const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
+const { addExp, EXP_REWARDS, getLevelInfo } = require('../services/level');
 
 function calcStreaks(checkinDates) {
   if (!checkinDates.length) return { current: 0, longest: 0, total: 0 };

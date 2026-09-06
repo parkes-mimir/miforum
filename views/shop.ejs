@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<%- include('partials/head', { title: '积分商店 - MiForum' }) %>
+</head>
+<body class="min-h-screen text-gray-800">
+
+<%- include('partials/header', { subtitle: '积分商店' }) %>
+
+<div x-data="shopPage()" class="max-w-4xl mx-auto px-4 py-6 sm:py-8">
+  <!-- 用户积分显示 -->
+  <div class="bg-gradient-to-r from-primary-600 to-primary-700 rounded-2xl p-4 sm:p-6 mb-6 sm:mb-8 text-white">
+    <div class="flex items-center justify-between">
+      <div>
+        <h1 class="text-xl sm:text-2xl font-bold mb-1 sm:mb-2">积分商店</h1>
+        <p class="text-sm sm:text-base text-primary-100">用积分兑换精美礼品和特权</p>
+      </div>
+      <div class="text-right">
+        <p class="text-xs sm:text-sm text-primary-200">我的积分</p>
+        <p x-text="userPoints" class="text-2xl sm:text-4xl font-bold">0</p>
+      </div>
+    </div>
+  </div>
+
+  <!-- 商品列表 -->
+  <div class="mb-6 sm:mb-8">
+    <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">🎁 商品列表</h2>
+    <div x-show="!loading && items.length > 0" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-3 sm:gap-4">
+      <template x-for="item in items" :key="item.id">
+        <div class="item-card bg-white rounded-xl border border-gray-100 p-4 sm:p-5 cursor-pointer" @click="showExchangeModal(item)">
+          <div class="flex items-start justify-between mb-2 sm:mb-3">
+            <span class="text-3xl sm:text-4xl" x-text="item.icon"></span>
+            <span x-show="item.stock >= 0 && item.stock <= 5" class="text-xs px-2 py-1 bg-red-50 text-red-500 rounded-full" x-text="'仅剩' + item.stock + '件'"></span>
+          </div>
+          <h3 class="font-semibold text-gray-900 mb-1" x-text="item.name"></h3>
+          <p class="text-xs sm:text-sm text-gray-500 mb-3 sm:mb-4" x-text="item.description"></p>
+          <div class="flex items-center justify-between">
+            <span class="text-base sm:text-lg font-bold text-primary-600" x-text="item.price + ' 积分'"></span>
+            <button class="px-3 py-1.5 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition">兑换</button>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div x-show="!loading && items.length === 0" class="text-center py-12">
+      <svg class="w-16 h-16 mx-auto text-gray-300 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M20 7l-8-4-8 4m16 0l-8 4m8-4v10l-8 4m0-10L4 7m8 4v10M4 7v10l8 4"/></svg>
+      <p class="text-gray-400">暂无可兑换商品</p>
+    </div>
+  </div>
+
+  <!-- 兑换记录 -->
+  <div>
+    <h2 class="text-base sm:text-lg font-semibold mb-3 sm:mb-4">📋 兑换记录</h2>
+    <div x-show="!loading && orders.length > 0" class="space-y-3">
+      <template x-for="order in orders" :key="order.id">
+        <div class="bg-white rounded-xl border border-gray-100 p-3 sm:p-4 flex items-center justify-between">
+          <div class="flex items-center gap-2 sm:gap-3">
+            <span class="text-xl sm:text-2xl" x-text="order.item_icon"></span>
+            <div>
+              <p class="text-sm sm:text-base font-medium text-gray-900" x-text="order.item_name"></p>
+              <p class="text-xs text-gray-400" x-text="relTime(order.created_at)"></p>
+            </div>
+          </div>
+          <div class="text-right">
+            <p class="text-xs sm:text-sm font-medium text-red-500" x-text="'-' + order.price + ' 积分'"></p>
+            <p class="text-xs text-green-500" x-text="order.status === 'completed' ? '已完成' : '处理中'"></p>
+          </div>
+        </div>
+      </template>
+    </div>
+    <div x-show="!loading && orders.length === 0" class="text-center py-8">
+      <svg class="w-12 h-12 mx-auto text-gray-300 mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="1.5" d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/></svg>
+      <p class="text-sm text-gray-400">暂无兑换记录</p>
+    </div>
+  </div>
+</div>
+
+<!-- 兑换确认弹窗 -->
+<div x-show="$store.exchange.open" x-transition.opacity @click.self="$store.exchange.hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="text-center mb-6">
+      <div class="text-5xl mb-3" x-text="$store.exchange.item?.icon || '🎁'"></div>
+      <h3 class="text-lg font-bold mb-1" x-text="'兑换 ' + ($store.exchange.item?.name || '')"></h3>
+      <p class="text-sm text-gray-500" x-text="$store.exchange.item?.description || ''"></p>
+    </div>
+    <!-- 头像框预览 -->
+    <div x-show="$store.exchange.item?.type === 'avatar_frame' && $store.exchange.item?.value !== 'none'" class="mb-4">
+      <p class="text-xs text-gray-500 mb-2 text-center">预览效果</p>
+      <div class="flex items-center justify-center gap-6">
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1" x-html="$store.exchange.previewBeforeHtml"></div>
+          <p class="text-xs text-gray-400">当前</p>
+        </div>
+        <svg class="w-5 h-5 text-gray-300" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 7l5 5m0 0l-5 5m5-5H6"/></svg>
+        <div class="text-center">
+          <div class="w-16 h-16 rounded-full bg-primary-100 flex items-center justify-center text-xl font-bold text-primary-700 mx-auto mb-1" :style="$store.exchange.previewAfterStyle" x-html="$store.exchange.previewAfterHtml"></div>
+          <p class="text-xs text-gray-400">兑换后</p>
+        </div>
+      </div>
+    </div>
+    <!-- 称号预览 -->
+    <div x-show="$store.exchange.item?.type === 'title'" class="mb-4">
+      <p class="text-xs text-gray-500 mb-2 text-center">预览效果</p>
+      <div class="flex items-center justify-center gap-2">
+        <span class="text-sm font-medium text-gray-900">你的用户名</span>
+        <span x-text="$store.exchange.item?.value || ''" class="text-xs px-2 py-0.5 rounded bg-amber-100 text-amber-700"></span>
+      </div>
+    </div>
+    <div class="bg-gray-50 rounded-xl p-4 mb-4">
+      <div class="flex justify-between items-center">
+        <span class="text-sm text-gray-600">商品价格</span>
+        <span class="text-lg font-bold text-primary-600" x-text="($store.exchange.item?.price || 0) + ' 积分'"></span>
+      </div>
+      <div class="flex justify-between items-center mt-2">
+        <span class="text-sm text-gray-600">当前积分</span>
+        <span class="text-sm font-medium" x-text="($store.auth.user?.points || 0) + ' 积分'"></span>
+      </div>
+      <div class="flex justify-between items-center mt-2">
+        <span class="text-sm text-gray-600">兑换后剩余</span>
+        <span class="text-sm font-medium" :class="$store.exchange.remaining >= 0 ? 'text-green-600' : 'text-red-600'" x-text="$store.exchange.remaining + ' 积分'"></span>
+      </div>
+    </div>
+    <div class="flex gap-3">
+      <button @click="$store.exchange.hide()" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm font-medium hover:bg-gray-50 transition">取消</button>
+      <button @click="$store.exchange.confirmExchange()" :disabled="$store.exchange.remaining < 0 || $store.exchange.exchanging" :class="$store.exchange.remaining < 0 || $store.exchange.exchanging ? 'flex-1 px-4 py-2.5 bg-gray-300 text-gray-500 rounded-xl text-sm font-medium cursor-not-allowed' : 'flex-1 px-4 py-2.5 bg-primary-600 text-white rounded-xl text-sm font-medium hover:bg-primary-700 transition'" x-text="$store.exchange.exchanging ? '兑换中...' : '确认兑换'"></button>
+    </div>
+  </div>
+</div>
+
+<%- include('partials/scripts') %>
+<script src="/js/pages/shop.js"></script>
+<script>
+  // 注入交互组件到页面
+  injectToast();
+  injectAuthModal();
+  injectChangePasswordModal();
+  injectLightbox();
+</script>
+<script src="/js/alpine.min.js"></script>
+</body>
+</html>

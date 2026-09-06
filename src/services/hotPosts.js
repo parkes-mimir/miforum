@@ -6,7 +6,7 @@
  */
 
 const { parseJsonField, intToBool } = require('../utils/helpers');
-const { getLevelInfo } = require('../controllers/level');
+const { getLevelInfo } = require('./level');
 
 const DECAY_EXPONENT = 1.5;
 const DECAY_OFFSET = 2;

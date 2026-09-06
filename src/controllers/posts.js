@@ -1,18 +1,17 @@
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { postUpload, multerUpload } = require('../utils/upload');
-const { addExp, EXP_REWARDS, getLevelInfo } = require('./level');
-const { createPoll } = require('./polls');
+const { addExp, EXP_REWARDS, getLevelInfo } = require('../services/level');
+const { createPoll } = require('../services/poll');
 const { getHotPosts } = require('../services/hotPosts');
+const { formatPost, parsePagination } = require('../services/postHelper');
 
 module.exports = function (app, db) {
   /** 获取帖子列表（支持分页、分类、标签、搜索、排序，过滤私密帖子） */
   app.get('/api/posts', (req, res) => {
     const { category, search, tag } = req.query;
     const sort = req.query.sort || 'newest';
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
     const userId = req.session.userId || null;
 
     // 热门板块使用独立算法
@@ -79,17 +78,7 @@ module.exports = function (app, db) {
     `;
 
     const rows = db.prepare(sql).all(...params, limit, offset);
-    const posts = rows.map(p => ({
-      ...p,
-      tags: parseJsonField(p.tags, []),
-      images: parseJsonField(p.images, []),
-      pinned: intToBool(p.pinned),
-      private: intToBool(p.private),
-      author_avatar_url: p.author_avatar_url || null,
-      author_title: p.author_title || null,
-      author_avatar_frame: p.author_avatar_frame || null,
-      author_level_info: getLevelInfo(p.author_exp || 0)
-    }));
+    const posts = rows.map(p => formatPost(p));
 
     res.json({
       posts,
@@ -164,17 +153,7 @@ module.exports = function (app, db) {
     }
 
     res.json({
-      post: {
-        ...p,
-        tags: parseJsonField(p.tags, []),
-        images: parseJsonField(p.images, []),
-        pinned: intToBool(p.pinned),
-        private: intToBool(p.private),
-        author_avatar_url: p.author_avatar_url || null,
-        author_title: p.author_title || null,
-        author_avatar_frame: p.author_avatar_frame || null,
-        author_level_info: getLevelInfo(p.author_exp || 0)
-      },
+      post: formatPost(p),
       poll: pollData
     });
   });
