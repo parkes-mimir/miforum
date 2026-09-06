@@ -103,11 +103,15 @@ function dateStr(d) {
 }
 
 /**
- * 获取今天的日期字符串
+ * 获取今天的日期字符串（支持时区偏移）
+ * 环境变量 TZ_OFFSET 设置小时偏移，如 '+8' 表示东八区
  * @returns {string}
  */
 function todayStr() {
-  return dateStr(new Date());
+  const offset = process.env.TZ_OFFSET || '+8';
+  const hours = parseInt(offset, 10);
+  const now = new Date(Date.now() + hours * 3600000);
+  return now.toISOString().slice(0, 10);
 }
 
 /**

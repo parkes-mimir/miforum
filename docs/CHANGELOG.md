@@ -4,6 +4,28 @@
 
 ---
 
+## [1.1.9] - 2026-09-06 - 贡献者：parkes-mimir
+
+### 修复
+
+- **登录状态丢失**：session 密钥持久化到 `data/.session-secret` 文件，重启不丢失
+- **表情选择器溢出**：宽度改为自适应（min-width:280px，max-width:100vw-1rem），移动端不再超出屏幕
+- **签到时区问题**：`todayStr()` 改用 `TZ_OFFSET` 环境变量（默认+8东八区），凌晨0点可正常签到
+- **经验值日志时区**：`level.js` 的每日经验上限统计同步修复
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| src/server.js | session 密钥持久化到文件 |
+| src/utils/helpers.js | todayStr() 支持时区偏移 |
+| src/controllers/level.js | 经验日志使用 todayStr() |
+| public/js/emoji-picker.js | 选择器宽度自适应 |
+| docker-compose.yml | 添加 TZ_OFFSET 环境变量 |
+| .env.example | 添加 TZ_OFFSET 说明 |
+
+---
+
 ## [1.1.8] - 2026-09-06 - 贡献者：parkes-mimir
 
 ### 新增

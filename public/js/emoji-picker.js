@@ -39,7 +39,7 @@ function renderEmojiInText(text) {
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // 解析自定义表情标记（支持相对路径和绝对路径）
   return escaped.replace(/\[emoji:([^\]]+?):(\/[^\]]+|https?:\/\/[^\]]+)\]/g, (match, name, url) => {
-    return `<img src="${url}" style="display:inline-block;max-width:100px;max-height:100px;vertical-align:middle;border-radius:4px;cursor:pointer" title=":${name}: · 点击添加到我的表情" onclick="collectEmojiFromContent(this, '${url}', '${name}')" onerror="this.outerHTML=':${name}:'">`;
+    return `<img src="${url}" style="display:inline-block;width:1.5em;height:1.5em;object-fit:contain;vertical-align:-0.3em;border-radius:2px;cursor:pointer" title=":${name}:" onclick="collectEmojiFromContent(this, '${url}', '${name}')" onerror="this.outerHTML=':${name}:'">`;
   });
 }
 
@@ -87,7 +87,7 @@ class EmojiPicker {
     // 创建容器
     this.container = document.createElement('div');
     this.container.className = 'emoji-picker hidden';
-    this.container.style.cssText = 'position:absolute;bottom:100%;left:0;z-index:50;width:320px;max-height:350px;background:white;border:1px solid #e5e7eb;border-radius:1rem;box-shadow:0 10px 25px rgba(0,0,0,.1);display:none;flex-direction:column;overflow:hidden;margin-bottom:4px;';
+    this.container.style.cssText = 'position:absolute;bottom:100%;left:0;z-index:50;min-width:280px;max-width:calc(100vw - 1rem);max-height:350px;background:white;border:1px solid #e5e7eb;border-radius:1rem;box-shadow:0 10px 25px rgba(0,0,0,.1);display:none;flex-direction:column;overflow:hidden;margin-bottom:4px;';
 
     // 插入到 trigger 的父元素
     this.trigger.parentElement.style.position = 'relative';

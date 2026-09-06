@@ -17,6 +17,7 @@ services:
       - UPLOADS_PATH=/data/uploads
       - COOKIE_SECURE=${COOKIE_SECURE:-false}
       - GITHUB_MIRROR=${GITHUB_MIRROR:-}
+      - TZ_OFFSET=${TZ_OFFSET:-+8}
     restart: unless-stopped
     healthcheck:
       test: ["CMD", "wget", "--no-verbose", "--tries=1", "--spider", "http://localhost:3000/"]

@@ -15,6 +15,7 @@ const express = require('express');
 const session = require('express-session');
 const crypto = require('crypto');
 const path = require('path');
+const fs = require('fs');
 const os = require('os');
 const { execSync } = require('child_process');
 const helmet = require('helmet');
@@ -152,7 +153,23 @@ function createApp() {
   app.get('/messages', (req, res) => res.sendFile(path.join(__dirname, '../public/messages.html')));
 
   // Session 配置
-  const SESSION_SECRET = process.env.SESSION_SECRET || crypto.randomBytes(32).toString('hex');
+  // 如果未设置 SESSION_SECRET 环境变量，则生成一个持久化的随机密钥
+  let SESSION_SECRET = process.env.SESSION_SECRET;
+  if (!SESSION_SECRET) {
+    const secretFile = path.join(__dirname, '../data/.session-secret');
+    try {
+      if (fs.existsSync(secretFile)) {
+        SESSION_SECRET = fs.readFileSync(secretFile, 'utf8').trim();
+      }
+      if (!SESSION_SECRET) {
+        SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+        fs.mkdirSync(path.dirname(secretFile), { recursive: true });
+        fs.writeFileSync(secretFile, SESSION_SECRET);
+      }
+    } catch (e) {
+      SESSION_SECRET = crypto.randomBytes(32).toString('hex');
+    }
+  }
   const cookieSecure = process.env.COOKIE_SECURE === 'true'; // 需要 HTTPS 环境变量开启
   app.use(session({
     secret: SESSION_SECRET,
