@@ -1362,7 +1362,7 @@ function renderPosts() {
             ${isAdmin ? `<span class="ml-auto flex items-center gap-1"><button onclick="event.stopPropagation();togglePinPost(${p.id},${!!p.pinned})" class="text-xs px-2 py-0.5 rounded-lg ${p.pinned ? 'bg-amber-100 text-amber-700' : 'bg-gray-100 text-gray-500'} hover:bg-amber-200 transition">${p.pinned ? '取消置顶' : '置顶'}</button><button onclick="event.stopPropagation();adminDeletePost(${p.id})" class="text-xs px-2 py-0.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button></span>` : ''}
           </div>
           <h3 class="text-base font-semibold text-gray-900 mb-1 line-clamp-1">${esc(p.title)}</h3>
-          <p class="text-sm text-gray-500 line-clamp-2">${renderEmojiInText(p.content).replace(/\n/g, ' ')}</p>
+          <p class="text-sm text-gray-500 line-clamp-2">${renderEmojiInText((p.content || '').replace(/\[img:\d+\]/g, '')).replace(/\n/g, ' ')}</p>
           ${p.tags && p.tags.length ? `<div class="flex flex-wrap gap-1.5 mt-1.5">${p.tags.slice(0, 3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}${p.tags.length > 3 ? `<span id="tags-more-${p.id}" class="hidden">${p.tags.slice(3).map(t => `<span class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500 cursor-pointer hover:bg-primary-50 hover:text-primary-600 transition" onclick="event.stopPropagation();filterByTag('${escAttr(t)}')">#${esc(t)}</span>`).join('')}</span><button onclick="event.stopPropagation();toggleTags(${p.id})" class="text-xs text-primary-500 hover:text-primary-700 cursor-pointer transition" id="tags-btn-${p.id}">展开全部</button>` : ''}</div>` : ''}
           ${firstImg ? `<img src="${firstImg}" class="mt-2 rounded-lg max-h-24 object-cover" onclick="event.stopPropagation();openLightbox('${escAttr(firstImg)}')">` : ''}
           <div class="flex items-center gap-4 mt-3">
@@ -1469,17 +1469,43 @@ function renderSelectedImages() {
   const btn = document.getElementById('addImageBtn');
   grid.innerHTML = selectedImages.map((f, i) => {
     const url = URL.createObjectURL(f);
-    return `<div class="relative w-20 h-20 rounded-lg overflow-hidden group">
-      <img src="${url}" class="w-full h-full object-cover">
-      <button onclick="removeSelectedImage(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center opacity-0 group-hover:opacity-100 transition">
-        <svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg>
-      </button>
+    return `<div class="relative w-20 h-20 rounded-lg group" draggable="true" ondragstart="dragImage(event,${i})" ondragover="event.preventDefault()" ondrop="dropImage(event,${i})">
+      <img src="${url}" class="w-full h-full object-cover rounded-lg">
+      <div class="absolute inset-0 flex flex-col items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition bg-black/30 rounded-lg">
+        <button onclick="insertImageAtCursor(${i})" class="w-full py-1 bg-primary-600/90 text-white text-[11px] font-medium hover:bg-primary-700 transition">插入正文</button>
+        <button onclick="removeSelectedImage(${i})" class="w-full py-1 bg-red-500/90 text-white text-[11px] font-medium hover:bg-red-600 transition">删除</button>
+      </div>
+      <span class="absolute top-1 left-1 w-5 h-5 bg-black/60 text-white text-[10px] rounded-full flex items-center justify-center font-bold">${i + 1}</span>
     </div>`;
   }).join('');
   btn.style.display = selectedImages.length >= 30 ? 'none' : 'flex';
 }
 
 function removeSelectedImage(i) { selectedImages.splice(i, 1); renderSelectedImages(); }
+
+// 图片插入到光标位置
+function insertImageAtCursor(index) {
+  const textarea = document.getElementById('postContent');
+  const tag = `[img:${index}]`;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+  textarea.value = value.slice(0, start) + tag + value.slice(end);
+  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+  textarea.focus();
+}
+
+// 图片拖拽排序
+let dragImageIndex = null;
+function dragImage(e, index) { dragImageIndex = index; e.dataTransfer.effectAllowed = 'move'; }
+function dropImage(e, index) {
+  e.preventDefault();
+  if (dragImageIndex === null || dragImageIndex === index) return;
+  const item = selectedImages.splice(dragImageIndex, 1)[0];
+  selectedImages.splice(index, 0, item);
+  dragImageIndex = null;
+  renderSelectedImages();
+}
 
 /** 提交新帖子（FormData 上传图片 + 标签） */
 async function doNewPost() {

@@ -635,12 +635,23 @@ async function loadPage() {
     // 渲染投票
     renderPoll(poll);
 
-    // 帖子图片
+    // 渲染帖子内容（支持 [img:N] 图片占位符）
     const imgsEl = document.getElementById('postImages');
-    if (post.images && post.images.length > 0) {
+    const hasInlineImages = post.content && /\[img:\d+\]/.test(post.content);
+
+    if (hasInlineImages) {
+      // 有占位符：图片内联到内容中
+      document.getElementById('postContent').innerHTML = renderPostContentWithImages(post.content, post.images || []);
+      imgsEl.innerHTML = '';
+      imgsEl.classList.add('hidden');
+    } else if (post.images && post.images.length > 0) {
+      // 无占位符：图片显示在内容上方（兼容旧帖子）
       imgsEl.innerHTML = post.images.map(url => `<img src="${url}" class="rounded-xl max-h-80 object-cover cursor-pointer hover:opacity-90 transition" onclick="openLightbox('${escAttr(url)}')">`).join('');
       imgsEl.classList.remove('hidden');
-    } else { imgsEl.innerHTML = ''; imgsEl.classList.add('hidden'); }
+    } else {
+      imgsEl.innerHTML = '';
+      imgsEl.classList.add('hidden');
+    }
 
     // 点赞状态
     if (state.user) {
@@ -671,6 +682,30 @@ async function loadPage() {
 // ============================================================
 // 点赞
 // ============================================================
+// ============================================================
+// 内容渲染（支持 [img:N] 图片占位符）
+// ============================================================
+
+/**
+ * 渲染帖子内容，将 [img:N] 替换为内联图片
+ * @param {string} content - 帖子内容
+ * @param {string[]} images - 图片 URL 数组
+ * @returns {string} HTML
+ */
+function renderPostContentWithImages(content, images) {
+  if (!content) return '';
+  // 先转义 HTML，再处理 emoji，最后替换图片占位符
+  let html = renderEmojiInText(content);
+  html = html.replace(/\[img:(\d+)\]/g, (match, index) => {
+    const i = parseInt(index, 10);
+    if (i >= 0 && i < images.length) {
+      return `<img src="${images[i]}" class="rounded-xl max-w-full max-h-96 object-cover cursor-pointer hover:opacity-90 transition my-2" onclick="openLightbox('${escAttr(images[i])}')">`;
+    }
+    return match; // 无效索引保留原样
+  });
+  return html;
+}
+
 // ============================================================
 // 投票功能
 // ============================================================
@@ -956,7 +991,7 @@ function renderEditImages(images) {
   const grid = document.getElementById('editImageGrid');
   let html = '';
   // 已有图片（可标记删除）
-  images.forEach(url => {
+  images.forEach((url, idx) => {
     const removed = editRemoveImages.includes(url);
     html += `<div class="relative w-16 h-16 rounded overflow-hidden ${removed ? 'opacity-40' : ''}">
       <img src="${url}" class="w-full h-full object-cover">
@@ -967,14 +1002,31 @@ function renderEditImages(images) {
     </div>`;
   });
   // 新增图片（绿色边框标记）
+  const baseIdx = images.length;
   editNewImages.forEach((f, i) => {
     const url = URL.createObjectURL(f);
-    html += `<div class="relative w-16 h-16 rounded overflow-hidden ring-2 ring-green-400">
-      <img src="${url}" class="w-full h-full object-cover">
-      <button onclick="removeEditNewImg(${i})" class="absolute top-0 right-0 w-5 h-5 bg-black/50 rounded-full flex items-center justify-center hover:bg-red-500 transition"><svg class="w-3 h-3 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    html += `<div class="relative w-16 h-16 rounded-lg ring-2 ring-green-400 group">
+      <img src="${url}" class="w-full h-full object-cover rounded-lg">
+      <div class="absolute inset-0 flex flex-col items-center justify-end gap-0.5 opacity-0 group-hover:opacity-100 transition bg-black/30 rounded-lg">
+        <button onclick="insertEditImageAtCursor(${baseIdx + i})" class="w-full py-0.5 bg-primary-600/90 text-white text-[10px] font-medium hover:bg-primary-700 transition">插入</button>
+        <button onclick="removeEditNewImg(${i})" class="w-full py-0.5 bg-red-500/90 text-white text-[10px] font-medium hover:bg-red-600 transition">删除</button>
+      </div>
+      <span class="absolute top-0.5 left-0.5 w-4 h-4 bg-green-500/80 text-white text-[9px] rounded-full flex items-center justify-center font-bold">${baseIdx + i + 1}</span>
     </div>`;
   });
   grid.innerHTML = html;
+}
+
+// 编辑模式：插入图片占位符到光标位置
+function insertEditImageAtCursor(index) {
+  const textarea = document.getElementById('editContent');
+  const tag = `[img:${index}]`;
+  const start = textarea.selectionStart;
+  const end = textarea.selectionEnd;
+  const value = textarea.value;
+  textarea.value = value.slice(0, start) + tag + value.slice(end);
+  textarea.selectionStart = textarea.selectionEnd = start + tag.length;
+  textarea.focus();
 }
 
 function markRemoveImg(url) { editRemoveImages.push(url); renderEditImages(state.post.images || []); }

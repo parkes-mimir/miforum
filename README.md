@@ -201,7 +201,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.7** — 帖子分享功能
+**最新版本 v1.1.8** — 图片排序和自定义位置（拖拽排序+光标插入）
 
 ## 贡献者
 

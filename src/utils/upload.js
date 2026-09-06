@@ -7,13 +7,16 @@ if (!fs.existsSync(UPLOADS_DIR)) fs.mkdirSync(UPLOADS_DIR, { recursive: true });
 
 const allowedExts = ['.jpg', '.jpeg', '.png', '.gif', '.webp', '.bmp'];
 
+const crypto = require('crypto');
+
 function createStorage(prefix) {
   return multer.diskStorage({
     destination: (req, file, cb) => cb(null, UPLOADS_DIR),
     filename: (req, file, cb) => {
       const ext = path.extname(file.originalname).toLowerCase();
       const date = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-      cb(null, prefix + date + '-' + Date.now() + ext);
+      const rand = crypto.randomBytes(4).toString('hex');
+      cb(null, prefix + date + '-' + Date.now() + '-' + rand + ext);
     }
   });
 }
