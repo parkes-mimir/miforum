@@ -137,7 +137,7 @@ function authRoutes(app, db) {
     const { email, password } = req.body;
     if (!email || !password) return res.status(400).json({ error: '请填写邮箱和密码' });
 
-    const user = db.prepare('SELECT id, display_id, username, email, password_hash, points, role, force_password_change FROM profiles WHERE email = ?').get(email);
+    const user = db.prepare('SELECT id, display_id, username, email, password_hash, points, exp, role, force_password_change FROM profiles WHERE email = ?').get(email);
     if (!user) return res.status(400).json({ error: '邮箱或密码错误' });
 
     const ok = await bcrypt.compare(password, user.password_hash);
@@ -151,7 +151,9 @@ function authRoutes(app, db) {
         username: user.username,
         email: user.email,
         points: user.points,
+        exp: user.exp || 0,
         role: user.role,
+        level_info: getLevelInfo(user.exp || 0),
         force_password_change: intToBool(user.force_password_change)
       }
     });
