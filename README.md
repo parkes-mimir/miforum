@@ -201,7 +201,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.1.6** — 自定义表情功能 + 板块重构 + Docker 镜像支持
+**最新版本 v1.1.7** — 帖子分享功能
 
 ## 贡献者
 

@@ -4,6 +4,22 @@
 
 ---
 
+## [1.1.7] - 2026-09-05 - 贡献者：parkes-mimir
+
+### 新增
+
+- **帖子分享功能**：原生 Web Share API + 复制链接回退
+
+### 涉及文件
+
+| 文件 | 改动 |
+|------|------|
+| public/js/share.js | 新建分享模块 |
+| public/forum.html | 帖子列表分享按钮 |
+| public/post.html | 帖子详情分享按钮 |
+
+---
+
 ## [1.1.6] - 2026-09-05 - 贡献者：parkes-mimir
 
 ### 新增
@@ -15,11 +31,6 @@
   - 表情内联显示最大100px，选择器网格44px
   - 点击他人发的自定义表情可一键收藏到"我的表情"
   - 表情选择器简化为两个标签：默认表情 + 我的表情
-- **板块重构**：
-  - 特殊板块（📢公告/🔥热门）+ 普通板块（用户可创建）
-  - 公告板块仅管理员可发帖
-  - 热门板块 Discourse 启发的个性化推荐算法
-  - 用户可创建普通板块（每人限5个）
 - **Docker 更新镜像支持**：`GITHUB_MIRROR` 环境变量
 
 ### 修复
@@ -40,10 +51,11 @@
 | src/controllers/admin.js | 板块 CRUD 新字段、用户创建板块 API、GITHUB_MIRROR |
 | src/controllers/posts.js | 热门板块算法、公告发帖权限 |
 | src/services/hotPosts.js | 新建热门帖子算法 |
+| src/server.js | JSON body 限制加大到 2MB |
 | public/js/emoji-picker.js | 新建表情选择器组件 |
 | public/js/common.js | 公共函数 |
-| public/forum.html | 侧边栏重构、表情选择器、创建板块弹窗 |
-| public/post.html | 评论表情选择器、表情渲染 |
+| public/forum.html | 侧边栏重构、表情选择器、创建板块弹窗、分享按钮 |
+| public/post.html | 评论表情选择器、表情渲染、分享按钮 |
 | public/messages.html | 私信表情选择器、表情渲染 |
 | schema.sql | 新增表情相关表 |
 
