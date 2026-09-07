@@ -68,8 +68,6 @@ document.addEventListener('alpine:init', () => {
       return avatarHtml(this.post.author_avatar_url, this.post.author_name?.[0]?.toUpperCase(), 'w-10 h-10', this.post.author_avatar_frame);
     },
 
-    },
-
     get hasInlineImages() {
       return this.post?.content && /\[img:\d+\]/.test(this.post.content);
     },

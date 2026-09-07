@@ -346,8 +346,6 @@ document.addEventListener('alpine:init', () => {
       return avatarHtml(p.author_avatar_url, p.author_name?.[0]?.toUpperCase(), 'w-9 h-9', p.author_avatar_frame);
     },
 
-    },
-
     renderPostPreview(p) {
       const text = (p.content || '').replace(/\[img:\d+\]/g, '').replace(/\n/g, ' ');
       return renderEmojiInText(text);

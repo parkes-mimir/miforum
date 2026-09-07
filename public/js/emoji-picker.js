@@ -227,14 +227,13 @@ class EmojiPicker {
       const value = this.target.value;
       this.target.value = value.slice(0, start) + emoji + value.slice(end);
       this.target.selectionStart = this.target.selectionEnd = start + emoji.length;
-      this.target.dispatchEvent(new Event('input', { bubbles: true }));
+      this._syncModel();
       this.target.focus();
     }
     if (this.onInsert) this.onInsert(emoji);
   }
 
   insertCustom(id, url, name) {
-    // 自定义表情用标记格式 [emoji:name:url]，渲染时转为图片
     const tag = `[emoji:${name}:${url}]`;
     if (this.target) {
       const start = this.target.selectionStart;
@@ -242,10 +241,22 @@ class EmojiPicker {
       const value = this.target.value;
       this.target.value = value.slice(0, start) + tag + value.slice(end);
       this.target.selectionStart = this.target.selectionEnd = start + tag.length;
-      this.target.dispatchEvent(new Event('input', { bubbles: true }));
+      this._syncModel();
       this.target.focus();
     }
     if (this.onInsert) this.onInsert(tag);
+  }
+
+  _syncModel() {
+    // 触发 Alpine.js x-model 同步
+    this.target.dispatchEvent(new Event('input', { bubbles: true }));
+    // 同时更新 Alpine 组件数据（兼容 x-model）
+    try {
+      const el = this.target;
+      if (el._x_model) {
+        el._x_model.set(el.value);
+      }
+    } catch (e) {}
   }
 
   showUpload() {

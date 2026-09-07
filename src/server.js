@@ -148,15 +148,17 @@ function createApp() {
     next();
   });
 
-  // 静态文件（启用 ETag 缓存，JS/CSS 缓存1小时，图片缓存7天）
+  // 静态文件
   app.use(express.static(path.join(__dirname, '../public'), {
     etag: true,
     lastModified: true,
-    maxAge: '1h',
     setHeaders: (res, filePath) => {
-      // 图片等静态资源缓存更久
       if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
-        res.setHeader('Cache-Control', 'public, max-age=604800'); // 7天
+        // 图片缓存7天
+        res.setHeader('Cache-Control', 'public, max-age=604800');
+      } else if (/\.(js|css)$/i.test(filePath)) {
+        // JS/CSS 不缓存（开发阶段频繁修改）
+        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
       }
     }
   }));
