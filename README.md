@@ -1,6 +1,6 @@
 # MiForum
 
-Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开箱即用。
+Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，Alpine.js 前端，EJS 模板渲染，开箱即用。
 
 ![MiForum 预览](docs/preview.png)
 
@@ -12,7 +12,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 
 ## 功能
 
-- 注册 / 登录 / 退出（bcryptjs 加密，session 持久化）
+- 注册 / 登录 / 退出（bcryptjs 加密，Session SQLite 持久化，重启不丢失）
 - 自动签到（打开网页即签到，每日 +10 积分）
 - 签到日历（月历视图，月份选择器，今天按钮，翻页动画）
 - 积分补签（注册日至昨天之间的未签日期，每次消耗 10 积分）
@@ -22,7 +22,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 帖子编辑 / 删除（作者可操作，支持增删图片）
 - 评论（支持图片最多 3 张，楼层号，楼主标签，帖主置顶）
 - 评论编辑 / 删除（作者可操作，帖主可删任意评论）
-- 点赞 toggle + TA的点赞列表
+- 点赞 toggle + TA的点赞列表（乐观更新，失败自动回滚）
 - 收藏功能 + TA的收藏列表
 - 搜索 + 分类筛选 + 标签筛选
 - 三级权限体系（超级管理员 / 管理员 / 普通用户）
@@ -44,7 +44,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，开
 - 板块系统（公告/热门/普通板块，用户可创建）
 - PWA 支持（theme-color、apple-mobile-web-app）
 - 分页加载（帖子/评论/收藏列表）
-- 安全加固（helmet、速率限制、CSRF 防护、CSP、SMTP 加密）
+- 安全加固（helmet、速率限制、CSRF 防护、CSP、SMTP 加密、验证码锁定持久化）
 - 单元测试（jest + supertest，115 个用例）
 - 环境变量管理（dotenv）
 - Docker 支持（一键部署、自动更新）
@@ -101,16 +101,28 @@ docker-compose down
 
 ## 技术栈
 
-- **前端**: HTML + Tailwind CSS + 原生 JavaScript
-- **后端**: Node.js + Express.js + bcryptjs + express-session + multer
-- **数据库**: SQLite（better-sqlite3，单文件存储，支持事务）
+| 层级 | 技术 | 说明 |
+|------|------|------|
+| **前端** | Alpine.js 3.14 | 响应式 UI 框架（15KB，替代 Vue/React） |
+| **模板** | EJS | 服务端模板渲染，公共 partials 复用 |
+| **样式** | Tailwind CSS | 原子化 CSS 框架 |
+| **后端** | Node.js + Express 4 | Web 框架 |
+| **数据库** | SQLite (better-sqlite3) | 单文件数据库，WAL 模式 |
+| **认证** | express-session + bcryptjs | Session 持久化（SQLite 存储） |
+| **安全** | helmet + express-rate-limit | 安全头、速率限制 |
+| **测试** | Jest + Supertest | 115 个测试用例 |
 
 ## 项目结构
 
 ```
 ├── src/                        # 后端源码
-│   ├── server.js               # 主入口
-│   ├── database.js             # 数据库初始化
+│   ├── server.js               # 主入口（Express 配置、EJS 配置）
+│   ├── database.js             # 数据库连接管理
+│   ├── db/
+│   │   ├── schema.js           # 表结构 DDL
+│   │   └── seeds.js            # 默认数据
+│   ├── routes/
+│   │   └── index.js            # 中央路由映射表
 │   ├── controllers/            # 业务控制器
 │   │   ├── auth.js             # 认证（注册/登录/退出）
 │   │   ├── posts.js            # 帖子 CRUD
@@ -120,41 +132,69 @@ docker-compose down
 │   │   ├── shop.js             # 积分商店
 │   │   ├── level.js            # 经验值/等级
 │   │   ├── profile.js          # 个人资料
-│   │   └── admin.js            # 管理员操作
-│   ├── middleware/             # 中间件
+│   │   ├── notifications.js    # 通知系统
+│   │   ├── messages.js         # 私信系统
+│   │   ├── polls.js            # 投票系统
+│   │   ├── emoji.js            # 表情系统
+│   │   ├── admin-users.js      # 管理员-用户管理
+│   │   ├── admin-categories.js # 管理员-分类管理
+│   │   ├── admin-system.js     # 管理员-系统设置
+│   │   └── admin-superadmin.js # 超级管理员操作
+│   ├── services/               # 业务逻辑层
+│   │   ├── level.js            # 等级服务
+│   │   ├── postHelper.js       # 帖子工具
+│   │   ├── notification.js     # 通知服务
+│   │   ├── poll.js             # 投票服务
+│   │   └── hotPosts.js         # 热门帖子算法
+│   ├── middleware/
 │   │   └── auth.js             # 认证/权限中间件
-│   └── utils/                  # 工具函数
-│       ├── helpers.js
-│       ├── email.js
-│       └── upload.js
+│   └── utils/
+│       ├── helpers.js          # 通用工具
+│       ├── email.js            # 邮件发送
+│       └── upload.js           # 文件上传
 │
-├── public/                     # 前端静态文件
-│   ├── forum.html              # 首页
-│   ├── post.html               # 帖子详情
-│   ├── profile.html            # 个人资料
-│   ├── shop.html               # 积分商店
+├── views/                      # EJS 模板
+│   ├── partials/
+│   │   ├── head.ejs            # 公共 <head>
+│   │   ├── header.ejs          # 公共导航栏
+│   │   └── scripts.ejs         # 公共脚本引用
+│   ├── forum.ejs               # 首页
+│   ├── post.ejs                # 帖子详情
+│   ├── profile.ejs             # 个人资料
+│   ├── shop.ejs                # 积分商店
+│   └── messages.ejs            # 消息中心
+│
+├── public/                     # 前端静态资源
 │   ├── js/
-│   │   └── common.js           # 公共函数
+│   │   ├── common.js           # 公共工具函数
+│   │   ├── alpine.min.js       # Alpine.js 框架
+│   │   ├── stores/app.js       # Alpine 全局状态
+│   │   ├── components/         # 可复用组件
+│   │   ├── pages/              # 页面逻辑
+│   │   ├── emoji-picker.js     # 表情选择器
+│   │   └── share.js            # 分享功能
 │   └── css/
 │       └── tailwind.css
 │
 ├── docs/                       # 文档
 │   ├── API.md
 │   ├── CHANGELOG.md
-│   └── TEST.md
+│   ├── TEST.md
+│   └── TEST-REPORT.md
 │
-├── .github/                    # CI/CD
-│   └── workflows/
-│       ├── ci.yml              # 测试 CI
-│       └── docker.yml          # Docker 构建
+├── tests/                      # 测试文件
+│   ├── auth.test.js
+│   └── api.test.js
 │
-├── Dockerfile                  # Docker 镜像
-├── .dockerignore               # Docker 排除文件
-├── docker-compose.yml          # Docker Compose
-├── .eslintrc.json              # ESLint 配置
-├── .gitignore
-├── README.md
-└── package.json
+├── .github/workflows/          # CI/CD
+│   ├── ci.yml
+│   └── docker.yml
+│
+├── Dockerfile
+├── docker-compose.yml
+├── .eslintrc.json
+├── package.json
+└── README.md
 ```
 
 ## API
@@ -189,25 +229,21 @@ npm run lint
 npm run lint:fix
 ```
 
-## 分工
+## 贡献者
 
-| 开发者 | 负责模块 |
-|--------|----------|
-| **parkes-mimir** | server.js、posts、comments、shop、profile |
-| **jxwzx** | likes、level |
-| **phppi561** | checkin、admin |
+由以下贡献者共同维护：
+
+- parkes-mimir
+- phppi561
+- jxwzx
+- XY20-hub
+- sakesenqiu1
 
 ## 更新日志
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.0** — Alpine.js 迁移 + 后端服务层拆分 + 前端组件化
-
-## 贡献者
-
-- **parkes-mimir** — 项目发起、需求设计、核心功能
-- **phppi561** — 签到时区修复、管理员功能
-- **jxwzx** — 收藏功能、等级系统
+**最新版本 v1.2.0** — Alpine.js 迁移 + EJS 模板 + 安全加固 + 存储优化
 
 ## 声明
 

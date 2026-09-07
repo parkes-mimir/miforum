@@ -6,6 +6,7 @@ MiForum 测试记录。
 
 - **Node.js**: v22+
 - **better-sqlite3**: ^13.0.3
+- **Alpine.js**: 3.14.9
 - **测试方式**: jest + supertest
 - **测试环境**: NODE_ENV=test（禁用速率限制、跳过验证码）
 

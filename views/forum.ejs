@@ -150,7 +150,7 @@
               <div class="flex items-center gap-2 flex-wrap">
                 <span class="text-sm font-semibold text-gray-900" x-text="p.author_name"></span>
                 <span x-show="p.author_title" x-text="p.author_title" class="text-[10px] px-1.5 py-0.5 rounded bg-gray-100 text-gray-500"></span>
-                <span x-show="p.author_level_info" x-html="authorLevelHtml(p)" class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
+                <span x-show="p.author_level_info" :style="'background:' + (p.author_level_info && p.author_level_info.badge_bg)" x-text="p.author_level_info && (p.author_level_info.icon + 'Lv' + p.author_level_info.level)" class="inline-flex items-center gap-0.5 text-[9px] px-1 py-px rounded-full text-white font-bold leading-none"></span>
                 <span class="text-xs text-gray-400" x-text="'#' + p.author_display_id"></span>
                 <span class="text-xs text-gray-400" x-text="relTime(p.created_at)"></span>
                 <span :class="catColorClass(p.category)" x-text="catLabel(p.category)" class="text-xs px-2 py-0.5 rounded-full cursor-pointer hover:opacity-80 transition" @click.stop="filterCategory(p.category)"></span>
@@ -208,49 +208,6 @@
       <span class="text-xs text-gray-400 ml-2" x-text="'共 ' + pagination.total + ' 条'"></span>
     </div>
   </main>
-</div>
-
-<!-- Auth Modal -->
-<div x-data="authModal()" x-show="open" x-transition.opacity @click.self="hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
-    <div class="flex items-center justify-between mb-5">
-      <h2 class="text-lg font-bold">欢迎</h2>
-      <button @click="hide()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-    </div>
-    <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
-      <button @click="tab='login'" :class="tab==='login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">登录</button>
-      <button @click="tab='register'" :class="tab==='register' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'" class="flex-1 py-2 text-sm font-medium rounded-lg transition">注册</button>
-    </div>
-    <div x-show="tab==='login'" class="space-y-3">
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="loginEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">密码</label><input x-model="loginPassword" type="password" placeholder="输入密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doLogin()"></div>
-      <button @click="doLogin()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">登录</button>
-    </div>
-    <div x-show="tab==='register'" class="space-y-3">
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">用户名</label><input x-model="regUsername" type="text" placeholder="你的昵称" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">邮箱</label><input x-model="regEmail" type="email" placeholder="you@example.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">密码</label>
-        <input x-model="regPassword" type="password" placeholder="至少 6 位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
-        <div x-show="regPassword" class="mt-2">
-          <div class="flex gap-1 mb-1">
-            <template x-for="i in 4" :key="i">
-              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= regPasswordStrength.score ? regPasswordStrength.color : '#e5e7eb')"></div>
-            </template>
-          </div>
-          <p class="text-xs" :style="'color:' + regPasswordStrength.color" x-text="regPasswordStrength.label"></p>
-        </div>
-      </div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">验证码</label>
-        <div class="flex gap-2">
-          <input x-model="regCode" type="text" placeholder="输入验证码" maxlength="6" class="flex-1 px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" @keydown.enter="doRegister()">
-          <button @click="sendCode()" :disabled="codeCooldown > 0" class="px-4 py-2.5 bg-gray-100 text-gray-600 text-sm font-medium rounded-xl hover:bg-gray-200 transition whitespace-nowrap" x-text="codeCooldown > 0 ? codeCooldown + 's' : '发送验证码'"></button>
-        </div>
-      </div>
-      <button @click="doRegister()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">注册</button>
-    </div>
-  </div>
 </div>
 
 <!-- New Post Modal -->
@@ -343,43 +300,6 @@
     <div class="p-5 border-t border-gray-100 flex-shrink-0">
       <button @click="doNewPost()" :disabled="submittingPost" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition" x-text="submittingPost ? '发布中...' : '发布话题'"></button>
     </div>
-  </div>
-</div>
-
-<!-- Image Lightbox -->
-<div x-data="{ open: false, src: '' }" x-show="$store.lightbox.open" x-transition.opacity @click="$store.lightbox.open=false" class="fixed inset-0 z-[55] flex items-center justify-center bg-black/80 backdrop-blur-sm cursor-pointer" style="display:none">
-  <button @click="$store.lightbox.open=false" class="absolute top-4 right-4 p-2 text-white/70 hover:text-white transition"><svg class="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-  <img :src="$store.lightbox.src" class="max-w-[90vw] max-h-[90vh] object-contain rounded-lg" @click.stop>
-</div>
-
-<!-- Change Password Modal -->
-<div x-data="changePasswordModal()" x-show="open" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display:none">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
-    <div class="text-center mb-5">
-      <div class="w-16 h-16 mx-auto mb-3 bg-amber-100 rounded-full flex items-center justify-center">
-        <svg class="w-8 h-8 text-amber-600" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"/></svg>
-      </div>
-      <h3 class="text-lg font-bold text-gray-900 mb-1">安全提示</h3>
-      <p class="text-sm text-gray-500">检测到您正在使用默认密码，为了账号安全，请立即修改密码</p>
-    </div>
-    <div class="space-y-3 mb-5">
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">当前密码</label><input x-model="oldPassword" type="password" placeholder="输入当前密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-      <div>
-        <label class="block text-xs font-medium text-gray-500 mb-1">新密码</label>
-        <input x-model="newPassword" @input="updateStrength()" type="password" placeholder="至少6位" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
-        <div x-show="newPassword" class="mt-2">
-          <div class="flex gap-1 mb-1">
-            <template x-for="i in 4" :key="i">
-              <div class="h-1 flex-1 rounded-full transition-all duration-300" :style="'background-color:' + (i <= passwordStrength.score ? passwordStrength.color : '#e5e7eb')"></div>
-            </template>
-          </div>
-          <p class="text-xs" :style="'color:' + passwordStrength.color" x-text="passwordStrength.label"></p>
-        </div>
-      </div>
-      <div><label class="block text-xs font-medium text-gray-500 mb-1">确认新密码</label><input x-model="confirmPassword" type="password" placeholder="再次输入新密码" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-    </div>
-    <button @click="submit()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">修改密码</button>
-    <p class="text-xs text-gray-400 text-center mt-3">修改后此提示将不再出现</p>
   </div>
 </div>
 
@@ -606,13 +526,6 @@
     </div>
     <button @click="doCreateSection()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">创建</button>
   </div>
-</div>
-
-<!-- Toast -->
-<div x-data="toastContainer()" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[70] space-y-2">
-  <template x-for="t in toasts" :key="t.id">
-    <div x-text="t.message" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
-  </template>
 </div>
 
 <%- include('partials/scripts') %>

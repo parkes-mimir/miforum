@@ -287,7 +287,8 @@ document.addEventListener('alpine:init', () => {
     },
     get levelBadgeHtml() {
       if (!this.levelInfo) return '';
-      return `<span style="font-size:8px;line-height:1;">${this.levelInfo.icon}</span><span>Lv${this.levelInfo.level}</span>`;
+      const li = this.levelInfo;
+      return `<span style="font-size:8px;line-height:1;">${li.icon}</span><span>Lv${li.level}</span>`;
     },
     get passwordStrength() {
       const pw = this.passwordForm.new;

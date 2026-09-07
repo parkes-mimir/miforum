@@ -417,10 +417,6 @@ document.addEventListener('alpine:init', () => {
       return avatarHtml(p.author_avatar_url, p.author_name?.[0]?.toUpperCase(), 'w-9 h-9', p.author_avatar_frame);
     },
 
-    authorLevelHtml(p) {
-      const li = p.author_level_info;
-      if (!li) return '';
-      return `<span style="background:${li.badge_bg}">${li.icon}Lv${li.level}</span>`;
     },
 
     renderPostPreview(p) {

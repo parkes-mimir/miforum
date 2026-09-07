@@ -4,11 +4,11 @@
 
 ---
 
-## [1.2.0] - 2026-09-06 - 贡献者：parkes-mimir
+## [1.2.0] - 2026-09-07 - 贡献者：parkes-mimir, phppi561, jxwzx, XY20-hub, sakesenqiu1
 
 ### 重大变更
 
-**v1.2.0 大版本重构 — Alpine.js 迁移 + EJS 模板 + 安全加固 + 存储优化**
+**v1.2.0 大版本重构 — Alpine.js 迁移 + EJS 模板 + 安全加固 + 存储优化 + Bug 修复**
 
 #### 后端架构改进
 
@@ -37,13 +37,14 @@
   - `views/*.ejs` — 各页面模板
 - **交互组件注入**：登录弹窗、Toast、修改密码弹窗、图片查看器自动注入 DOM
 - **组件化**：提取共享 Alpine 组件
-  - `stores/app.js` — 全局认证状态（Alpine.store）
+  - `stores/app.js` — 全局状态（auth + toast）
   - `components/auth-modal.js` — 登录/注册弹窗
   - `components/change-password.js` — 修改密码弹窗
-  - `components/header.js` — 页面头部
-  - `components/toast.js` — 提示消息
+  - `components/header.js` — 页面头部（含 userAvatarHtml）
+  - `components/toast.js` — 提示消息（注入函数）
   - `components/lightbox.js` — 图片预览
-- **页面 JS 提取**：所有内联 JS 提取为独立文件
+- **页面 JS 提取**：所有内联 JS 提取为独立 `pages/*.js` 文件
+- **等级徽章统一**：三个页面统一使用 Tailwind 类 + `:style` 绑定背景
 
 #### 安全加固
 
@@ -58,15 +59,28 @@
 - **乐观更新回滚**：点赞/收藏失败时自动恢复 UI 状态
 - **数据库路径统一**：支持 `DB_PATH` 环境变量，自动选择可用路径
 
+#### Bug 修复
+
+- **Toast 系统断裂**：`Alpine.store('toast').show()` 与 `toastContainer` 组件未连通，改为直接使用 `$store.toast`
+- **积分商店兑换无反应**：exchange 弹窗在组件外部导致作用域丢失，移入 shopPage 组件内部
+- **表情无法插入评论**：`emoji-picker.js` 设置 `.value` 后未触发 `input` 事件，Alpine 的 `x-model` 不同步
+- **等级显示错误**：profile 页显示 `next_level` 而非 `level`，导致等级比实际高一级
+- **等级徽章消失**：profile 页缺少 `background` 样式导致徽章透明
+- **帖子详情页不加载**：缺少 `x-data="postPage()"` 包裹层
+- **页面 null 错误**：`post`/`profile` 在异步加载前被 Alpine 求值，添加可选链
+- **登录弹窗重复**：内联和注入同时存在导致两个弹窗
+- **数据库路径错误**：默认路径指向无权限目录，添加自动回退
+
 #### 前端耦合优化
 
 - **提取公共模板**：~420 行重复 HTML 提取到 EJS partials
 - **统一 JS 工具**：`relTime`、`esc`、`avatarHtml` 等函数统一到 `common.js`
+- **删除死代码**：移除未使用的 `stores/auth.js`、`components/poll-card.js` 等
 - **注释覆盖**：从 ~5% 提升到 ~60%
 
 ### 新增
 
-- Alpine.js 依赖（44KB，本地存放）
+- Alpine.js 3.14（44KB，本地存放）
 - EJS 模板引擎
 - better-sqlite3-session-store 依赖
 - `x-data`、`x-show`、`x-for`、`x-model`、`@click` 等指令替代手动 DOM 操作
@@ -75,40 +89,15 @@
 - `src/db/schema.js` — 数据库表结构
 - `src/db/seeds.js` — 默认数据
 - `src/routes/index.js` — 中央路由映射
+- `views/` — EJS 模板目录
 - `docs/TEST-REPORT.md` — 测试报告
 
 ### 移除
 
-- 移除 CSP `unsafe-eval`（之前已移除）
-- 移除各页面重复的 `toast`、`esc`、`relTime`、`api` 函数定义
-- 移除各页面重复的登录/注册弹窗 HTML
-- 移除各页面重复的修改密码弹窗 HTML
 - 移除 `public/*.html`（迁移到 `views/*.ejs`）
 - 移除 `stores/auth.js`（被 `stores/app.js` 替代）
 - 移除 `components/poll-card.js`（未使用）
-
-### 涉及文件
-
-| 文件 | 改动 |
-|------|------|
-| src/database.js | 重构为模块化，支持路径选择 |
-| src/db/schema.js | 新建数据库表结构 |
-| src/db/seeds.js | 新建默认数据 |
-| src/routes/index.js | 新建中央路由映射 |
-| src/server.js | EJS 配置、Session SQLite、静态缓存 |
-| src/utils/helpers.js | 移除硬编码密钥 |
-| src/controllers/admin-superadmin.js | 修复 shell 注入 |
-| src/controllers/auth.js | 验证码锁定持久化 |
-| src/services/hotPosts.js | 修复依赖方向 |
-| views/partials/*.ejs | 新建公共模板 |
-| views/*.ejs | 新建页面模板 |
-| public/js/components/auth-modal.js | 新建登录弹窗组件 |
-| public/js/components/toast.js | 添加注入函数 |
-| public/js/components/change-password.js | 添加注入函数 |
-| public/js/components/lightbox.js | 新建图片查看器 |
-| public/js/pages/forum.js | 乐观更新回滚 |
-| docs/TEST-REPORT.md | 新建测试报告 |
-| package.json | 添加 ejs、better-sqlite3-session-store |
+- 移除 `controllers/admin.js`（拆分为4个文件）
 
 ### 测试
 

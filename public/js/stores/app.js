@@ -1,19 +1,25 @@
 /**
- * Alpine.js 全局认证状态
+ * Alpine.js 全局状态
+ *
+ * 注册全局 store：auth、toast、exchange
+ * 所有页面共享这些状态
  */
 document.addEventListener('alpine:init', () => {
+  // ============================================================
+  // 认证状态
+  // ============================================================
   Alpine.store('auth', {
     user: null,
     showLogin: false,
-    
+
     get isLoggedIn() {
       return !!this.user;
     },
-    
+
     get isAdmin() {
       return this.user && ['admin', 'super_admin'].includes(this.user.role);
     },
-    
+
     get isSuperAdmin() {
       return this.user && this.user.role === 'super_admin';
     },
@@ -34,7 +40,7 @@ document.addEventListener('alpine:init', () => {
       if (u.avatar_url) return `${wrapOpen}<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">${wrapClose}`;
       return `${wrapOpen}<div style="width:28px;height:28px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#4f46e5;">${esc(letter)}</div>${wrapClose}`;
     },
-    
+
     async load() {
       try {
         const { user } = await api('/api/me');
@@ -43,7 +49,7 @@ document.addEventListener('alpine:init', () => {
         this.user = null;
       }
     },
-    
+
     async logout() {
       try {
         await api('/api/logout', { method: 'POST' });
@@ -53,11 +59,14 @@ document.addEventListener('alpine:init', () => {
     }
   });
 
+  // ============================================================
+  // Toast 提示
+  // ============================================================
   Alpine.store('toast', {
     message: '',
     visible: false,
     timer: null,
-    
+
     show(msg, duration = 2500) {
       this.message = msg;
       this.visible = true;

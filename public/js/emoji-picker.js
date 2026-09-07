@@ -227,6 +227,7 @@ class EmojiPicker {
       const value = this.target.value;
       this.target.value = value.slice(0, start) + emoji + value.slice(end);
       this.target.selectionStart = this.target.selectionEnd = start + emoji.length;
+      this.target.dispatchEvent(new Event('input', { bubbles: true }));
       this.target.focus();
     }
     if (this.onInsert) this.onInsert(emoji);
@@ -241,6 +242,7 @@ class EmojiPicker {
       const value = this.target.value;
       this.target.value = value.slice(0, start) + tag + value.slice(end);
       this.target.selectionStart = this.target.selectionEnd = start + tag.length;
+      this.target.dispatchEvent(new Event('input', { bubbles: true }));
       this.target.focus();
     }
     if (this.onInsert) this.onInsert(tag);

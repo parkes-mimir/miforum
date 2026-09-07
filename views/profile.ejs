@@ -13,13 +13,6 @@
 
 <%- include('partials/header', { subtitle: '' }) %>
 
-<!-- Toast Container -->
-<div x-data="toastContainer()" id="toastContainer" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2">
-  <template x-for="t in toasts" :key="t.id">
-    <div x-text="t.message" class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
-  </template>
-</div>
-
 <!-- Profile Page -->
 <div x-data="profilePage()" x-cloak>
 
@@ -109,8 +102,8 @@
         <div x-show="levelInfo" x-ref="levelCard" class="bg-gray-50 rounded-xl p-3">
           <div class="flex items-center justify-between mb-2">
             <div class="flex items-center gap-1.5">
-              <span x-html="levelBadgeHtml" class="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full text-white text-[10px] font-bold leading-none"></span>
-              <span class="text-[11px] text-gray-500">Lv<span x-text="levelInfo && levelInfo.level >= levelInfo.max_level ? 'MAX' : (levelInfo && levelInfo.next_level)"></span></span>
+              <span x-html="levelBadgeHtml" :style="'background:' + (levelInfo && levelInfo.badge_bg)" class="inline-flex items-center gap-0.5 px-1.5 py-px rounded-full text-white text-[10px] font-bold leading-none"></span>
+              <span class="text-[11px] text-gray-500">Lv<span x-text="levelInfo && levelInfo.level >= levelInfo.max_level ? 'MAX' : (levelInfo && levelInfo.level)"></span></span>
             </div>
             <div class="text-[10px] text-gray-500">
               <span x-text="levelInfo && levelInfo.have" :style="'color:' + (levelInfo && levelInfo.accent_color)" class="font-bold"></span>
