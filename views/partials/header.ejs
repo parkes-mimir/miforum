@@ -20,10 +20,14 @@
           <a :href="'/profile.html?id=' + user.id" class="flex items-center gap-2 hover:opacity-80 transition ml-1">
             <div x-html="userAvatarHtml" class="flex-shrink-0"></div>
             <div class="hidden sm:flex flex-col">
-              <span class="text-sm font-medium" x-text="user.username"></span>
+              <div class="flex items-center gap-1.5">
+                <span class="text-sm font-medium" x-text="user.username"></span>
+                <span x-show="roleLabel" x-text="roleLabel" :class="roleColorClass" class="text-[10px] px-1.5 py-0.5 rounded-full font-medium"></span>
+              </div>
               <span x-show="user.title" x-text="user.title" class="text-[10px] text-gray-400"></span>
             </div>
           </a>
+          <button x-show="isAdmin" @click="$dispatch('open-admin-panel')" class="text-xs text-gray-400 hover:text-amber-600 ml-1 transition" title="管理面板">管理</button>
           <button @click="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
         </div>
       </template>

@@ -39,7 +39,7 @@
   }
 </style>
 </head>
-<body class="min-h-screen text-gray-800" x-data="forumPage()" x-cloak>
+<body class="min-h-screen text-gray-800" x-data="forumPage()" x-cloak @open-admin-panel.window="showAdminPanel()">
 
 <%- include('partials/header', { subtitle: '' }) %>
 

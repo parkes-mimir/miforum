@@ -1,5 +1,5 @@
 /**
- * Alpine.js 头部组件（消息图标、用户菜单）
+ * Alpine.js 头部组件（消息图标、用户菜单、管理入口）
  */
 document.addEventListener('alpine:init', () => {
   window.header = Alpine.data('header', () => ({
@@ -28,6 +28,28 @@ document.addEventListener('alpine:init', () => {
 
     get isLoggedIn() {
       return Alpine.store('auth').isLoggedIn;
+    },
+
+    get isAdmin() {
+      return Alpine.store('auth').isAdmin;
+    },
+
+    get isSuperAdmin() {
+      return Alpine.store('auth').isSuperAdmin;
+    },
+
+    get roleLabel() {
+      if (!this.user) return '';
+      if (this.user.role === 'super_admin') return '超管';
+      if (this.user.role === 'admin') return '管理';
+      return '';
+    },
+
+    get roleColorClass() {
+      if (!this.user) return '';
+      if (this.user.role === 'super_admin') return 'bg-red-500 text-white';
+      if (this.user.role === 'admin') return 'bg-amber-500 text-white';
+      return '';
     },
 
     get userAvatarHtml() {
