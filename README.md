@@ -36,6 +36,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，Alp
 - 等级排行榜
 - 关于页面（版本信息、检查更新、自动更新）
 - 响应式布局（Tailwind CSS，适配手机和桌面）
+- 主题系统（亮色/暗色模式 + 5种主题色，localStorage 持久化）
 - 自定义表情（默认 emoji + 自定义图片上传 + 一键收藏）
 - 帖子投票（单选/多选、时间限制、自动过期）
 - 私密帖子（仅作者和管理员可见）
@@ -243,7 +244,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.0** — Alpine.js 迁移 + EJS 模板 + 安全加固 + 存储优化
+**最新版本 v1.2.1** — 主题系统 + 导航栏管理入口 + Bug 修复
 
 ## 声明
 

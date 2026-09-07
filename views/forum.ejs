@@ -39,9 +39,9 @@
   }
 </style>
 </head>
-<body class="min-h-screen text-gray-800" x-data="forumPage()" x-cloak @open-admin-panel.window="showAdminPanel()">
+<body class="min-h-screen text-gray-800" x-data="forumPage()" x-cloak @open-admin-panel.window="showAdminPanel()" @toggle-sidebar.window="sidebarOpen = !sidebarOpen">
 
-<%- include('partials/header', { subtitle: '' }) %>
+<%- include('partials/header', { subtitle: '', showSidebarToggle: true }) %>
 
 <!-- Sidebar overlay -->
 <div x-show="sidebarOpen" @click="sidebarOpen = false" class="fixed inset-0 bg-black/30 z-30 lg:hidden" x-transition.opacity></div>

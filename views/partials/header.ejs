@@ -2,6 +2,11 @@
 <header x-data="header()" class="sticky top-0 z-40 bg-white/80 backdrop-blur-md border-b border-gray-200/60">
   <div class="max-w-7xl mx-auto flex items-center justify-between px-4 h-14">
     <div class="flex items-center gap-3">
+      <% if (typeof showSidebarToggle !== 'undefined' && showSidebarToggle) { %>
+        <button @click="$dispatch('toggle-sidebar')" class="lg:hidden p-2 -ml-2 rounded-lg hover:bg-gray-100">
+          <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"/></svg>
+        </button>
+      <% } %>
       <a href="/" class="flex items-center gap-2 font-bold text-xl text-primary-600">
         <svg class="w-7 h-7" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
         MiForum
@@ -29,6 +34,25 @@
           </a>
           <button x-show="isAdmin" @click="$dispatch('open-admin-panel')" class="text-xs text-gray-400 hover:text-amber-600 ml-1 transition" title="管理面板">管理</button>
           <button @click="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
+          <button @click="$store.theme.toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 transition ml-1" :title="$store.theme.isDark ? '切换亮色' : '切换暗色'">
+            <svg x-show="!$store.theme.isDark" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>
+            <svg x-show="$store.theme.isDark" class="w-5 h-5 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 3v1m0 16v1m9-9h-1M4 12H3m15.364 6.364l-.707-.707M6.343 6.343l-.707-.707m12.728 0l-.707.707M6.343 17.657l-.707.707M16 12a4 4 0 11-8 0 4 4 0 018 0z"/></svg>
+          </button>
+          <div x-data="{ open: false }" class="relative">
+            <button @click="open = !open" class="p-2 rounded-lg hover:bg-gray-100 transition" title="主题色">
+              <svg class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 21a4 4 0 01-4-4V5a2 2 0 012-2h4a2 2 0 012 2v12a4 4 0 01-4 4zm0 0h12a2 2 0 002-2v-4a2 2 0 00-2-2h-2.343M11 7.343l1.657-1.657a2 2 0 012.828 0l2.829 2.829a2 2 0 010 2.828l-8.486 8.485M7 17h.01"/></svg>
+            </button>
+            <div x-show="open" @click.outside="open = false" class="absolute right-0 mt-2 bg-white rounded-xl shadow-lg border border-gray-200 p-3 z-50 fade-in" style="display:none">
+              <p class="text-xs text-gray-500 mb-2 font-medium">主题色</p>
+              <div class="flex gap-2">
+                <div @click="$store.theme.setColor('purple'); open=false" class="w-7 h-7 rounded-full cursor-pointer hover:scale-110 transition" style="background:#a855f7 !important" title="紫色"></div>
+                <div @click="$store.theme.setColor('blue'); open=false" class="w-7 h-7 rounded-full cursor-pointer hover:scale-110 transition" style="background:#3b82f6 !important" title="蓝色"></div>
+                <div @click="$store.theme.setColor('green'); open=false" class="w-7 h-7 rounded-full cursor-pointer hover:scale-110 transition" style="background:#22c55e !important" title="绿色"></div>
+                <div @click="$store.theme.setColor('orange'); open=false" class="w-7 h-7 rounded-full cursor-pointer hover:scale-110 transition" style="background:#f97316 !important" title="橙色"></div>
+                <div @click="$store.theme.setColor('rose'); open=false" class="w-7 h-7 rounded-full cursor-pointer hover:scale-110 transition" style="background:#f43f5e !important" title="玫红"></div>
+              </div>
+            </div>
+          </div>
         </div>
       </template>
       <template x-if="!isLoggedIn">

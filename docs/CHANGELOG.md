@@ -4,6 +4,32 @@
 
 ---
 
+## [1.2.1] - 2026-09-08 - 贡献者：parkes-mimir, phppi561, jxwzx, XY20-hub, sakesenqiu1
+
+### 新增
+
+- **主题系统**：支持亮色/暗色模式 + 5种主题色（紫、蓝、绿、橙、玫红）
+- **导航栏管理入口**：管理员/超管身份标签 + 管理面板按钮，所有页面可见
+- **移动端侧边栏**：恢复汉堡菜单按钮，支持移动端展开侧边栏
+
+### 修复
+
+- **积分商店兑换按钮**：exchange 弹窗作用域问题，移入 shopPage 组件内部
+- **表情选择器**：插入表情后 x-model 未同步，添加 `_syncModel()` 方法
+- **等级徽章**：三个页面统一实现方式，使用 Tailwind 类 + 内联样式
+- **等级显示**：profile 页显示 `next_level` 而非 `level`
+- **Toast 系统**：store 和组件未连通，改为直接使用 `$store.toast`
+- **JS/CSS 缓存**：添加 `no-cache` 头 + 版本号参数，防止浏览器缓存旧版本
+- **主题色按钮**：Tailwind button reset 导致背景透明，改用 div + `!important`
+- **登录弹窗重复**：移除 forum.js/post.js 中重复的 authModal 和 lightbox 定义
+
+### 变更
+
+- **默认主题色**：从蓝色改为紫色
+- **Dockerfile**：添加 `views/` 目录复制，支持 EJS 模板
+
+---
+
 ## [1.2.0] - 2026-09-07 - 贡献者：parkes-mimir, phppi561, jxwzx, XY20-hub, sakesenqiu1
 
 ### 重大变更

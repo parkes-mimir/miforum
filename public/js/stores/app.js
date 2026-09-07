@@ -35,10 +35,9 @@ document.addEventListener('alpine:init', () => {
         purple: 'box-shadow: 0 0 0 2px #a855f7, 0 0 8px #a855f740'
       };
       const frameStyle = u.avatar_frame && frameStyles[u.avatar_frame] ? frameStyles[u.avatar_frame] : '';
-      const wrapOpen = frameStyle ? `<div style="width:28px;height:28px;border-radius:50%;${frameStyle};overflow:hidden;display:flex;align-items:center;justify-content:center;">` : '';
-      const wrapClose = frameStyle ? '</div>' : '';
-      if (u.avatar_url) return `${wrapOpen}<img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;">${wrapClose}`;
-      return `${wrapOpen}<div style="width:28px;height:28px;border-radius:50%;background:#e0e7ff;display:flex;align-items:center;justify-content:center;font-size:12px;font-weight:700;color:#4f46e5;">${esc(letter)}</div>${wrapClose}`;
+      const wrapStyle = `width:28px;height:28px;border-radius:50%;overflow:hidden;display:flex;align-items:center;justify-content:center;${frameStyle}`;
+      if (u.avatar_url) return `<div style="${wrapStyle}"><img src="${u.avatar_url}" style="width:100%;height:100%;object-fit:cover;border-radius:50%;"></div>`;
+      return `<div style="${wrapStyle}background:#e0e7ff;font-size:12px;font-weight:700;color:#4f46e5;">${esc(letter)}</div>`;
     },
 
     async load() {
