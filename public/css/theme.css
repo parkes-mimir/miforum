@@ -3,108 +3,86 @@
  *
  * 通过 <html data-theme="dark"> 切换暗色模式
  * 通过 <html data-color="green"> 切换主题色
+ *
+ * 性能优化：
+ * - 使用 CSS 变量避免重复定义
+ * - 暗色模式使用单个选择器减少样式计算
+ * - 最小化 !important 使用
  */
 
 /* ============================================================
- * 亮色主题（默认 - 紫色）
+ * 主色调变量定义
  * ============================================================ */
 :root {
-  --color-primary-50: #faf5ff;
-  --color-primary-100: #f3e8ff;
-  --color-primary-200: #e9d5ff;
-  --color-primary-300: #d8b4fe;
-  --color-primary-400: #c084fc;
-  --color-primary-500: #a855f7;
-  --color-primary-600: #9333ea;
-  --color-primary-700: #7e22ce;
-  --color-primary-800: #6b21a8;
-  --color-primary-900: #581c87;
+  /* 默认紫色 */
+  --c50: #faf5ff; --c100: #f3e8ff; --c200: #e9d5ff; --c300: #d8b4fe;
+  --c400: #c084fc; --c500: #a855f7; --c600: #9333ea; --c700: #7e22ce;
+  --c800: #6b21a8; --c900: #581c87;
 
-  --bg-page: #f0f2f5;
-  --bg-card: #ffffff;
-  --bg-header: rgba(255, 255, 255, 0.8);
-  --border-main: #e5e7eb;
-  --text-main: #1f2937;
-  --text-sub: #4b5563;
-  --text-muted: #9ca3af;
+  /* 亮色模式 */
+  --bg: #f0f2f5;
+  --card: #ffffff;
+  --hdr: rgba(255, 255, 255, 0.8);
+  --bdr: #e5e7eb;
+  --txt: #1f2937;
+  --txt2: #4b5563;
+  --txt3: #9ca3af;
 }
 
-/* 蓝色 */
-[data-color="blue"] {
-  --color-primary-50: #eff6ff; --color-primary-100: #dbeafe; --color-primary-200: #bfdbfe;
-  --color-primary-300: #93c5fd; --color-primary-400: #60a5fa; --color-primary-500: #3b82f6;
-  --color-primary-600: #2563eb; --color-primary-700: #1d4ed8; --color-primary-800: #1e40af; --color-primary-900: #1e3a8a;
-}
-/* 绿色 */
-[data-color="green"] {
-  --color-primary-50: #f0fdf4; --color-primary-100: #dcfce7; --color-primary-200: #bbf7d0;
-  --color-primary-300: #86efac; --color-primary-400: #4ade80; --color-primary-500: #22c55e;
-  --color-primary-600: #16a34a; --color-primary-700: #15803d; --color-primary-800: #166534; --color-primary-900: #14532d;
-}
-/* 橙色 */
-[data-color="orange"] {
-  --color-primary-50: #fff7ed; --color-primary-100: #ffedd5; --color-primary-200: #fed7aa;
-  --color-primary-300: #fdba74; --color-primary-400: #fb923c; --color-primary-500: #f97316;
-  --color-primary-600: #ea580c; --color-primary-700: #c2410c; --color-primary-800: #9a3412; --color-primary-900: #7c2d12;
-}
-/* 玫红 */
-[data-color="rose"] {
-  --color-primary-50: #fff1f2; --color-primary-100: #ffe4e6; --color-primary-200: #fecdd3;
-  --color-primary-300: #fda4af; --color-primary-400: #fb7185; --color-primary-500: #f43f5e;
-  --color-primary-600: #e11d48; --color-primary-700: #be123c; --color-primary-800: #9f1239; --color-primary-900: #881337;
-}
+/* 主题色变体 */
+[data-color="blue"]   { --c50:#eff6ff;--c100:#dbeafe;--c200:#bfdbfe;--c300:#93c5fd;--c400:#60a5fa;--c500:#3b82f6;--c600:#2563eb;--c700:#1d4ed8;--c800:#1e40af;--c900:#1e3a8a; }
+[data-color="green"]  { --c50:#f0fdf4;--c100:#dcfce7;--c200:#bbf7d0;--c300:#86efac;--c400:#4ade80;--c500:#22c55e;--c600:#16a34a;--c700:#15803d;--c800:#166534;--c900:#14532d; }
+[data-color="orange"] { --c50:#fff7ed;--c100:#ffedd5;--c200:#fed7aa;--c300:#fdba74;--c400:#fb923c;--c500:#f97316;--c600:#ea580c;--c700:#c2410c;--c800:#9a3412;--c900:#7c2d12; }
+[data-color="rose"]   { --c50:#fff1f2;--c100:#ffe4e6;--c200:#fecdd3;--c300:#fda4af;--c400:#fb7185;--c500:#f43f5e;--c600:#e11d48;--c700:#be123c;--c800:#9f1239;--c900:#881337; }
 
-/* ============================================================
- * 暗色模式
- * ============================================================ */
+/* 暗色模式 */
 [data-theme="dark"] {
-  --bg-page: #1a1a2e;
-  --bg-card: #1e293b;
-  --bg-header: rgba(26, 26, 46, 0.9);
-  --border-main: #334155;
-  --text-main: #f1f5f9;
-  --text-sub: #cbd5e1;
-  --text-muted: #64748b;
+  --bg: #1a1a2e;
+  --card: #1e293b;
+  --hdr: rgba(26, 26, 46, 0.9);
+  --bdr: #334155;
+  --txt: #f1f5f9;
+  --txt2: #cbd5e1;
+  --txt3: #64748b;
 }
 
 /* ============================================================
- * 主色调覆盖（Tailwind primary-* → CSS 变量）
+ * 主色调覆盖（Tailwind → CSS 变量）
  * ============================================================ */
-.bg-primary-50 { background-color: var(--color-primary-50) !important; }
-.bg-primary-100 { background-color: var(--color-primary-100) !important; }
-.bg-primary-600 { background-color: var(--color-primary-600) !important; }
-.bg-primary-700 { background-color: var(--color-primary-700) !important; }
-.text-primary-600 { color: var(--color-primary-600) !important; }
-.text-primary-700 { color: var(--color-primary-700) !important; }
-.text-primary-500 { color: var(--color-primary-500) !important; }
-.from-primary-500 { --tw-gradient-from: var(--color-primary-500) !important; }
-.from-primary-600 { --tw-gradient-from: var(--color-primary-600) !important; }
-.to-primary-700 { --tw-gradient-to: var(--color-primary-700) !important; }
-.ring-primary-300 { --tw-ring-color: var(--color-primary-300) !important; }
-.border-primary-300 { border-color: var(--color-primary-300) !important; }
-.shadow-primary-600\/20 { --tw-shadow-color: var(--color-primary-600) !important; }
+.bg-primary-50  { background-color: var(--c50) !important; }
+.bg-primary-100 { background-color: var(--c100) !important; }
+.bg-primary-600 { background-color: var(--c600) !important; }
+.bg-primary-700 { background-color: var(--c700) !important; }
+.text-primary-500 { color: var(--c500) !important; }
+.text-primary-600 { color: var(--c600) !important; }
+.text-primary-700 { color: var(--c700) !important; }
+.from-primary-500 { --tw-gradient-from: var(--c500) !important; }
+.from-primary-600 { --tw-gradient-from: var(--c600) !important; }
+.to-primary-700   { --tw-gradient-to: var(--c700) !important; }
+.ring-primary-300 { --tw-ring-color: var(--c300) !important; }
+.border-primary-300 { border-color: var(--c300) !important; }
 
 /* ============================================================
- * 暗色模式覆盖（仅暗色模式生效）
+ * 暗色模式覆盖
  * ============================================================ */
-[data-theme="dark"] body { background-color: var(--bg-page); color: var(--text-main); }
-[data-theme="dark"] .bg-white { background-color: var(--bg-card); }
+[data-theme="dark"] body { background: var(--bg); color: var(--txt); }
+[data-theme="dark"] .bg-white { background-color: var(--card); }
 [data-theme="dark"] .bg-gray-50 { background-color: #1e293b; }
 [data-theme="dark"] .bg-gray-100 { background-color: #16213e; }
 [data-theme="dark"] .bg-gray-200 { background-color: #334155; }
 [data-theme="dark"] .border-gray-100,
-[data-theme="dark"] .border-gray-200 { border-color: var(--border-main); }
+[data-theme="dark"] .border-gray-200 { border-color: var(--bdr); }
 [data-theme="dark"] .text-gray-800,
-[data-theme="dark"] .text-gray-900 { color: var(--text-main); }
+[data-theme="dark"] .text-gray-900 { color: var(--txt); }
 [data-theme="dark"] .text-gray-600,
-[data-theme="dark"] .text-gray-700 { color: var(--text-sub); }
-[data-theme="dark"] .text-gray-500 { color: var(--text-muted); }
+[data-theme="dark"] .text-gray-700 { color: var(--txt2); }
+[data-theme="dark"] .text-gray-500 { color: var(--txt3); }
 [data-theme="dark"] .text-gray-400 { color: #64748b; }
-[data-theme="dark"] header { background-color: var(--bg-header); border-color: var(--border-main); }
-[data-theme="dark"] aside { background-color: var(--bg-card); border-color: var(--border-main); }
+[data-theme="dark"] header { background-color: var(--hdr); border-color: var(--bdr); }
+[data-theme="dark"] aside { background-color: var(--card); border-color: var(--bdr); }
 [data-theme="dark"] input,
 [data-theme="dark"] textarea,
-[data-theme="dark"] select { background-color: var(--bg-card); color: var(--text-main); border-color: var(--border-main); }
+[data-theme="dark"] select { background-color: var(--card); color: var(--txt); border-color: var(--bdr); }
 [data-theme="dark"] .skeleton { background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important; }
 [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #475569; }
 [data-theme="dark"] ::-webkit-scrollbar-track { background: #1e293b; }

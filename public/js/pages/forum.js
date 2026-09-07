@@ -773,7 +773,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     async doUpdate() {
-      if (!confirm('确定要更新吗？更新后需要重启服务器。')) return;
+      this.updateResult = '正在更新...'; this.updateResultOk = true;
       try {
         const data = await api('/api/admin/update', { method: 'POST' });
         this.updateResult = '✓ ' + data.message; this.updateResultOk = true; this.updateHasNew = false;

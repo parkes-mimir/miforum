@@ -32,7 +32,9 @@
               <span x-show="user.title" x-text="user.title" class="text-[10px] text-gray-400"></span>
             </div>
           </a>
+          <% if (typeof showAdminButton !== 'undefined' && showAdminButton) { %>
           <button x-show="isAdmin" @click="$dispatch('open-admin-panel')" class="text-xs text-gray-400 hover:text-amber-600 ml-1 transition" title="管理面板">管理</button>
+          <% } %>
           <button @click="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
           <button @click="$store.theme.toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 transition ml-1" :title="$store.theme.isDark ? '切换亮色' : '切换暗色'">
             <svg x-show="!$store.theme.isDark" class="w-5 h-5 text-gray-500" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M20.354 15.354A9 9 0 018.646 3.646 9.003 9.003 0 0012 21a9.003 9.003 0 008.354-5.646z"/></svg>

@@ -4,6 +4,25 @@
 
 ---
 
+## [1.2.2] - 2026-09-08 - 贡献者：parkes-mimir, phppi561, jxwzx, XY20-hub, sakesenqiu1
+
+### 修复
+
+- **主题色按钮显示白色**：Tailwind button reset 覆盖内联样式，改用 div + `!important`
+- **积分商店兑换**：exchange 弹窗移入 shopPage 组件内部，修复作用域问题
+- **表情插入无效**：emoji-picker 添加 `_syncModel()` 同步 Alpine x-model
+- **等级徽章**：三个页面统一实现方式，修复背景和文字颜色
+- **管理按钮**：仅在论坛主页显示，避免其他页面点击无反应
+- **立即更新按钮**：移除 confirm() 弹窗，直接执行更新
+- **主题性能优化**：缩短 CSS 变量名，减少选择器数量
+
+### 变更
+
+- 默认主题色从蓝色改为紫色
+- 暗色模式样式使用 `[data-theme="dark"]` 前缀
+
+---
+
 ## [1.2.1] - 2026-09-08 - 贡献者：parkes-mimir, phppi561, jxwzx, XY20-hub, sakesenqiu1
 
 ### 新增

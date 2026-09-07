@@ -244,7 +244,7 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.1** — 主题系统 + 导航栏管理入口 + Bug 修复
+**最新版本 v1.2.2** — 主题性能优化 + Bug 修复
 
 ## 声明
 
