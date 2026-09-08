@@ -1,1 +1,2 @@
-npx lint-staged
+#!/bin/sh
+nix-shell -p nodejs --run "npx lint-staged"
