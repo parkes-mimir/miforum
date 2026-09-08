@@ -61,18 +61,6 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    relTime(iso) {
-      if (!iso) return '';
-      const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
-      const m = Math.floor(d / 60000);
-      if (m < 1) return '刚刚';
-      if (m < 60) return m + '分钟前';
-      const h = Math.floor(m / 60);
-      if (h < 24) return h + '小时前';
-      const date = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
-      return date.getFullYear() + '年' + (date.getMonth() + 1) + '月' + date.getDate() + '日';
-    },
-
     renderEmoji(text) {
       if (!text) return '';
       return typeof renderEmojiInText === 'function' ? renderEmojiInText(text) : esc(text);
@@ -89,7 +77,7 @@ document.addEventListener('alpine:init', () => {
         const data = await api('/api/conversations');
         this.conversations = data.conversations || [];
       } catch (e) {
-        window.dispatchEvent(new CustomEvent('toast', { detail: e.message }));
+        Alpine.store('toast').show(e.message);
       } finally {
         this.convLoading = false;
       }
@@ -123,7 +111,7 @@ document.addEventListener('alpine:init', () => {
           other_user_id: Number(userId)
         });
       } catch (e) {
-        window.dispatchEvent(new CustomEvent('toast', { detail: '无法打开会话：' + e.message }));
+        Alpine.store('toast').show('无法打开会话：' + e.message);
       }
     },
 
@@ -158,7 +146,7 @@ document.addEventListener('alpine:init', () => {
         this.chatInput = '';
         await this.loadChatMessages();
       } catch (e) {
-        window.dispatchEvent(new CustomEvent('toast', { detail: e.message }));
+        Alpine.store('toast').show(e.message);
       }
     },
 
@@ -171,7 +159,7 @@ document.addEventListener('alpine:init', () => {
         nd.items = data.notifications || [];
         nd.totalPages = data.pagination?.pages || 1;
       } catch (e) {
-        window.dispatchEvent(new CustomEvent('toast', { detail: e.message }));
+        Alpine.store('toast').show(e.message);
       } finally {
         nd.loading = false;
       }
@@ -193,9 +181,9 @@ document.addEventListener('alpine:init', () => {
         const sectionMap = { comment: 'replies', like: 'likes', bookmark: 'bookmarks' };
         const section = sectionMap[type];
         if (section && this.currentSection === section) this.loadNotifications(section);
-        window.dispatchEvent(new CustomEvent('toast', { detail: '已全部标为已读' }));
+        Alpine.store('toast').show('已全部标为已读');
       } catch (e) {
-        window.dispatchEvent(new CustomEvent('toast', { detail: e.message }));
+        Alpine.store('toast').show(e.message);
       }
     },
 

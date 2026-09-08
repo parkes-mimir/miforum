@@ -1,3 +1,10 @@
+/**
+ * checkin.js - 签到系统控制器
+ *
+ * 提供自动签到、手动签到、签到历史、补签功能，
+ * 包含连续签到天数计算和经验值奖励。
+ */
+
 const { requireAuth } = require('../middleware/auth');
 const { todayStr, addDays, daysBetween, dateStr } = require('../utils/helpers');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('../services/level');
@@ -102,42 +109,35 @@ module.exports = function (app, db) {
     res.json({ ok: true, points: updatedUser.points, exp: updatedUser.exp, level_info: getLevelInfo(updatedUser.exp), date });
   });
 
-  app.post('/api/checkin/auto', requireAuth, (req, res) => {
+  /** 执行签到（内部函数，auto 和 manual 共用） */
+  function doCheckin(userId) {
     const today = todayStr();
+    const exists = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?').get(userId, today);
+    if (exists) return { already: true };
+
+    const txn = db.transaction(() => {
+      db.prepare("INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime('now'))").run(userId, today);
+      db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(userId);
+      addExp(db, userId, EXP_REWARDS.signin);
+    });
+    txn();
+
+    const user = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(userId);
+    return { already: false, points: user.points, exp: user.exp, level_info: getLevelInfo(user.exp) };
+  }
+
+  app.post('/api/checkin/auto', requireAuth, (req, res) => {
     const user = db.prepare('SELECT id, points FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.json({ checkedIn: false, points: 0 });
 
-    const already = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
-      .get(req.session.userId, today);
-    if (already) return res.json({ checkedIn: true, points: user.points, newCheckin: false });
-
-    const doCheckin = db.transaction(() => {
-      db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
-        .run(req.session.userId, today);
-      db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
-      addExp(db, req.session.userId, EXP_REWARDS.signin);
-    });
-    doCheckin();
-
-    const updatedUser = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
-    res.json({ checkedIn: true, points: updatedUser.points, newCheckin: true, exp: updatedUser.exp, level_info: getLevelInfo(updatedUser.exp) });
+    const result = doCheckin(req.session.userId);
+    if (result.already) return res.json({ checkedIn: true, points: user.points, newCheckin: false });
+    res.json({ checkedIn: true, points: result.points, newCheckin: true, exp: result.exp, level_info: result.level_info });
   });
 
   app.post('/api/checkin', requireAuth, (req, res) => {
-    const today = todayStr();
-    const exists = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
-      .get(req.session.userId, today);
-    if (exists) return res.status(400).json({ error: '今天已经签到过了' });
-
-    const doCheckin = db.transaction(() => {
-      db.prepare('INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime(\'now\'))')
-        .run(req.session.userId, today);
-      db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(req.session.userId);
-      addExp(db, req.session.userId, EXP_REWARDS.signin);
-    });
-    doCheckin();
-
-    const user = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
-    res.json({ ok: true, points: user ? user.points : 0, exp: user ? user.exp : 0, level_info: getLevelInfo(user ? user.exp : 0) });
+    const result = doCheckin(req.session.userId);
+    if (result.already) return res.status(400).json({ error: '今天已经签到过了' });
+    res.json({ ok: true, points: result.points, exp: result.exp, level_info: result.level_info });
   });
 };

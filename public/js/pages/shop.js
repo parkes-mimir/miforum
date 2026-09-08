@@ -65,18 +65,6 @@ document.addEventListener('alpine:init', () => {
       await Alpine.store('shop').load();
     },
 
-    relTime(iso) {
-      if (!iso) return '';
-      const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
-      const m = Math.floor(d / 60000);
-      if (m < 1) return '刚刚';
-      if (m < 60) return m + '分钟前';
-      const h = Math.floor(m / 60);
-      if (h < 24) return h + '小时前';
-      const date = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
-      return date.getFullYear() + '年' + (date.getMonth() + 1) + '月' + date.getDate() + '日';
-    },
-
     showExchangeModal(item) {
       if (!this.user) {
         Alpine.store('toast').show('请先登录');

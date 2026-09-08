@@ -30,13 +30,15 @@ const DEFAULT_CATEGORIES = [
  */
 function initDefaultData(db) {
   // 初始化超级管理员
-  const adminExists = db.prepare('SELECT id FROM profiles WHERE email = ?').get('root@miforum.local');
+  const adminEmail = process.env.ADMIN_EMAIL || 'root@miforum.local';
+  const adminPassword = process.env.ADMIN_PASSWORD || '123456';
+  const adminExists = db.prepare('SELECT id FROM profiles WHERE email = ?').get(adminEmail);
   if (!adminExists) {
-    const hash = bcrypt.hashSync('123456', 10);
+    const hash = bcrypt.hashSync(adminPassword, 10);
     db.prepare(`
       INSERT INTO profiles (display_id, username, email, password_hash, role, profile_public, force_password_change)
       VALUES (?, ?, ?, ?, ?, ?, ?)
-    `).run('000000', '超级管理员', 'root@miforum.local', hash, 'super_admin', 1, 1);
+    `).run('000000', '超级管理员', adminEmail, hash, 'super_admin', 1, 1);
   }
 
   // 初始化默认商品

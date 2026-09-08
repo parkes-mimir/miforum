@@ -42,7 +42,7 @@ beforeAll(async () => {
   if (adminLogin.body.user?.force_password_change) {
     await adminAgent
       .post('/api/change-password')
-      .send({ old_password: '123456', new_password: 'admin123' });
+      .send({ oldPassword: '123456', newPassword: 'admin123' });
     await adminAgent
       .post('/api/login')
       .send({ email: 'root@miforum.local', password: 'admin123' });
@@ -455,7 +455,7 @@ describe('管理员用户管理', () => {
   test('GET /api/admin/smtp - SMTP 配置', async () => {
     const res = await adminAgent.get('/api/admin/smtp');
     expect(res.status).toBe(200);
-    expect(res.body).toHaveProperty('smtp_host');
+    expect(res.body).toHaveProperty('smtpHost');
     expect(res.body).toHaveProperty('configured');
   });
 
@@ -488,5 +488,182 @@ describe('安全测试补充', () => {
       || res.headers['ratelimit-remaining'] !== undefined
       || res.headers['x-ratelimit-limit'] !== undefined;
     expect(hasRateLimitHeader).toBe(true);
+  });
+});
+
+describe('表情 API', () => {
+  let emojiId;
+
+  test('GET /api/emoji/public - 获取公共表情列表', async () => {
+    const res = await request(app).get('/api/emoji/public');
+    expect(res.status).toBe(200);
+    expect(res.body).toHaveProperty('emojis');
+    expect(Array.isArray(res.body.emojis)).toBe(true);
+  });
+
+  test('GET /api/emoji/my - 未登录获取我的表情应401', async () => {
+    const res = await request(app).get('/api/emoji/my');
+    expect(res.status).toBe(401);
+  });
+
+  test('POST /api/emoji - 未登录上传表情应401', async () => {
+    const res = await request(app).post('/api/emoji');
+    expect(res.status).toBe(401);
+  });
+
+  test('POST /api/emoji - 登录后上传表情', async () => {
+    // 创建一个 1x1 PNG 图片并转为 base64
+    const pngBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const imageData = `data:image/png;base64,${pngBuffer.toString('base64')}`;
+    const res = await userAgent
+      .post('/api/emoji')
+      .send({ imageData });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+    expect(res.body.emoji).toHaveProperty('id');
+    expect(res.body.emoji).toHaveProperty('image_url');
+    emojiId = res.body.emoji.id;
+  });
+
+  test('POST /api/emoji/:id/collect - 收藏表情（已自动收藏）', async () => {
+    if (!emojiId) return;
+    // 上传时已自动收藏，所以重复收藏应该返回400
+    const res = await userAgent.post(`/api/emoji/${emojiId}/collect`);
+    expect(res.status).toBe(400);
+  });
+
+  test('DELETE /api/emoji/:id/collect - 取消收藏', async () => {
+    if (!emojiId) return;
+    const res = await userAgent.delete(`/api/emoji/${emojiId}/collect`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test('POST /api/emoji/:id/collect - 重新收藏', async () => {
+    if (!emojiId) return;
+    const res = await userAgent.post(`/api/emoji/${emojiId}/collect`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test('GET /api/emoji/my - 获取我的表情列表', async () => {
+    const res = await userAgent.get('/api/emoji/my');
+    expect(res.status).toBe(200);
+    expect(Array.isArray(res.body.emojis)).toBe(true);
+  });
+
+  test('DELETE /api/emoji/:id/collect - 取消收藏', async () => {
+    if (!emojiId) return;
+    const res = await userAgent.delete(`/api/emoji/${emojiId}/collect`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test('DELETE /api/emoji/:id - 删除表情', async () => {
+    if (!emojiId) return;
+    const res = await userAgent.delete(`/api/emoji/${emojiId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+  });
+
+  test('DELETE /api/emoji/:id - 删除不存在的表情应404', async () => {
+    const res = await userAgent.delete('/api/emoji/99999');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('投票 API', () => {
+  let pollPostId, pollId;
+
+  test('创建带投票的帖子', async () => {
+    const res = await userAgent.post('/api/posts').send({
+      title: 'Poll Test Post',
+      content: 'This post has a poll',
+      category: 'tech',
+      pollQuestion: '你喜欢什么？',
+      pollOptions: ['选项A', '选项B', '选项C'],
+      pollType: 'single'
+    });
+    expect(res.status).toBe(200);
+    pollPostId = res.body.post?.id;
+  });
+
+  test('GET /api/posts/:id - 获取帖子含投票信息', async () => {
+    if (!pollPostId) return;
+    const res = await userAgent.get(`/api/posts/${pollPostId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.poll).toBeTruthy();
+    expect(res.body.poll.question).toBe('你喜欢什么？');
+    pollId = res.body.poll.id;
+  });
+
+  test('GET /api/polls/:id - 获取投票详情', async () => {
+    if (!pollId) return;
+    const res = await userAgent.get(`/api/polls/${pollId}`);
+    expect(res.status).toBe(200);
+    expect(res.body.poll).toBeTruthy();
+    expect(res.body.options.length).toBe(3);
+  });
+
+  test('POST /api/polls/:id/vote - 投票', async () => {
+    if (!pollId) return;
+    const res = await userAgent.get(`/api/polls/${pollId}`);
+    const optionId = res.body.options[0]?.id;
+    if (!optionId) return;
+
+    const voteRes = await userAgent.post(`/api/polls/${pollId}/vote`).send({ optionIds: [optionId] });
+    expect(voteRes.status).toBe(200);
+  });
+
+  test('DELETE /api/polls/:id/vote - 撤销投票', async () => {
+    if (!pollId) return;
+    const res = await userAgent.delete(`/api/polls/${pollId}/vote`);
+    expect(res.status).toBe(200);
+  });
+
+  test('GET /api/polls/:id - 投票不存在应404', async () => {
+    const res = await userAgent.get('/api/polls/99999');
+    expect(res.status).toBe(404);
+  });
+});
+
+describe('用户偏好 API', () => {
+  test('GET /api/preferences - 未登录返回默认值', async () => {
+    const res = await request(app).get('/api/preferences');
+    expect(res.status).toBe(200);
+    expect(res.body.theme).toBe('auto');
+    expect(res.body.themeColor).toBe('purple');
+  });
+
+  test('GET /api/preferences - 登录用户返回 DB 值', async () => {
+    const res = await userAgent.get('/api/preferences');
+    expect(res.status).toBe(200);
+    expect(res.body.theme).toBe('auto');
+    expect(res.body.themeColor).toBe('purple');
+  });
+
+  test('PUT /api/preferences - 更新主题', async () => {
+    const res = await userAgent.put('/api/preferences').send({ theme: 'dark', themeColor: 'blue' });
+    expect(res.status).toBe(200);
+    expect(res.body.ok).toBe(true);
+
+    const getRes = await userAgent.get('/api/preferences');
+    expect(getRes.body.theme).toBe('dark');
+    expect(getRes.body.themeColor).toBe('blue');
+  });
+
+  test('PUT /api/preferences - 无效主题返回400', async () => {
+    const res = await userAgent.put('/api/preferences').send({ theme: 'invalid' });
+    expect(res.status).toBe(400);
+  });
+
+  test('PUT /api/preferences - 无效主题色返回400', async () => {
+    const res = await userAgent.put('/api/preferences').send({ themeColor: 'invalid' });
+    expect(res.status).toBe(400);
+  });
+
+  test('PUT /api/preferences - 未登录返回401', async () => {
+    const res = await request(app).put('/api/preferences').send({ theme: 'dark' });
+    expect(res.status).toBe(401);
   });
 });

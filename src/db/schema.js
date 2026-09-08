@@ -33,7 +33,7 @@ const SCHEMA_SQL = `
     content TEXT NOT NULL,
     category TEXT DEFAULT 'tech',
     tags TEXT DEFAULT '[]',
-    author_id INTEGER REFERENCES profiles(id),
+    author_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     images TEXT DEFAULT '[]',
     pinned INTEGER DEFAULT 0,
     private INTEGER DEFAULT 0,
@@ -45,7 +45,7 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
-    author_id INTEGER REFERENCES profiles(id),
+    author_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     content TEXT DEFAULT '',
     images TEXT DEFAULT '[]',
     pinned INTEGER DEFAULT 0,
@@ -55,7 +55,7 @@ const SCHEMA_SQL = `
   -- 签到表
   CREATE TABLE IF NOT EXISTS check_ins (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     check_in_date TEXT NOT NULL,
     retroactive INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now')),
@@ -66,7 +66,7 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS post_likes (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(post_id, user_id)
   );
@@ -75,7 +75,7 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS bookmarks (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
-    user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(post_id, user_id)
   );
@@ -96,7 +96,7 @@ const SCHEMA_SQL = `
   -- 订单表
   CREATE TABLE IF NOT EXISTS shop_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     item_id INTEGER REFERENCES shop_items(id),
     item_name TEXT,
     item_type TEXT,
@@ -136,7 +136,7 @@ const SCHEMA_SQL = `
   -- 经验日志表（用于每日上限统计）
   CREATE TABLE IF NOT EXISTS exp_log (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER REFERENCES profiles(id) ON DELETE CASCADE,
     amount INTEGER NOT NULL,
     date TEXT NOT NULL
   );
@@ -151,13 +151,15 @@ const SCHEMA_SQL = `
     color TEXT DEFAULT 'bg-gray-100 text-gray-700',
     icon TEXT DEFAULT '',
     section_type TEXT DEFAULT 'normal',
-    created_by INTEGER REFERENCES profiles(id),
+    created_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
     sort_order INTEGER DEFAULT 0
   );
 
   -- 索引
   CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);
   CREATE INDEX IF NOT EXISTS idx_posts_category ON posts(category);
+  CREATE INDEX IF NOT EXISTS idx_posts_created_at ON posts(created_at);
+  CREATE INDEX IF NOT EXISTS idx_posts_private ON posts(private);
   CREATE INDEX IF NOT EXISTS idx_comments_post ON comments(post_id);
   CREATE INDEX IF NOT EXISTS idx_comments_author ON comments(author_id);
   CREATE INDEX IF NOT EXISTS idx_check_ins_user_date ON check_ins(user_id, check_in_date);
@@ -165,18 +167,20 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_post_likes_user ON post_likes(user_id);
   CREATE INDEX IF NOT EXISTS idx_bookmarks_user ON bookmarks(user_id);
   CREATE INDEX IF NOT EXISTS idx_shop_orders_user ON shop_orders(user_id);
+  CREATE INDEX IF NOT EXISTS idx_profiles_role ON profiles(role);
 
   -- 通知表
   CREATE TABLE IF NOT EXISTS notifications (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES profiles(id),
-    from_user_id INTEGER REFERENCES profiles(id),
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    from_user_id INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
     type TEXT NOT NULL,
     post_id INTEGER REFERENCES posts(id) ON DELETE CASCADE,
     read INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, read);
+  CREATE INDEX IF NOT EXISTS idx_notifications_type ON notifications(type);
 
   -- 会话表
   CREATE TABLE IF NOT EXISTS conversations (
@@ -188,7 +192,7 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS conversation_participants (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES profiles(id),
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     last_read_at TEXT DEFAULT (datetime('now')),
     UNIQUE(conversation_id, user_id)
   );
@@ -198,11 +202,12 @@ const SCHEMA_SQL = `
   CREATE TABLE IF NOT EXISTS messages (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     conversation_id INTEGER NOT NULL REFERENCES conversations(id) ON DELETE CASCADE,
-    sender_id INTEGER NOT NULL REFERENCES profiles(id),
+    sender_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     content TEXT NOT NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_messages_conv ON messages(conversation_id, created_at);
+  CREATE INDEX IF NOT EXISTS idx_messages_sender ON messages(sender_id);
 
   -- 投票表
   CREATE TABLE IF NOT EXISTS polls (
@@ -231,7 +236,7 @@ const SCHEMA_SQL = `
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     poll_id INTEGER NOT NULL REFERENCES polls(id) ON DELETE CASCADE,
     option_id INTEGER NOT NULL REFERENCES poll_options(id) ON DELETE CASCADE,
-    user_id INTEGER NOT NULL REFERENCES profiles(id),
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     created_at TEXT DEFAULT (datetime('now')),
     UNIQUE(poll_id, option_id, user_id)
   );
@@ -244,7 +249,7 @@ const SCHEMA_SQL = `
     name TEXT NOT NULL,
     image_url TEXT NOT NULL,
     category TEXT DEFAULT 'custom',
-    created_by INTEGER REFERENCES profiles(id),
+    created_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
     created_at TEXT DEFAULT (datetime('now'))
   );
   CREATE INDEX IF NOT EXISTS idx_custom_emoji_creator ON custom_emoji(created_by);
@@ -252,7 +257,7 @@ const SCHEMA_SQL = `
   -- 用户表情收藏表
   CREATE TABLE IF NOT EXISTS user_emoji (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER NOT NULL REFERENCES profiles(id),
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
     emoji_id INTEGER NOT NULL REFERENCES custom_emoji(id) ON DELETE CASCADE,
     added_at TEXT DEFAULT (datetime('now')),
     UNIQUE(user_id, emoji_id)

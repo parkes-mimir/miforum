@@ -1,37 +1,41 @@
+/**
+ * admin-system.js - 系统设置控制器
+ *
+ * 提供 SMTP 配置、版本信息、检查更新功能，
+ * 需要管理员权限。
+ */
+
 const { requireAdmin: requireAdminFactory } = require('../middleware/auth');
-const { encryptText, decryptText } = require('../utils/helpers');
+const { encryptText } = require('../utils/helpers');
+const { getSmtpRawConfig } = require('../utils/email');
 
 module.exports = function (app, db) {
   const requireAdmin = requireAdminFactory(db);
 
   app.get('/api/admin/smtp', requireAdmin, (req, res) => {
-    const host = db.prepare("SELECT value FROM settings WHERE key = 'smtp_host'").get();
-    const port = db.prepare("SELECT value FROM settings WHERE key = 'smtp_port'").get();
-    const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
-    const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
-    const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
+    const config = getSmtpRawConfig(db);
     res.json({
-      smtp_host: host ? host.value : '',
-      smtp_port: port ? port.value : '465',
-      smtp_secure: secure ? secure.value === 'true' : true,
-      smtp_user: user ? user.value : '',
-      smtp_pass: pass ? '********' : '',
-      configured: !!(host && user && pass)
+      smtpHost: config.host,
+      smtpPort: config.port,
+      smtpSecure: config.secure,
+      smtpUser: config.user,
+      smtpPass: config.pass,
+      configured: config.configured
     });
   });
 
   app.put('/api/admin/smtp', requireAdmin, (req, res) => {
-    const { smtp_host, smtp_port, smtp_secure, smtp_user, smtp_pass } = req.body;
-    if (!smtp_host || !smtp_user) {
+    const { smtpHost, smtpPort, smtpSecure, smtpUser, smtpPass } = req.body;
+    if (!smtpHost || !smtpUser) {
       return res.status(400).json({ error: '请填写 SMTP 主机和用户名' });
     }
     const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?');
-    upsert.run('smtp_host', smtp_host, smtp_host);
-    upsert.run('smtp_port', smtp_port || '465', smtp_port || '465');
-    upsert.run('smtp_secure', smtp_secure ? 'true' : 'false', smtp_secure ? 'true' : 'false');
-    upsert.run('smtp_user', smtp_user, smtp_user);
-    if (smtp_pass && smtp_pass !== '********') {
-      upsert.run('smtp_pass', encryptText(smtp_pass), encryptText(smtp_pass));
+    upsert.run('smtp_host', smtpHost, smtpHost);
+    upsert.run('smtp_port', smtpPort || '465', smtpPort || '465');
+    upsert.run('smtp_secure', smtpSecure ? 'true' : 'false', smtpSecure ? 'true' : 'false');
+    upsert.run('smtp_user', smtpUser, smtpUser);
+    if (smtpPass && smtpPass !== '********') {
+      upsert.run('smtp_pass', encryptText(smtpPass), encryptText(smtpPass));
     }
     res.json({ ok: true, message: 'SMTP 配置已保存' });
   });

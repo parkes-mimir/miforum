@@ -3,6 +3,9 @@
  */
 
 const { requireAuth } = require('../middleware/auth');
+const { parsePagination } = require('../services/post-helper');
+
+const NOTIFICATION_TYPES = ['like', 'comment', 'bookmark'];
 
 module.exports = function (app, db) {
 
@@ -10,13 +13,11 @@ module.exports = function (app, db) {
   app.get('/api/notifications', requireAuth, (req, res) => {
     const userId = req.session.userId;
     const type = req.query.type || null;
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
 
     let whereSql = ' WHERE n.user_id = ?';
     const params = [userId];
-    if (type && ['like', 'comment', 'bookmark'].includes(type)) {
+    if (type && NOTIFICATION_TYPES.includes(type)) {
       whereSql += ' AND n.type = ?';
       params.push(type);
     }
@@ -51,11 +52,15 @@ module.exports = function (app, db) {
   /** 获取各类型未读数量 */
   app.get('/api/notifications/unread-count', requireAuth, (req, res) => {
     const userId = req.session.userId;
-    const all = db.prepare('SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read = 0').get(userId).count;
-    const likes = db.prepare("SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read = 0 AND type = 'like'").get(userId).count;
-    const comments = db.prepare("SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read = 0 AND type = 'comment'").get(userId).count;
-    const bookmarks = db.prepare("SELECT COUNT(*) AS count FROM notifications WHERE user_id = ? AND read = 0 AND type = 'bookmark'").get(userId).count;
-    res.json({ unread: all, likes, comments, bookmarks });
+    const row = db.prepare(`
+      SELECT
+        COUNT(*) AS all_count,
+        SUM(CASE WHEN type = 'like' THEN 1 ELSE 0 END) AS likes,
+        SUM(CASE WHEN type = 'comment' THEN 1 ELSE 0 END) AS comments,
+        SUM(CASE WHEN type = 'bookmark' THEN 1 ELSE 0 END) AS bookmarks
+      FROM notifications WHERE user_id = ? AND read = 0
+    `).get(userId);
+    res.json({ unread: row.all_count, likes: row.likes, comments: row.comments, bookmarks: row.bookmarks });
   });
 
   /** 标记单条通知为已读 */
@@ -72,7 +77,7 @@ module.exports = function (app, db) {
   /** 标记所有通知为已读（可按类型） */
   app.put('/api/notifications/read-all', requireAuth, (req, res) => {
     const type = req.query.type || null;
-    if (type && ['like', 'comment', 'bookmark'].includes(type)) {
+    if (type && NOTIFICATION_TYPES.includes(type)) {
       db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0 AND type = ?').run(req.session.userId, type);
     } else {
       db.prepare('UPDATE notifications SET read = 1 WHERE user_id = ? AND read = 0').run(req.session.userId);

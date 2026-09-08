@@ -10,6 +10,8 @@ src/data.db
 src/data.db-shm
 src/data.db-wal
 *.sqlite
+*.db-shm
+*.db-wal
 db.json
 
 # Uploads
@@ -22,6 +24,24 @@ uploads/
 
 # Cookies (security)
 cookies.txt
+
+# Test coverage
+coverage/
+
+# Backups
+backups/
+
+# Temp
+.update-tmp/
+
+# IDE
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
+*.log
 
 # Legacy
 webforum-testproject-main/

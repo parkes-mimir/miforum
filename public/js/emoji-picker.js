@@ -39,7 +39,9 @@ function renderEmojiInText(text) {
   const escaped = text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   // 解析自定义表情标记（支持相对路径和绝对路径）
   return escaped.replace(/\[emoji:([^\]]+?):(\/[^\]]+|https?:\/\/[^\]]+)\]/g, (match, name, url) => {
-    return `<img src="${url}" style="display:inline-block;width:1.5em;height:1.5em;object-fit:contain;vertical-align:-0.3em;border-radius:2px;cursor:pointer" title=":${name}:" onclick="collectEmojiFromContent(this, '${url}', '${name}')" onerror="this.outerHTML=':${name}:'">`;
+    const safeName = name.replace(/'/g, '&#39;').replace(/"/g, '&quot;');
+    const safeUrl = url.replace(/'/g, '%27').replace(/"/g, '%22');
+    return `<img src="${safeUrl}" style="display:inline-block;width:1.5em;height:1.5em;object-fit:contain;vertical-align:-0.3em;border-radius:2px;cursor:pointer" title=":${safeName}:" onclick="collectEmojiFromContent(this, '${safeUrl}', '${safeName}')" onerror="this.outerHTML=':${safeName}:'">`;
   });
 }
 

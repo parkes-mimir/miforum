@@ -1,0 +1,17 @@
+{
+  "name": "MiForum",
+  "short_name": "MiForum",
+  "description": "Flarum 风格的轻量论坛",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f0f2f5",
+  "theme_color": "#4f46e5",
+  "orientation": "any",
+  "icons": [
+    {
+      "src": "/favicon.ico",
+      "sizes": "any",
+      "type": "image/x-icon"
+    }
+  ]
+}

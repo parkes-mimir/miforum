@@ -61,7 +61,7 @@ function authRoutes(app, db) {
   app.post('/api/send-code', async (req, res) => {
     const { email, type } = req.body;
     if (!email) return res.status(400).json({ error: '请填写邮箱' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
+    if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
 
     const codeType = type || 'register';
 
@@ -107,7 +107,7 @@ function authRoutes(app, db) {
     // 输入校验
     if (username.length < 2 || username.length > 20) return res.status(400).json({ error: '用户名 2-20 字' });
     if (!/^[a-zA-Z0-9\u4e00-\u9fa5_-]+$/.test(username)) return res.status(400).json({ error: '用户名含非法字符' });
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
+    if (!/^[a-zA-Z0-9.!#$%&'*+/=?^_`{|}~-]+@[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?(?:\.[a-zA-Z0-9](?:[a-zA-Z0-9-]{0,61}[a-zA-Z0-9])?)*\.[a-zA-Z]{2,}$/.test(email)) return res.status(400).json({ error: '邮箱格式不正确' });
     if (password.length < 6) return res.status(400).json({ error: '密码至少6位' });
 
     const existsEmail = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
@@ -176,17 +176,21 @@ function authRoutes(app, db) {
     const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) return res.status(400).json({ error: '邮箱或密码错误' });
 
-    req.session.userId = user.id;
-    res.json({
-      user: {
-        id: user.id,
-        display_id: user.display_id,
-        username: user.username,
-        email: user.email,
-        points: user.points,
-        role: user.role,
-        force_password_change: intToBool(user.force_password_change)
-      }
+    // Session 再生成（防止 session fixation 攻击）
+    req.session.regenerate((err) => {
+      if (err) return res.status(500).json({ error: '登录失败，请重试' });
+      req.session.userId = user.id;
+      res.json({
+        user: {
+          id: user.id,
+          display_id: user.display_id,
+          username: user.username,
+          email: user.email,
+          points: user.points,
+          role: user.role,
+          force_password_change: intToBool(user.force_password_change)
+        }
+      });
     });
   });
 
@@ -218,27 +222,48 @@ function authRoutes(app, db) {
     } });
   });
 
+  // 获取用户偏好（主题等）
+  app.get('/api/preferences', (req, res) => {
+    if (!req.session.userId) {
+      return res.json({ theme: 'auto', themeColor: 'purple' });
+    }
+    const u = db.prepare('SELECT theme, theme_color FROM profiles WHERE id = ?').get(req.session.userId);
+    res.json({ theme: u?.theme || 'auto', themeColor: u?.theme_color || 'purple' });
+  });
+
+  // 更新用户偏好
+  app.put('/api/preferences', requireAuth, (req, res) => {
+    const { theme, themeColor } = req.body;
+    const validThemes = ['light', 'dark', 'auto'];
+    const validColors = ['purple', 'blue', 'green', 'orange', 'rose'];
+    if (theme && !validThemes.includes(theme)) return res.status(400).json({ error: '无效的主题' });
+    if (themeColor && !validColors.includes(themeColor)) return res.status(400).json({ error: '无效的主题色' });
+    if (theme) db.prepare('UPDATE profiles SET theme = ? WHERE id = ?').run(theme, req.session.userId);
+    if (themeColor) db.prepare('UPDATE profiles SET theme_color = ? WHERE id = ?').run(themeColor, req.session.userId);
+    res.json({ ok: true });
+  });
+
   // 修改密码
   app.post('/api/change-password', requireAuth, async (req, res) => {
-    const { old_password, new_password } = req.body;
+    const { oldPassword, newPassword } = req.body;
 
-    if (!old_password || !new_password) {
+    if (!oldPassword || !newPassword) {
       return res.status(400).json({ error: '请填写旧密码和新密码' });
     }
-    if (new_password.length < 6) {
+    if (newPassword.length < 6) {
       return res.status(400).json({ error: '新密码至少6位' });
     }
-    if (old_password === new_password) {
+    if (oldPassword === newPassword) {
       return res.status(400).json({ error: '新密码不能与旧密码相同' });
     }
 
     const user = db.prepare('SELECT id, password_hash FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
-    const ok = await bcrypt.compare(old_password, user.password_hash);
+    const ok = await bcrypt.compare(oldPassword, user.password_hash);
     if (!ok) return res.status(400).json({ error: '旧密码错误' });
 
-    const hash = await bcrypt.hash(new_password, 10);
+    const hash = await bcrypt.hash(newPassword, 10);
     db.prepare('UPDATE profiles SET password_hash = ?, force_password_change = 0 WHERE id = ?')
       .run(hash, user.id);
 

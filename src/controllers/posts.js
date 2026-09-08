@@ -1,10 +1,28 @@
+/**
+ * posts.js - 帖子 CRUD 控制器
+ *
+ * 提供帖子的创建、读取、更新、删除功能，
+ * 包括投票创建、图片管理、私密帖子过滤。
+ */
+
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('../services/level');
 const { createPoll } = require('../services/poll');
-const { getHotPosts } = require('../services/hotPosts');
-const { formatPost, parsePagination } = require('../services/postHelper');
+const { getHotPosts } = require('../services/hot-posts');
+const { formatPost, parsePagination, isAdmin } = require('../services/post-helper');
+
+/** 解析标签（支持数组、JSON 字符串、逗号分隔字符串） */
+function parseTags(tags) {
+  let parsed = [];
+  if (Array.isArray(tags)) {
+    parsed = tags;
+  } else if (typeof tags === 'string') {
+    try { parsed = JSON.parse(tags); } catch (e) { parsed = tags.split(',').map(t => t.trim()).filter(Boolean); }
+  }
+  return [...new Set(parsed.map(t => String(t).slice(0, 20)))].slice(0, 10);
+}
 
 module.exports = function (app, db) {
   /** 获取帖子列表（支持分页、分类、标签、搜索、排序，过滤私密帖子） */
@@ -26,13 +44,13 @@ module.exports = function (app, db) {
       const u = db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId);
       if (u) userRole = u.role;
     }
-    const isAdmin = userRole === 'admin' || userRole === 'super_admin';
+    const adminCheck = isAdmin({ role: userRole });
 
     let whereSql = ' WHERE 1=1';
     const params = [];
 
     // 过滤私密帖子：仅作者和管理员可见
-    if (!isAdmin) {
+    if (!adminCheck) {
       whereSql += ' AND (p.private = 0 OR p.author_id = ?)';
       params.push(userId || 0);
     }
@@ -110,8 +128,7 @@ module.exports = function (app, db) {
     if (intToBool(p.private)) {
       const userId = req.session.userId || null;
       const user = userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId) : null;
-      const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-      if (p.author_id !== userId && !isAdmin) {
+      if (p.author_id !== userId && !isAdmin(user)) {
         return res.status(404).json({ error: '帖子不存在' });
       }
     }
@@ -161,6 +178,8 @@ module.exports = function (app, db) {
   app.post('/api/posts', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags, private: isPrivate, pollQuestion, pollOptions, pollType, pollMaxChoices, pollCloseAt } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+    if (title.length > 100) return res.status(400).json({ error: '标题最多100字' });
+    if (content.length > 50000) return res.status(400).json({ error: '正文最多50000字' });
 
     // 检查板块权限
     if (category) {
@@ -190,15 +209,7 @@ module.exports = function (app, db) {
     }
 
     const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-    let parsedTags = [];
-    if (tags) {
-      if (Array.isArray(tags)) {
-        parsedTags = tags;
-      } else if (typeof tags === 'string') {
-        try { parsedTags = JSON.parse(tags); } catch (e) { parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean); }
-      }
-    }
-    parsedTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
+    const parsedTags = parseTags(tags);
 
     const insertPost = db.transaction(() => {
       const result = db.prepare(`
@@ -224,12 +235,14 @@ module.exports = function (app, db) {
     });
 
     const result = insertPost();
-    res.json({ postId: result.postId, points: result.points, exp: result.exp, level_info: result.level_info });
+    res.json({ ok: true, postId: result.postId, points: result.points, exp: result.exp, level_info: result.level_info });
   });
 
   app.put('/api/posts/:id', requireAuth, requireNotMuted(db), multerUpload(postUpload.array('images', 30)), (req, res) => {
     const { title, content, category, tags, removeImages, private: isPrivate, deletePoll, pollQuestion, pollOptions, pollType, pollMaxChoices, pollCloseAt } = req.body;
     if (!title || !content) return res.status(400).json({ error: '请填写标题和正文' });
+    if (title.length > 100) return res.status(400).json({ error: '标题最多100字' });
+    if (content.length > 50000) return res.status(400).json({ error: '正文最多50000字' });
 
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT * FROM posts WHERE id = ?').get(pid);
@@ -255,13 +268,7 @@ module.exports = function (app, db) {
 
     let finalTags = parseJsonField(post.tags, []);
     if (tags !== undefined) {
-      let parsedTags = [];
-      if (Array.isArray(tags)) {
-        parsedTags = tags;
-      } else if (typeof tags === 'string') {
-        try { parsedTags = JSON.parse(tags); } catch (e) { parsedTags = tags.split(',').map(t => t.trim()).filter(Boolean); }
-      }
-      finalTags = [...new Set(parsedTags.map(t => String(t).slice(0, 20)))].slice(0, 10);
+      finalTags = parseTags(tags);
     }
 
     const editPost = db.transaction(() => {
@@ -302,8 +309,7 @@ module.exports = function (app, db) {
     if (!post) return res.status(404).json({ error: '帖子不存在' });
 
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
-    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-    if (post.author_id !== req.session.userId && !isAdmin) {
+    if (post.author_id !== req.session.userId && !isAdmin(user)) {
       return res.status(403).json({ error: '只能删除自己的帖子' });
     }
 

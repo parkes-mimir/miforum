@@ -57,7 +57,7 @@ beforeAll(async () => {
   if (adminLogin.body.user?.force_password_change) {
     await adminAgent
       .post('/api/change-password')
-      .send({ old_password: '123456', new_password: 'admin123' });
+      .send({ oldPassword: '123456', newPassword: 'admin123' });
     await adminAgent
       .post('/api/login')
       .send({ email: 'root@miforum.local', password: 'admin123' });

@@ -4,8 +4,10 @@
 
 const path = require('path');
 const fs = require('fs');
+const crypto = require('crypto');
 const { requireAuth } = require('../middleware/auth');
-const { UPLOADS_DIR } = require('../utils/helpers');
+const { isAdmin } = require('../services/post-helper');
+const { UPLOADS_DIR, deleteFile } = require('../utils/helpers');
 
 const EMOJI_DIR = path.join(UPLOADS_DIR, 'emoji');
 
@@ -58,14 +60,18 @@ module.exports = function (app, db) {
     }
 
     // 保存文件
-    if (!fs.existsSync(EMOJI_DIR)) fs.mkdirSync(EMOJI_DIR, { recursive: true });
     const ts = Date.now();
-    const rand = Math.random().toString(36).slice(2, 8);
+    const rand = crypto.randomBytes(4).toString('hex');
     const filename = `emoji-${ts}-${rand}.${buffer.ext}`;
-    const filepath = path.join(EMOJI_DIR, filename);
-    fs.writeFileSync(filepath, buffer.data);
     const imageUrl = '/uploads/emoji/' + filename;
     const name = `e${ts}${rand}`;
+    try {
+      if (!fs.existsSync(EMOJI_DIR)) fs.mkdirSync(EMOJI_DIR, { recursive: true });
+      const filepath = path.join(EMOJI_DIR, filename);
+      fs.writeFileSync(filepath, buffer.data);
+    } catch (e) {
+      return res.status(500).json({ error: '文件保存失败' });
+    }
 
     // 存入数据库
     const result = db.prepare(`
@@ -111,16 +117,13 @@ module.exports = function (app, db) {
     if (!emoji) return res.status(404).json({ error: '表情不存在' });
     if (emoji.created_by !== req.session.userId) {
       const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
-      if (!user || (user.role !== 'admin' && user.role !== 'super_admin')) {
+      if (!isAdmin(user)) {
         return res.status(403).json({ error: '只能删除自己上传的表情' });
       }
     }
 
-    // 删除文件
-    if (emoji.image_url) {
-      const filePath = path.join(__dirname, '../..', emoji.image_url);
-      if (fs.existsSync(filePath)) fs.unlinkSync(filePath);
-    }
+    // 删除文件（使用安全删除函数，防止路径遍历）
+    deleteFile(emoji.image_url);
 
     db.prepare('DELETE FROM custom_emoji WHERE id = ?').run(emojiId);
     res.json({ ok: true });

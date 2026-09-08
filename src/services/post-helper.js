@@ -36,11 +36,12 @@ function isAdmin(user) {
  * Parse pagination parameters from request query
  * @param {Object} query - Express req.query
  * @param {number} defaultLimit - Default items per page (default 20)
+ * @param {number} maxLimit - Maximum items per page (default 50)
  * @returns {{ page: number, limit: number, offset: number }}
  */
-function parsePagination(query, defaultLimit = 20) {
-  const page = Math.max(1, parseInt(query.page) || 1);
-  const limit = Math.min(50, Math.max(1, parseInt(query.limit) || defaultLimit));
+function parsePagination(query, defaultLimit = 20, maxLimit = 50) {
+  const page = Math.max(1, parseInt(query.page, 10) || 1);
+  const limit = Math.min(maxLimit, Math.max(1, parseInt(query.limit, 10) || defaultLimit));
   const offset = (page - 1) * limit;
   return { page, limit, offset };
 }

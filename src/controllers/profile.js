@@ -1,8 +1,15 @@
+/**
+ * profile.js - 用户资料控制器
+ *
+ * 提供用户信息查询、资料编辑、用户帖子/点赞列表，
+ * 包含隐私检查和头像上传功能。
+ */
+
 const { requireAuth } = require('../middleware/auth');
 const { deleteFile, boolToInt, intToBool } = require('../utils/helpers');
 const { avatarUpload, multerUpload } = require('../utils/upload');
 const { getLevelInfo } = require('../services/level');
-const { formatPost, parsePagination } = require('../services/postHelper');
+const { formatPost, parsePagination, isAdmin } = require('../services/post-helper');
 
 module.exports = function (app, db) {
   app.get('/api/users/:id', (req, res) => {
@@ -12,7 +19,6 @@ module.exports = function (app, db) {
 
     const isOwner = req.session.userId === uid;
     const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
-    const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
 
     const publicData = {
       id: user.id,
@@ -29,7 +35,7 @@ module.exports = function (app, db) {
       comments_count: db.prepare('SELECT COUNT(*) AS c FROM comments WHERE author_id = ?').get(uid).c
     };
 
-    if (isOwner || isAdmin || intToBool(user.profile_public)) {
+    if (isOwner || isAdmin(me) || intToBool(user.profile_public)) {
       publicData.bio = user.bio || '';
       publicData.location = user.location || '';
       publicData.website = user.website || '';
@@ -45,7 +51,7 @@ module.exports = function (app, db) {
   });
 
   app.put('/api/profile', requireAuth, multerUpload(avatarUpload.single('avatar')), (req, res) => {
-    const { username, bio, location, website, profile_public, title, avatar_frame } = req.body;
+    const { username, bio, location, website, profilePublic, title, avatarFrame } = req.body;
     const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(404).json({ error: '用户不存在' });
 
@@ -66,7 +72,7 @@ module.exports = function (app, db) {
       const newBio = bio !== undefined ? bio.slice(0, 200) : user.bio;
       const newLocation = location !== undefined ? location : user.location;
       const newWebsite = website !== undefined ? website : user.website;
-      const newProfilePublic = profile_public !== undefined ? boolToInt(profile_public === 'true' || profile_public === true) : user.profile_public;
+      const newProfilePublic = profilePublic !== undefined ? boolToInt(profilePublic === 'true' || profilePublic === true) : user.profile_public;
 
       let newAvatarUrl = user.avatar_url;
       if (req.file) {
@@ -90,8 +96,8 @@ module.exports = function (app, db) {
           newTitle = title;
         }
       }
-      if (avatar_frame !== undefined) {
-        if (avatar_frame === '' || avatar_frame === null) {
+      if (avatarFrame !== undefined) {
+        if (avatarFrame === '' || avatarFrame === null) {
           newFrame = null;
         } else {
           const owned = db.prepare(`
@@ -99,9 +105,9 @@ module.exports = function (app, db) {
             JOIN shop_items s ON s.id = o.item_id
             WHERE o.user_id = ? AND o.item_type = 'avatar_frame' AND o.status = 'completed'
               AND s.value = ?
-          `).get(user.id, avatar_frame);
+          `).get(user.id, avatarFrame);
           if (!owned) throw new Error('未拥有该头像框');
-          newFrame = avatar_frame === 'none' ? null : avatar_frame;
+          newFrame = avatarFrame === 'none' ? null : avatarFrame;
         }
       }
 
@@ -142,8 +148,7 @@ module.exports = function (app, db) {
     // 隐私检查：私密资料只有本人和管理员可查看帖子列表
     const isOwner = req.session.userId === uid;
     const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
-    const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
-    if (!isOwner && !isAdmin && !intToBool(user.profile_public)) {
+    if (!isOwner && !isAdmin(me) && !intToBool(user.profile_public)) {
       return res.status(403).json({ error: '该用户设置了私密资料' });
     }
 
@@ -152,7 +157,7 @@ module.exports = function (app, db) {
     // 过滤私密帖子：仅作者和管理员可见
     let privacyFilter = '';
     const queryParams = [uid];
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isAdmin(me)) {
       privacyFilter = ' AND p.private = 0';
     }
 
@@ -183,13 +188,12 @@ module.exports = function (app, db) {
     // 检查查看权限
     const isOwner = req.session.userId === uid;
     const me = req.session.userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId) : null;
-    const isAdmin = me && (me.role === 'admin' || me.role === 'super_admin');
 
     const { page, limit, offset } = parsePagination(req.query);
 
     // 过滤私密帖子
     let privacyFilter = '';
-    if (!isOwner && !isAdmin) {
+    if (!isOwner && !isAdmin(me)) {
       privacyFilter = ' AND p.private = 0';
     }
 

@@ -1,3 +1,10 @@
+/**
+ * admin-categories.js - 分类管理控制器
+ *
+ * 提供分类的创建、编辑、删除功能，
+ * 支持管理员分类和用户自定义板块。
+ */
+
 const { requireAuth, requireAdmin: requireAdminFactory } = require('../middleware/auth');
 const { parseJsonField } = require('../utils/helpers');
 
@@ -6,24 +13,24 @@ module.exports = function (app, db) {
 
   app.get('/api/categories', (req, res) => {
     const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
-    res.json({ categories: cats.map(c => ({ id: c.id, name: c.name, label: c.label, description: c.description || '', color: c.color, icon: c.icon || '', section_type: c.section_type || 'normal', order: c.sort_order, created_by: c.created_by })) });
+    res.json({ categories: cats.map(c => ({ id: c.id, name: c.name, label: c.label, description: c.description || '', color: c.color, icon: c.icon || '', sectionType: c.section_type || 'normal', order: c.sort_order, created_by: c.created_by })) });
   });
 
   app.post('/api/categories', requireAdmin, (req, res) => {
-    const { name, label, description, color, icon, section_type } = req.body;
+    const { name, label, description, color, icon, sectionType } = req.body;
     if (!name || !label) return res.status(400).json({ error: '请填写分类标识和名称' });
     const exists = db.prepare('SELECT id FROM categories WHERE name = ?').get(name);
     if (exists) return res.status(400).json({ error: '分类标识已存在' });
 
     const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM categories').get();
     const order = (maxOrder.m || 0) + 1;
-    const type = section_type || 'normal';
+    const type = sectionType || 'normal';
 
     const result = db.prepare(`
       INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)
     `).run(name.slice(0, 20), label, description || '', color || 'bg-gray-100 text-gray-700', icon || '', type, order);
 
-    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', section_type: type, order } });
+    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', sectionType: type, order } });
   });
 
   app.post('/api/categories/user', requireAuth, (req, res) => {
@@ -46,7 +53,7 @@ module.exports = function (app, db) {
       INSERT INTO categories (name, label, description, color, icon, section_type, created_by, sort_order) VALUES (?, ?, ?, ?, ?, 'normal', ?, ?)
     `).run(name.slice(0, 20), label, description || '', color || 'bg-gray-100 text-gray-700', icon || '', req.session.userId, order);
 
-    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', section_type: 'normal', order } });
+    res.json({ ok: true, category: { id: result.lastInsertRowid, name: name.slice(0, 20), label, description: description || '', color: color || 'bg-gray-100 text-gray-700', icon: icon || '', sectionType: 'normal', order } });
   });
 
   app.put('/api/categories/:id', requireAdmin, (req, res) => {
@@ -78,7 +85,7 @@ module.exports = function (app, db) {
   });
 
   app.get('/api/tags', (req, res) => {
-    const rows = db.prepare('SELECT tags FROM posts WHERE tags IS NOT NULL AND tags != \'[]\'').all();
+    const rows = db.prepare("SELECT tags FROM posts WHERE tags IS NOT NULL AND tags != '[]' AND created_at > datetime('now', '-30 days')").all();
     const tagCount = {};
     rows.forEach(r => {
       const tags = parseJsonField(r.tags, []);
@@ -86,6 +93,7 @@ module.exports = function (app, db) {
     });
     const tags = Object.entries(tagCount)
       .sort((a, b) => b[1] - a[1])
+      .slice(0, 20)
       .map(([name, count]) => ({ name, count }));
     res.json({ tags });
   });

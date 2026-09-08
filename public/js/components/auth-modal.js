@@ -46,7 +46,7 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('toast').show('登录成功！');
         window.dispatchEvent(new CustomEvent('auth-changed'));
         if (user.force_password_change) {
-          setTimeout(() => { document.querySelector('[x-data*="changePasswordModal"]').__x.$data.show(); }, 500);
+          setTimeout(() => { const el = document.querySelector('[x-data*="changePasswordModal"]'); if (el && el.__x) el.__x.$data.show(); }, 500);
         }
       } catch (e) { Alpine.store('toast').show(e.message); }
     },
@@ -89,11 +89,11 @@ document.addEventListener('alpine:init', () => {
  */
 function injectAuthModal() {
   const html = `
-    <div x-data="authModal()" x-show="open" x-transition.opacity @click.self="hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+    <div x-data="authModal()" x-show="open" x-transition.opacity @click.self="hide()" @keydown.escape.window="if(open) hide()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="登录或注册">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
         <div class="flex items-center justify-between mb-5">
-          <h2 class="text-lg font-bold">欢迎</h2>
-          <button @click="hide()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+          <h2 class="text-lg font-bold" id="auth-modal-title">欢迎</h2>
+          <button @click="hide()" aria-label="关闭" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
         </div>
         <div class="flex mb-5 bg-gray-100 rounded-xl p-1">
           <button class="flex-1 py-2 text-sm font-medium rounded-lg transition" @click="tab='login'" :class="tab==='login' ? 'bg-white text-gray-900 shadow-sm' : 'text-gray-500'">登录</button>

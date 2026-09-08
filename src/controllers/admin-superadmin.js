@@ -1,3 +1,10 @@
+/**
+ * admin-superadmin.js - 超级管理员控制器
+ *
+ * 提供授权/撤销管理员、转让超管、系统更新功能，
+ * 需要超级管理员权限。
+ */
+
 const path = require('path');
 const fs = require('fs');
 const { requireSuperAdmin: requireSuperAdminFactory } = require('../middleware/auth');
@@ -87,7 +94,11 @@ module.exports = function (app, db) {
             res.on('data', chunk => data += chunk);
             res.on('end', () => {
               if (res.statusCode !== 200) return reject(new Error('无法获取最新版本信息'));
-              resolve(JSON.parse(data));
+              try {
+                resolve(JSON.parse(data));
+              } catch (e) {
+                reject(new Error('GitHub API 响应格式错误'));
+              }
             });
           });
           req.on('error', reject);

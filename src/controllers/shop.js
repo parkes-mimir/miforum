@@ -1,3 +1,10 @@
+/**
+ * shop.js - 积分商店控制器
+ *
+ * 提供商品列表、兑换、装备/卸下功能，
+ * 支持称号和头像框类型的道具。
+ */
+
 const { requireAuth } = require('../middleware/auth');
 
 module.exports = function registerShopRoutes(app, db) {

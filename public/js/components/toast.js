@@ -20,7 +20,7 @@ document.addEventListener('alpine:init', () => {
 function injectToast() {
   const html = `
     <div x-data class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2">
-      <div x-show="$store.toast.visible" x-text="$store.toast.message" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
+      <div x-show="$store.toast.visible" x-text="$store.toast.message" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg" role="alert" aria-live="polite"></div>
     </div>
   `;
   document.body.insertAdjacentHTML('beforeend', html);

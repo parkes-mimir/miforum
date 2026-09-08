@@ -11,15 +11,19 @@ const ENC_ALGO = 'aes-256-gcm';
 let _encKey = null;
 
 /**
- * 获取加密密钥（从 SESSION_SECRET 派生，启动时警告如果未设置）
+ * 获取加密密钥（从 SESSION_SECRET 派生）
+ * @throws {Error} SESSION_SECRET 未设置时抛出错误
  */
 function getEncKey() {
   if (!_encKey) {
     const secret = process.env.SESSION_SECRET;
     if (!secret) {
-      console.error('  ⚠ 警告: SESSION_SECRET 未设置，使用不安全的默认密钥！请在 .env 中设置 SESSION_SECRET');
+      // 生成随机密钥并警告（不使用硬编码字符串）
+      console.error('  ⚠ 警告: SESSION_SECRET 未设置，SMTP 密码加密使用随机密钥！重启后已加密的密码将无法解密。请在 .env 中设置 SESSION_SECRET');
+      _encKey = crypto.randomBytes(32);
+    } else {
+      _encKey = crypto.createHash('sha256').update(secret).digest();
     }
-    _encKey = crypto.createHash('sha256').update(secret || 'miforum-insecure-default').digest();
   }
   return _encKey;
 }
@@ -147,11 +151,6 @@ function daysBetween(a, b) {
   return Math.floor((new Date(b + 'T00:00:00Z') - new Date(a + 'T00:00:00Z')) / 86400000);
 }
 
-function sanitizeText(text) {
-  if (typeof text !== 'string') return text;
-  return text.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&#39;');
-}
-
 module.exports = {
   UPLOADS_DIR,
   deleteFile,
@@ -164,6 +163,5 @@ module.exports = {
   addDays,
   daysBetween,
   encryptText,
-  decryptText,
-  sanitizeText
+  decryptText
 };

@@ -1,6 +1,6 @@
 # MiForum
 
-Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，Alpine.js 前端，EJS 模板渲染，开箱即用。
+Flarum 风格的轻量论坛，Alpine.js 前端，Node.js + Express 后端，SQLite 数据库，EJS 模板渲染，开箱即用。
 
 ![MiForum 预览](docs/preview.png)
 
@@ -46,7 +46,7 @@ Flarum 风格的轻量论坛，Node.js + Express 后端，SQLite 数据库，Alp
 - PWA 支持（theme-color、apple-mobile-web-app）
 - 分页加载（帖子/评论/收藏列表）
 - 安全加固（helmet、速率限制、CSRF 防护、CSP、SMTP 加密、验证码锁定持久化）
-- 单元测试（jest + supertest，115 个用例）
+- 单元测试（jest + supertest，160 个用例）
 - 环境变量管理（dotenv）
 - Docker 支持（一键部署、自动更新）
 - CI/CD（GitHub Actions）
@@ -77,7 +77,7 @@ docker build -t miforum .
 docker run -d \
   -p 3000:3000 \
   -v ./data:/data \
-  -e SESSION_SECRET=your-secret \
+  -e SESSION_SECRET=change-me-in-production \
   miforum
 ```
 
@@ -85,7 +85,7 @@ docker run -d \
 
 ```bash
 # 创建 .env 文件
-echo "SESSION_SECRET=your-secret" > .env
+echo "SESSION_SECRET=change-me-in-production" > .env
 
 # 启动
 docker-compose up -d
@@ -111,7 +111,7 @@ docker-compose down
 | **数据库** | SQLite (better-sqlite3) | 单文件数据库，WAL 模式 |
 | **认证** | express-session + bcryptjs | Session 持久化（SQLite 存储） |
 | **安全** | helmet + express-rate-limit | 安全头、速率限制 |
-| **测试** | Jest + Supertest | 115 个测试用例 |
+| **测试** | Jest + Supertest | 160 个测试用例 |
 
 ## 项目结构
 
@@ -143,10 +143,10 @@ docker-compose down
 │   │   └── admin-superadmin.js # 超级管理员操作
 │   ├── services/               # 业务逻辑层
 │   │   ├── level.js            # 等级服务
-│   │   ├── postHelper.js       # 帖子工具
+│   │   ├── post-helper.js       # 帖子工具
 │   │   ├── notification.js     # 通知服务
 │   │   ├── poll.js             # 投票服务
-│   │   └── hotPosts.js         # 热门帖子算法
+│   │   └── hot-posts.js        # 热门帖子算法
 │   ├── middleware/
 │   │   └── auth.js             # 认证/权限中间件
 │   └── utils/
@@ -180,20 +180,30 @@ docker-compose down
 ├── docs/                       # 文档
 │   ├── API.md
 │   ├── CHANGELOG.md
+│   ├── CHANGELOG-TEMPLATE.md
 │   ├── TEST.md
 │   └── TEST-REPORT.md
 │
+├── scripts/                    # 工具脚本
+│   └── backup-db.sh            # 数据库备份
+│
 ├── tests/                      # 测试文件
 │   ├── auth.test.js
-│   └── api.test.js
+│   ├── api.test.js
+│   └── services.test.js
 │
 ├── .github/workflows/          # CI/CD
 │   ├── ci.yml
 │   └── docker.yml
 │
+├── .husky/                     # Git hooks
+│   └── pre-commit
+│
 ├── Dockerfile
 ├── docker-compose.yml
 ├── .eslintrc.json
+├── .prettierrc
+├── CONTRIBUTING.md
 ├── package.json
 └── README.md
 ```
@@ -228,6 +238,15 @@ npm run lint
 
 # 自动修复
 npm run lint:fix
+
+# 格式化代码
+npm run format
+
+# 运行测试
+npm test
+
+# 备份数据库
+npm run backup
 ```
 
 ## 贡献者
@@ -244,8 +263,8 @@ npm run lint:fix
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.2** — 主题性能优化 + Bug 修复
+**最新版本 v1.2.3** — 安全加固 + 代码质量 + 主题持久化 + PWA
 
 ## 声明
 
-本项目由 AI 辅助编写，人类提供需求和测试反馈。MIT License。
+本项目由 AI 辅助编写,MIT License。

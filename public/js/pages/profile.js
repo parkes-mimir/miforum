@@ -214,6 +214,7 @@ document.addEventListener('alpine:init', () => {
     error: null,
     profile: null,
     levelInfo: null,
+    categoriesData: [],
     activeTab: 'posts',
     posts: [],
     likes: [],
@@ -224,7 +225,7 @@ document.addEventListener('alpine:init', () => {
     showEdit: false,
     showCropper: false,
     showPasswordModal: false,
-    editForm: { username: '', bio: '', location: '', website: '', profile_public: true },
+    editForm: { username: '', bio: '', location: '', website: '', profilePublic: true },
     passwordForm: { old: '', new: '', confirm: '' },
     selectedTitle: '',
     selectedFrame: '',
@@ -241,7 +242,14 @@ document.addEventListener('alpine:init', () => {
         this.loading = false;
         return;
       }
-      await this.loadProfile();
+      await Promise.all([this.loadProfile(), this.loadCategories()]);
+    },
+
+    async loadCategories() {
+      try {
+        const data = await api('/api/categories');
+        this.categoriesData = data.categories || [];
+      } catch (e) {}
     },
 
     get user() { return Alpine.store('auth').user; },
@@ -276,14 +284,8 @@ document.addEventListener('alpine:init', () => {
       return (this.profile.username || '?')[0].toUpperCase();
     },
     get avatarFrameStyle() {
-      const frameStyles = {
-        gold: 'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
-        silver: 'linear-gradient(135deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
-        blue: 'linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%)',
-        purple: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #7e22ce 100%)'
-      };
-      if (!this.profile || !this.profile.avatar_frame || !frameStyles[this.profile.avatar_frame]) return '';
-      return `background:${frameStyles[this.profile.avatar_frame]};padding:3px;`;
+      if (!this.profile || !this.profile.avatar_frame || !FRAME_STYLES[this.profile.avatar_frame]) return '';
+      return `background:${FRAME_STYLES[this.profile.avatar_frame]};padding:3px;`;
     },
     get levelBadgeHtml() {
       if (!this.levelInfo) return '';
@@ -291,44 +293,22 @@ document.addEventListener('alpine:init', () => {
       return `<span style="font-size:8px;line-height:1;">${li.icon}</span><span>Lv${li.level}</span>`;
     },
     get passwordStrength() {
-      const pw = this.passwordForm.new;
-      if (!pw) return { score: 0, label: '', labelColor: '#9ca3af' };
-      let score = 0;
-      const checks = { length: pw.length >= 8, long: pw.length >= 12, lowercase: /[a-z]/.test(pw), uppercase: /[A-Z]/.test(pw), numbers: /[0-9]/.test(pw), symbols: /[^a-zA-Z0-9]/.test(pw) };
-      if (checks.length) score++;
-      if (checks.long) score++;
-      const types = [checks.lowercase, checks.uppercase, checks.numbers, checks.symbols].filter(Boolean).length;
-      if (types >= 2) score++;
-      if (types >= 3) score++;
-      score = Math.min(4, score);
-      const levels = [
-        { label: '非常弱', labelColor: '#ef4444', color: '#ef4444' },
-        { label: '弱', labelColor: '#f97316', color: '#f97316' },
-        { label: '一般', labelColor: '#eab308', color: '#eab308' },
-        { label: '强', labelColor: '#22c55e', color: '#22c55e' },
-        { label: '非常强', labelColor: '#10b981', color: '#10b981' }
-      ];
-      return { score, ...levels[score] };
+      const r = getPasswordStrength(this.passwordForm.new);
+      return { score: r.score, label: r.label, labelColor: r.color, color: r.color };
     },
 
     passwordStrengthColor(i) {
       return i <= this.passwordStrength.score ? this.passwordStrength.color : '#e5e7eb';
     },
 
-    relTime(iso) {
-      if (!iso) return '';
-      const d = Date.now() - new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z')).getTime();
-      const m = Math.floor(d / 60000);
-      if (m < 1) return '刚刚';
-      if (m < 60) return m + '分钟前';
-      const h = Math.floor(m / 60);
-      if (h < 24) return h + '小时前';
-      const date = new Date(iso + (iso.includes('Z') || iso.includes('+') ? '' : 'Z'));
-      return date.getFullYear() + '年' + (date.getMonth() + 1) + '月' + date.getDate() + '日';
+    catLabel(cat) {
+      const found = this.categoriesData.find(c => c.name === cat);
+      return found ? found.label : cat;
     },
-
-    catLabel(cat) { return { tech: '技术', life: '生活', notice: '公告' }[cat] || cat; },
-    catColor(cat) { return { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' }[cat] || 'bg-gray-100 text-gray-600'; },
+    catColor(cat) {
+      const found = this.categoriesData.find(c => c.name === cat);
+      return found ? found.color : 'bg-gray-100 text-gray-600';
+    },
 
     async loadProfile() {
       try {
@@ -390,7 +370,7 @@ document.addEventListener('alpine:init', () => {
         bio: this.profile.bio || '',
         location: this.profile.location || '',
         website: this.profile.website || '',
-        profile_public: this.profile.profile_public !== false
+        profilePublic: this.profile.profile_public !== false
       };
       this.selectedTitle = this.profile.title || '';
       this.selectedFrame = this.profile.avatar_frame || '';
@@ -455,9 +435,9 @@ document.addEventListener('alpine:init', () => {
         fd.append('bio', (this.editForm.bio || '').trim());
         fd.append('location', (this.editForm.location || '').trim());
         fd.append('website', (this.editForm.website || '').trim());
-        fd.append('profile_public', this.editForm.profile_public);
+        fd.append('profilePublic', this.editForm.profilePublic);
         fd.append('title', this.selectedTitle || '');
-        fd.append('avatar_frame', this.selectedFrame || '');
+        fd.append('avatarFrame', this.selectedFrame || '');
         if (this.editAvatarFile) {
           if (this.showCropper) {
             const blob = await getCroppedBlob();
@@ -484,7 +464,7 @@ document.addEventListener('alpine:init', () => {
       if (newPw !== confirmPw) { toast('两次输入的密码不一致'); return; }
       if (oldPw === newPw) { toast('新密码不能与旧密码相同'); return; }
       try {
-        await api('/api/change-password', { method: 'POST', body: JSON.stringify({ old_password: oldPw, new_password: newPw }) });
+        await api('/api/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }) });
         this.showPasswordModal = false;
         toast('密码修改成功！');
       } catch (e) { toast(e.message); }

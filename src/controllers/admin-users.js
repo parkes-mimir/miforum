@@ -1,13 +1,20 @@
+/**
+ * admin-users.js - 管理员用户管理控制器
+ *
+ * 提供用户列表、禁言/解禁、删帖、积分管理功能，
+ * 需要管理员权限。
+ */
+
 const { requireAuth, requireAdmin: requireAdminFactory } = require('../middleware/auth');
-const { intToBool, parseJsonField, deleteImages } = require('../utils/helpers');
+const { intToBool, parseJsonField, deleteImages, deleteFile } = require('../utils/helpers');
+const { isAdmin } = require('../services/post-helper');
 
 module.exports = function (app, db) {
   const requireAdmin = requireAdminFactory(db);
 
   app.get('/api/admin/status', requireAuth, (req, res) => {
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
-    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-    res.json({ isAdmin });
+    res.json({ isAdmin: isAdmin(user) });
   });
 
   app.get('/api/admin/users', requireAdmin, (req, res) => {
@@ -59,11 +66,25 @@ module.exports = function (app, db) {
       const postRelatedComments = db.prepare('SELECT id, images FROM comments WHERE post_id IN (SELECT id FROM posts WHERE author_id = ?)').all(uid);
       postRelatedComments.forEach(c => deleteImages(parseJsonField(c.images, [])));
 
+      // 删除用户上传的自定义表情文件
+      const emojis = db.prepare('SELECT image_url FROM custom_emoji WHERE created_by = ?').all(uid);
+      emojis.forEach(e => deleteFile(e.image_url));
+
+      // 按外键依赖顺序删除所有关联数据
+      db.prepare('DELETE FROM notifications WHERE user_id = ? OR from_user_id = ?').run(uid, uid);
+      db.prepare('DELETE FROM messages WHERE sender_id = ?').run(uid);
+      db.prepare('DELETE FROM conversation_participants WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM user_emoji WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM custom_emoji WHERE created_by = ?').run(uid);
+      db.prepare('DELETE FROM exp_log WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM shop_orders WHERE user_id = ?').run(uid);
+      db.prepare('DELETE FROM poll_votes WHERE user_id = ?').run(uid);
       db.prepare('DELETE FROM posts WHERE author_id = ?').run(uid);
       db.prepare('DELETE FROM comments WHERE author_id = ?').run(uid);
       db.prepare('DELETE FROM post_likes WHERE user_id = ?').run(uid);
       db.prepare('DELETE FROM bookmarks WHERE user_id = ?').run(uid);
       db.prepare('DELETE FROM check_ins WHERE user_id = ?').run(uid);
+      db.prepare('UPDATE categories SET created_by = NULL WHERE created_by = ?').run(uid);
       db.prepare('DELETE FROM profiles WHERE id = ?').run(uid);
     });
     deleteUser();

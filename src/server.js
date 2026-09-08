@@ -54,7 +54,7 @@ function createApp() {
     contentSecurityPolicy: {
       directives: {
         defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"],
+        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Alpine.js v3 需要 unsafe-eval 用于表达式求值
         scriptSrcAttr: ["'unsafe-inline'"],
         styleSrc: ["'self'", "'unsafe-inline'"],
         imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
@@ -90,7 +90,14 @@ function createApp() {
     next();
   });
 
+  // API 版本号支持：/api/v1/* → /api/*（向后兼容）
+  app.use('/api/v1', (req, res, next) => {
+    req.url = '/api' + req.url;
+    next();
+  });
+
   // CSRF 防护：校验 state-changing 请求的 Origin 头
+  const isProduction = (process.env.NODE_ENV || 'development') === 'production';
   app.use((req, res, next) => {
     if (['POST', 'PUT', 'DELETE'].includes(req.method)) {
       const origin = req.headers.origin || req.headers.referer;
@@ -104,8 +111,10 @@ function createApp() {
         } catch (e) {
           return res.status(403).json({ error: 'CSRF 校验失败' });
         }
+      } else if (isProduction && req.headers.cookie) {
+        // 生产环境：有 Cookie 但无 Origin/Referer — 浏览器请求不应出现此情况
+        return res.status(403).json({ error: 'CSRF 校验失败：缺少 Origin 头' });
       }
-      // 允许无 Origin/Referer 的请求（非浏览器客户端如 curl、API 工具）
     }
     next();
   });
@@ -164,12 +173,8 @@ function createApp() {
   }));
   app.use('/uploads', express.static(UPLOADS_DIR, { etag: true, lastModified: true, maxAge: '7d' }));
 
-  // 页面路由（使用 EJS 模板渲染）
-  app.get('/', (req, res) => res.render('forum'));
-  app.get('/shop', (req, res) => res.render('shop'));
-  app.get('/messages', (req, res) => res.render('messages'));
-  app.get('/post.html', (req, res) => res.render('post'));
-  app.get('/profile.html', (req, res) => res.render('profile'));
+  // favicon 不存在时返回 204，避免浏览器报错
+  app.get('/favicon.ico', (req, res) => res.status(204).end());
 
   // Session 配置（使用 SQLite 持久化存储）
   // 如果未设置 SESSION_SECRET 环境变量，则生成一个持久化的随机密钥
@@ -195,6 +200,11 @@ function createApp() {
   const sessionDb = require('better-sqlite3')(require('./database').DB_FILE);
   sessionDb.pragma('journal_mode = WAL');
 
+  // 优雅退出（关闭主数据库和 session 数据库）
+  const shutdown = () => { closeDb(); sessionDb.close(); process.exit(0); };
+  process.on('SIGINT', shutdown);
+  process.on('SIGTERM', shutdown);
+
   app.use(session({
     store: new SqliteStore({
       client: sessionDb,
@@ -210,6 +220,39 @@ function createApp() {
       sameSite: 'lax'
     }
   }));
+
+  // 页面路由（使用 EJS 模板渲染，注入用户主题偏好避免闪烁）
+  // 必须在 session 中间件之后，才能读取 req.session.userId
+  const VALID_THEMES = ['light', 'dark', 'auto'];
+  const VALID_COLORS = ['purple', 'blue', 'green', 'orange', 'rose'];
+
+  function getUserTheme(userId) {
+    const defaults = { theme: 'auto', themeColor: 'purple' };
+    if (!userId) return defaults;
+    try {
+      const db = getDb();
+      const u = db.prepare('SELECT theme, theme_color FROM profiles WHERE id = ?').get(userId);
+      return {
+        theme: u && VALID_THEMES.includes(u.theme) ? u.theme : defaults.theme,
+        themeColor: u && VALID_COLORS.includes(u.theme_color) ? u.theme_color : defaults.themeColor
+      };
+    } catch (e) {
+      return defaults;
+    }
+  }
+
+  function renderPage(view) {
+    return (req, res) => {
+      const theme = getUserTheme(req.session?.userId);
+      res.render(view, { theme });
+    };
+  }
+
+  app.get('/', renderPage('forum'));
+  app.get('/shop', renderPage('shop'));
+  app.get('/messages', renderPage('messages'));
+  app.get('/post.html', renderPage('post'));
+  app.get('/profile.html', renderPage('profile'));
 
   return app;
 }
@@ -272,10 +315,6 @@ function startServer() {
       throw err;
     }
   });
-
-  // 优雅退出
-  process.on('SIGINT', () => { closeDb(); process.exit(0); });
-  process.on('SIGTERM', () => { closeDb(); process.exit(0); });
 }
 
 // ============================================================

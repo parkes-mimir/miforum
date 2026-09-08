@@ -1,16 +1,28 @@
 {
   "name": "miforum",
-  "version": "1.2.2",
+  "version": "1.2.3",
   "private": true,
   "license": "MIT",
+  "lint-staged": {
+    "src/**/*.js": [
+      "prettier --write",
+      "eslint --fix"
+    ],
+    "tests/**/*.js": [
+      "prettier --write"
+    ]
+  },
   "scripts": {
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "jest --verbose --forceExit --detectOpenHandles",
+    "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
     "test:watch": "jest --watch",
     "lint": "eslint src/",
     "lint:fix": "eslint src/ --fix",
-    "migrate": "node src/migrate.js"
+    "format": "prettier --write \"src/**/*.js\" \"tests/**/*.js\"",
+    "format:check": "prettier --check \"src/**/*.js\" \"tests/**/*.js\"",
+    "backup": "./scripts/backup-db.sh"
   },
   "jest": {
     "testEnvironment": "node",
@@ -34,7 +46,10 @@
   },
   "devDependencies": {
     "eslint": "^8.50.0",
+    "husky": "^9.1.7",
     "jest": "^30.5.1",
+    "lint-staged": "^17.5.0",
+    "prettier": "^3.9.6",
     "supertest": "^7.2.2"
   }
 }

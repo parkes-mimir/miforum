@@ -1,10 +1,3 @@
-// Lightbox helper (uses Alpine store)
-function openLightbox(url) {
-  if (!url || !url.startsWith('/uploads/')) return;
-  Alpine.store('lightbox').src = url;
-  Alpine.store('lightbox').open = true;
-}
-
 document.addEventListener('alpine:init', () => {
   // Post page component
   window.postPage = Alpine.data('postPage', () => ({
@@ -22,6 +15,7 @@ document.addEventListener('alpine:init', () => {
     commentInput: '',
     commentImages: [],
     editing: false,
+    categoriesData: [],
 
     // Edit state
     editTitle: '',
@@ -57,11 +51,22 @@ document.addEventListener('alpine:init', () => {
       return this.isAuthor;
     },
 
-    get CAT_MAP() { return { tech: '技术', life: '生活', notice: '公告' }; },
-    get CAT_COLORS() { return { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' }; },
+    get CAT_MAP() { return CATEGORY_MAP; },
+    get CAT_COLORS() { return CATEGORY_COLORS; },
 
-    get categoryLabel() { return this.CAT_MAP[this.post?.category] || ''; },
-    get categoryClass() { return this.CAT_COLORS[this.post?.category] || 'bg-gray-100 text-gray-600'; },
+    /** 可选分类（排除热门板块） */
+    get postableCategories() {
+      return this.categoriesData.filter(c => c.sectionType !== 'hot');
+    },
+
+    get categoryLabel() {
+      const cat = this.categoriesData.find(c => c.name === this.post?.category);
+      return cat ? cat.label : (this.post?.category || '');
+    },
+    get categoryClass() {
+      const cat = this.categoriesData.find(c => c.name === this.post?.category);
+      return cat ? cat.color : 'bg-gray-100 text-gray-600';
+    },
 
     get postAvatarHtml() {
       if (!this.post) return '';
@@ -134,11 +139,6 @@ document.addEventListener('alpine:init', () => {
       return html;
     },
 
-    relTime(iso) {
-      if (!iso) return '';
-      return relTime(iso);
-    },
-
     commentAvatarHtml(c) {
       return avatarHtml(c.author_avatar_url, c.author_name?.[0]?.toUpperCase(), 'w-8 h-8', c.author_avatar_frame);
     },
@@ -160,7 +160,7 @@ document.addEventListener('alpine:init', () => {
     async init() {
       // Wait for auth (header component also loads, but we need it before loadPage)
       await Alpine.store('auth').load();
-      await this.loadPage();
+      await Promise.all([this.loadPage(), this.loadCategories()]);
 
       // Listen for auth changes (e.g. after login/logout)
       window.addEventListener('auth-changed', () => {
@@ -183,6 +183,13 @@ document.addEventListener('alpine:init', () => {
           target: input
         });
       }
+    },
+
+    async loadCategories() {
+      try {
+        const data = await api('/api/categories');
+        this.categoriesData = data.categories || [];
+      } catch (e) {}
     },
 
     async loadPage() {

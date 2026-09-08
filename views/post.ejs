@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
 <%- include('partials/head', { title: 'MiForum' }) %>
 <style>
@@ -140,7 +140,9 @@
     <div x-show="editing" x-cloak class="p-5 sm:p-6 border-b border-gray-100 space-y-3">
       <input x-model="editTitle" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition" placeholder="标题">
       <select x-model="editCategory" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
-        <option value="tech">技术</option><option value="life">生活</option><option value="notice">公告</option>
+        <template x-for="c in postableCategories" :key="c.name">
+          <option :value="c.name" x-text="c.label"></option>
+        </template>
       </select>
       <textarea x-model="editContent" rows="6" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none" placeholder="正文"></textarea>
       <div>
@@ -357,14 +359,7 @@
 </div><!-- /postPage -->
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/post.js?v=1.2.0"></script>
-<script>
-  // 注入交互组件到页面
-  injectToast();
-  injectAuthModal();
-  injectChangePasswordModal();
-  injectLightbox();
-</script>
-<script src="/js/alpine.min.js?v=1.2.0"></script>
+<script src="/js/pages/post.js?v=1.2.3"></script>
+<script src="/js/alpine.min.js?v=1.2.3"></script>
 </body>
 </html>

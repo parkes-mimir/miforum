@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
 <%- include('partials/head', { title: '消息中心 - MiForum' }) %>
 <style>
@@ -215,22 +215,8 @@
   </main>
 </div>
 
-<!-- Toast -->
-<div x-data="{ toasts: [], add(m) { const t = { id: Date.now(), msg: m }; this.toasts.push(t); setTimeout(() => { this.toasts = this.toasts.filter(x => x.id !== t.id); }, 2500); } }" x-on:toast.window="add($event.detail)" class="fixed bottom-6 left-1/2 -translate-x-1/2 z-[60] space-y-2">
-  <template x-for="t in toasts" :key="t.id">
-    <div x-text="t.msg" x-transition class="toast-in px-4 py-2.5 bg-gray-900 text-white text-sm rounded-xl shadow-lg"></div>
-  </template>
-</div>
-
 <%- include('partials/scripts') %>
-<script src="/js/pages/messages.js?v=1.2.0"></script>
-<script>
-  // 注入交互组件到页面
-  injectToast();
-  injectAuthModal();
-  injectChangePasswordModal();
-  injectLightbox();
-</script>
-<script src="/js/alpine.min.js?v=1.2.0"></script>
+<script src="/js/pages/messages.js?v=1.2.3"></script>
+<script src="/js/alpine.min.js?v=1.2.3"></script>
 </body>
 </html>

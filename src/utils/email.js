@@ -10,6 +10,27 @@ let transporter = null;
 let lastConfig = null;
 
 /**
+ * 从数据库获取 SMTP 原始配置（用于管理界面显示）
+ * @param {import('better-sqlite3').Database} db
+ * @returns {{ host: string, port: string, secure: boolean, user: string, pass: string, configured: boolean }}
+ */
+function getSmtpRawConfig(db) {
+  const host = db.prepare("SELECT value FROM settings WHERE key = 'smtp_host'").get();
+  const port = db.prepare("SELECT value FROM settings WHERE key = 'smtp_port'").get();
+  const secure = db.prepare("SELECT value FROM settings WHERE key = 'smtp_secure'").get();
+  const user = db.prepare("SELECT value FROM settings WHERE key = 'smtp_user'").get();
+  const pass = db.prepare("SELECT value FROM settings WHERE key = 'smtp_pass'").get();
+  return {
+    host: host ? host.value : '',
+    port: port ? port.value : '465',
+    secure: secure ? secure.value === 'true' : true,
+    user: user ? user.value : '',
+    pass: pass ? '********' : '',
+    configured: !!(host && user && pass)
+  };
+}
+
+/**
  * 从数据库获取 SMTP 配置
  */
 function getSmtpConfig(db) {
@@ -23,7 +44,7 @@ function getSmtpConfig(db) {
   if (host && user && pass) {
     return {
       host: host.value,
-      port: parseInt(port ? port.value : '465'),
+      port: parseInt(port ? port.value : '465', 10),
       secure: secure ? secure.value === 'true' : true,
       auth: { user: user.value, pass: decryptText(pass.value) }
     };
@@ -32,7 +53,7 @@ function getSmtpConfig(db) {
   // 回退到环境变量
   return {
     host: process.env.SMTP_HOST || 'smtp.qq.com',
-    port: parseInt(process.env.SMTP_PORT || '465'),
+    port: parseInt(process.env.SMTP_PORT || '465', 10),
     secure: process.env.SMTP_SECURE !== 'false',
     auth: {
       user: process.env.SMTP_USER || '',
@@ -110,5 +131,6 @@ async function sendVerificationCode(db, to, code, type = 'register') {
 
 module.exports = {
   generateCode,
-  sendVerificationCode
+  sendVerificationCode,
+  getSmtpRawConfig
 };

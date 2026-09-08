@@ -123,7 +123,7 @@ module.exports = function (app, db) {
       throw err;
     }
 
-    addExp(db, userId, EXP_REWARDS.comment || 5);
+    addExp(db, userId, EXP_REWARDS.vote);
     res.json({ ok: true });
   });
 

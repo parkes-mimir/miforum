@@ -70,7 +70,9 @@ function createTables() {
     ['categories', 'description', 'TEXT DEFAULT \'\''],
     ['categories', 'icon', 'TEXT DEFAULT \'\''],
     ['categories', 'section_type', 'TEXT DEFAULT \'normal\''],
-    ['categories', 'created_by', 'INTEGER']
+    ['categories', 'created_by', 'INTEGER'],
+    ['profiles', 'theme', "TEXT DEFAULT 'auto'"],
+    ['profiles', 'theme_color', "TEXT DEFAULT 'purple'"]
   ];
   for (const [table, column, definition] of migrations) {
     ensureColumn(table, column, definition);

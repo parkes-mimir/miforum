@@ -5,8 +5,8 @@
  * SQL 负责聚合和过滤，JS 负责个性化加权。
  */
 
-const { parseJsonField, intToBool } = require('../utils/helpers');
-const { getLevelInfo } = require('./level');
+const { parseJsonField } = require('../utils/helpers');
+const { isAdmin, formatPost } = require('./post-helper');
 
 const DECAY_EXPONENT = 1.5;
 const DECAY_OFFSET = 2;
@@ -93,8 +93,8 @@ function calculateScore(row, interactedCategories, interactedAuthors) {
  * @returns {{ posts: Object[], pagination: { page: number, limit: number, total: number, pages: number } }}
  */
 function getHotPosts(db, userId, page, limit) {
-  page = Math.max(1, parseInt(page) || 1);
-  limit = Math.min(50, Math.max(1, parseInt(limit) || 20));
+  page = Math.max(1, parseInt(page, 10) || 1);
+  limit = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
 
   const cutoffDate = new Date(Date.now() - MAX_AGE_DAYS * 86400000)
     .toISOString()
@@ -106,8 +106,7 @@ function getHotPosts(db, userId, page, limit) {
 
   if (userId) {
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId);
-    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-    if (isAdmin) {
+    if (isAdmin(user)) {
       privacyFilter = '';
     } else {
       privacyFilter = 'AND (p.private = 0 OR p.author_id = ?)';
@@ -115,6 +114,8 @@ function getHotPosts(db, userId, page, limit) {
     }
   }
 
+  // 先用 SQL 取候选集（按基础分数预排序，限制数量避免内存溢出）
+  const candidateLimit = Math.max(200, page * limit * 3);
   const rows = db.prepare(`
     SELECT p.*,
       pr.display_id AS author_display_id, pr.username AS author_name,
@@ -126,8 +127,12 @@ function getHotPosts(db, userId, page, limit) {
     FROM posts p
     LEFT JOIN profiles pr ON pr.id = p.author_id
     WHERE p.created_at >= ? ${privacyFilter}
-    ORDER BY p.pinned DESC, p.created_at DESC
-  `).all(...params);
+    ORDER BY p.pinned DESC,
+      ((SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) * 3 +
+       (SELECT COUNT(*) FROM comments WHERE post_id = p.id) * 2 +
+       (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id)) DESC
+    LIMIT ?
+  `).all(...params, candidateLimit);
 
   const interactedCategories = getUserInteractedCategories(db, userId);
   const interactedAuthors = getUserInteractedAuthors(db, userId);
@@ -145,15 +150,7 @@ function getHotPosts(db, userId, page, limit) {
   const paged = scored.slice(offset, offset + limit);
 
   const posts = paged.map(({ row: p, score }) => ({
-    ...p,
-    tags: parseJsonField(p.tags, []),
-    images: parseJsonField(p.images, []),
-    pinned: intToBool(p.pinned),
-    private: intToBool(p.private),
-    author_avatar_url: p.author_avatar_url || null,
-    author_title: p.author_title || null,
-    author_avatar_frame: p.author_avatar_frame || null,
-    author_level_info: getLevelInfo(p.author_exp || 0),
+    ...formatPost(p),
     hot_score: Math.round(score * 100) / 100
   }));
 

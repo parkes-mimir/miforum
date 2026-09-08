@@ -26,6 +26,7 @@ const EXP_REWARDS = {
   retroactive: 5,     // 补签
   post: 15,           // 发帖
   comment: 5,         // 评论
+  vote: 2,            // 投票
   receive_like: 2,    // 收到点赞
   receive_comment: 1, // 收到评论
   bookmark: 2         // 收藏帖子

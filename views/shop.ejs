@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
 <%- include('partials/head', { title: '积分商店 - MiForum' }) %>
 </head>
@@ -74,7 +74,7 @@
   </div>
 
   <!-- 兑换确认弹窗（在 shopPage 组件内部） -->
-  <div x-show="exchangeOpen" x-transition.opacity @click.self="hideExchangeModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+  <div x-show="exchangeOpen" x-transition.opacity @click.self="hideExchangeModal()" @keydown.escape.window="if(exchangeOpen) hideExchangeModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="兑换商品">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
       <div class="text-center mb-6">
         <div class="text-5xl mb-3" x-text="exchangeItem?.icon || '🎁'"></div>
@@ -127,13 +127,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/shop.js?v=1.2.0"></script>
-<script>
-  injectToast();
-  injectAuthModal();
-  injectChangePasswordModal();
-  injectLightbox();
-</script>
-<script src="/js/alpine.min.js?v=1.2.0"></script>
+<script src="/js/pages/shop.js?v=1.2.3"></script>
+<script src="/js/alpine.min.js?v=1.2.3"></script>
 </body>
 </html>

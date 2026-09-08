@@ -1,25 +1,48 @@
 # MiForum Dockerfile
-# 轻量化 Node.js 论坛应用
+# 轻量化 Node.js 论坛应用（多阶段构建）
 
-FROM docker.m.daocloud.io/library/node:22-slim
+# 镜像源可配置（海外构建时传入 --build-arg MIRROR=""）
+ARG NODE_IMAGE=docker.m.daocloud.io/library/node:22-slim
+ARG APT_MIRROR=mirrors.aliyun.com
+ARG NPM_REGISTRY=https://registry.npmmirror.com
 
-# 配置 Debian 国内镜像源
-RUN sed -i 's/deb.debian.org/mirrors.aliyun.com/g' /etc/apt/sources.list.d/debian.sources
+# ============================================================
+# 阶段 1：构建（安装编译依赖，编译原生模块）
+# ============================================================
+FROM ${NODE_IMAGE} AS builder
 
-# 安装编译依赖和 git（更新功能需要）
+ARG APT_MIRROR
+RUN if [ -n "$APT_MIRROR" ]; then sed -i "s/deb.debian.org/$APT_MIRROR/g" /etc/apt/sources.list.d/debian.sources; fi
+
 RUN apt-get update && apt-get install -y --no-install-recommends python3 make g++ git && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
 
-# 复制 package.json 并安装依赖（使用 npmmirror）
+ARG NPM_REGISTRY
 COPY package.json package-lock.json ./
-RUN npm config set registry https://registry.npmmirror.com && npm ci --omit=dev
+RUN npm config set registry $NPM_REGISTRY && npm ci --omit=dev
+
+# ============================================================
+# 阶段 2：生产（仅运行时依赖，无编译工具）
+# ============================================================
+FROM ${NODE_IMAGE}
+
+ARG APT_MIRROR
+RUN if [ -n "$APT_MIRROR" ]; then sed -i "s/deb.debian.org/$APT_MIRROR/g" /etc/apt/sources.list.d/debian.sources; fi
+
+# git 保留（自动更新功能需要）
+RUN apt-get update && apt-get install -y --no-install-recommends git && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /app
+
+# 从构建阶段复制已安装的 node_modules
+COPY --from=builder /app/node_modules ./node_modules
 
 # 复制源码
+COPY package.json ./
 COPY src/ ./src/
 COPY public/ ./public/
 COPY views/ ./views/
-COPY tailwind.config.js ./
 
 # 创建数据目录
 RUN mkdir -p /data/db /data/uploads

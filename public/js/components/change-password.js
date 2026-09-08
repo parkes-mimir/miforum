@@ -31,22 +31,8 @@ document.addEventListener('alpine:init', () => {
 
     /** 更新密码强度指示器 */
     updateStrength() {
-      const p = this.newPassword;
-      if (!p) { this.passwordStrength = { score: 0, label: '', color: '#e5e7eb' }; return; }
-      let score = 0;
-      if (p.length >= 8) score++;
-      if (p.length >= 12) score++;
-      const types = [/[a-z]/, /[A-Z]/, /[0-9]/, /[^a-zA-Z0-9]/].filter(r => r.test(p)).length;
-      if (types >= 2) score++;
-      if (types >= 3) score++;
-      const levels = [
-        { label: '非常弱', color: '#ef4444' },
-        { label: '弱', color: '#f97316' },
-        { label: '一般', color: '#eab308' },
-        { label: '强', color: '#22c55e' },
-        { label: '非常强', color: '#10b981' }
-      ];
-      this.passwordStrength = levels[Math.min(4, score)];
+      const r = getPasswordStrength(this.newPassword);
+      this.passwordStrength = { score: r.score, label: r.label, color: r.color };
     },
 
     /** 提交密码修改 */
@@ -72,8 +58,8 @@ document.addEventListener('alpine:init', () => {
         await api('/api/change-password', {
           method: 'POST',
           body: JSON.stringify({
-            old_password: this.oldPassword,
-            new_password: this.newPassword
+            oldPassword: this.oldPassword,
+            newPassword: this.newPassword
           })
         });
         Alpine.store('auth').user.force_password_change = false;
@@ -92,7 +78,7 @@ document.addEventListener('alpine:init', () => {
  */
 function injectChangePasswordModal() {
   const html = `
-    <div x-data="changePasswordModal()" x-show="open" x-transition.opacity class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display:none">
+    <div x-data="changePasswordModal()" x-show="open" x-transition.opacity @keydown.escape.window="if(open) hide()" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="修改密码">
       <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
         <div class="text-center mb-5">
           <div class="w-16 h-16 mx-auto mb-3 bg-primary-100 rounded-full flex items-center justify-center">

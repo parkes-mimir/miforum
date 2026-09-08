@@ -4,7 +4,7 @@
 
 const { requireAuth } = require('../middleware/auth');
 const { createNotification } = require('../services/notification');
-const { formatPost } = require('../services/postHelper');
+const { formatPost, parsePagination } = require('../services/post-helper');
 const { addExp, EXP_REWARDS } = require('../services/level');
 
 module.exports = function(app, db) {
@@ -84,9 +84,7 @@ module.exports = function(app, db) {
   /** 获取当前用户收藏列表（支持分页） */
   app.get('/api/bookmarks', requireAuth, (req, res) => {
     const userId = req.session.userId;
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
 
     // 查询总数
     const { total } = db.prepare('SELECT COUNT(*) AS total FROM bookmarks WHERE user_id = ?').get(userId);

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
 <%- include('partials/head', { title: 'MiForum - 现代微论坛' }) %>
 <style>
@@ -211,7 +211,7 @@
 </div>
 
 <!-- New Post Modal -->
-<div x-show="newPostOpen" x-transition.opacity @click.self="newPostOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+<div x-show="newPostOpen" x-transition.opacity @click.self="newPostOpen = false" @keydown.escape.window="if(newPostOpen) newPostOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="发布话题">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
       <h2 class="text-lg font-bold" x-text="editingPostId ? '编辑话题' : '发布新话题'">发布新话题</h2>
@@ -304,7 +304,7 @@
 </div>
 
 <!-- Category Management Modal -->
-<div x-show="categoryModalOpen" x-transition.opacity @click.self="categoryModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+<div x-show="categoryModalOpen" x-transition.opacity @click.self="categoryModalOpen = false" @keydown.escape.window="if(categoryModalOpen) categoryModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="分类管理">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[80vh] flex flex-col">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold">分类管理</h2>
@@ -339,7 +339,7 @@
 </div>
 
 <!-- Check-in History Modal -->
-<div x-show="checkinModalOpen" x-transition.opacity @click.self="checkinModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+<div x-show="checkinModalOpen" x-transition.opacity @click.self="checkinModalOpen = false" @keydown.escape.window="if(checkinModalOpen) checkinModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="签到日历">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[90vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100">
       <h2 class="text-lg font-bold">签到日历</h2>
@@ -400,11 +400,11 @@
       </div>
       <div x-show="calStats.missedCount > 0">
         <h3 class="text-sm font-semibold text-gray-700 mb-2">补签</h3>
-        <p class="text-xs text-gray-500 mb-3">灰色格子为未签到日期，点击可补签，每次消耗 <strong>10 积分</strong></p>
+        <p class="text-xs text-gray-500 mb-3">灰色格子为未签到日期，点击可补签，每次消耗 <strong x-text="retroactiveCost + ' 积分'">10 积分</strong></p>
         <div class="flex items-center gap-3 p-3 bg-amber-50 rounded-xl">
           <div class="flex-1">
             <div class="text-sm font-medium text-amber-800">当前积分：<span x-text="userPoints">0</span></div>
-            <div class="text-xs text-amber-600">可补签 <span x-text="Math.min(calStats.missedCount, Math.floor(userPoints / 10))">0</span> 天</div>
+            <div class="text-xs text-amber-600">可补签 <span x-text="Math.min(calStats.missedCount, Math.floor(userPoints / retroactiveCost))">0</span> 天</div>
           </div>
         </div>
       </div>
@@ -413,7 +413,7 @@
 </div>
 
 <!-- Admin Panel Modal -->
-<div x-show="adminPanelOpen" x-transition.opacity @click.self="adminPanelOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+<div x-show="adminPanelOpen" x-transition.opacity @click.self="adminPanelOpen = false" @keydown.escape.window="if(adminPanelOpen) adminPanelOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="管理面板">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100">
       <div class="flex items-center gap-3">
@@ -512,7 +512,7 @@
 </div>
 
 <!-- Create Section Modal -->
-<div x-show="createSectionOpen" x-transition.opacity @click.self="createSectionOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none">
+<div x-show="createSectionOpen" x-transition.opacity @click.self="createSectionOpen = false" @keydown.escape.window="if(createSectionOpen) createSectionOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建板块">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold">创建板块</h2>
@@ -529,14 +529,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/forum.js?v=1.2.0"></script>
-<script>
-  // 注入交互组件到页面
-  injectToast();
-  injectAuthModal();
-  injectChangePasswordModal();
-  injectLightbox();
-</script>
-<script src="/js/alpine.min.js?v=1.2.0"></script>
+<script src="/js/pages/forum.js?v=1.2.3"></script>
+<script src="/js/alpine.min.js?v=1.2.3"></script>
 </body>
 </html>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="zh-CN">
+<html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
 <%- include('partials/head', { title: 'MiForum - 个人资料' }) %>
 <style>
@@ -70,7 +70,7 @@
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 16.657L13.414 20.9a1.998 1.998 0 01-2.827 0l-4.244-4.243a8 8 0 1111.314 0z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 11a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             <span x-text="profile?.location"></span>
           </span>
-          <a x-show="profile?.website" :href="profile?.website" target="_blank" class="flex items-center gap-1 text-primary-600 hover:underline">
+          <a x-show="profile?.website" :href="profile?.website?.startsWith('javascript:') ? '' : profile?.website" target="_blank" rel="noopener noreferrer" class="flex items-center gap-1 text-primary-600 hover:underline">
             <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13.828 10.172a4 4 0 00-5.656 0l-4 4a4 4 0 105.656 5.656l1.102-1.101m-.758-4.899a4 4 0 005.656 0l4-4a4 4 0 00-5.656-5.656l-1.1 1.1"/></svg>
             <span x-text="profile?.website"></span>
           </a>
@@ -229,7 +229,7 @@
   </div>
 
   <!-- Edit Profile Modal -->
-  <div x-show="showEdit" x-cloak class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm">
+  <div x-show="showEdit" x-cloak @keydown.escape.window="if(showEdit) showEdit = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="编辑资料">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in max-h-[85vh] overflow-y-auto">
       <div class="flex items-center justify-between mb-5">
         <h2 class="text-lg font-bold">编辑资料</h2>
@@ -338,7 +338,7 @@
   </div>
 
   <!-- Change Password Modal -->
-  <div x-show="showPasswordModal" x-cloak class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm">
+  <div x-show="showPasswordModal" x-cloak @keydown.escape.window="if(showPasswordModal) showPasswordModal = false" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/50 backdrop-blur-sm" role="dialog" aria-modal="true" aria-label="修改密码">
     <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
       <div class="text-center mb-5">
         <div class="w-16 h-16 mx-auto mb-3 bg-primary-100 rounded-full flex items-center justify-center">
@@ -382,14 +382,7 @@
 <style>@keyframes level-shine { 0%{transform:translateX(-100%)} 100%{transform:translateX(300%)} }</style>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/profile.js?v=1.2.0"></script>
-<script>
-  // 注入交互组件到页面
-  injectToast();
-  injectAuthModal();
-  injectChangePasswordModal();
-  injectLightbox();
-</script>
-<script src="/js/alpine.min.js?v=1.2.0"></script>
+<script src="/js/pages/profile.js?v=1.2.3"></script>
+<script src="/js/alpine.min.js?v=1.2.3"></script>
 </body>
 </html>

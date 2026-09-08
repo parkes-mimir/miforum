@@ -21,6 +21,8 @@ function registerRoutes(app, db) {
   // POST   /api/login              登录
   // POST   /api/logout             登出
   // GET    /api/me                 获取当前用户
+  // GET    /api/preferences        获取用户偏好
+  // PUT    /api/preferences        更新用户偏好
   // POST   /api/change-password    修改密码
   require('../controllers/auth')(app, db);
 
@@ -48,16 +50,20 @@ function registerRoutes(app, db) {
   // ============================================================
   // GET    /api/checkin/today       今日签到状态
   // GET    /api/checkin/history     签到历史
-  // POST   /api/checkin             签到
+  // POST   /api/checkin             手动签到
+  // POST   /api/checkin/auto        自动签到
+  // POST   /api/checkin/retroactive 补签
   require('../controllers/checkin')(app, db);
 
   // ============================================================
   // 点赞 & 收藏
   // ============================================================
-  // POST   /api/posts/:id/like      点赞
-  // GET    /api/posts/:id/like      点赞状态
-  // POST   /api/posts/:id/bookmark  收藏
-  // GET    /api/posts/:id/bookmark  收藏状态
+  // GET    /api/likes               点赞列表
+  // POST   /api/like/:postId        点赞
+  // DELETE /api/like/:postId        取消点赞
+  // POST   /api/bookmark/:postId    收藏
+  // DELETE /api/bookmark/:postId    取消收藏
+  // GET    /api/bookmark/:postId    收藏状态
   // GET    /api/bookmarks           收藏列表
   require('../controllers/likes')(app, db);
 
@@ -65,14 +71,17 @@ function registerRoutes(app, db) {
   // 积分商店
   // ============================================================
   // GET    /api/shop/items          商品列表
+  // GET    /api/shop/items/:id      商品详情
   // GET    /api/shop/orders         订单列表
   // POST   /api/shop/exchange       兑换商品
+  // POST   /api/shop/equip          装备
+  // POST   /api/shop/unequip        卸下装备
   require('../controllers/shop')(app, db);
 
   // ============================================================
   // 等级 & 经验
   // ============================================================
-  // GET    /api/level/:userId       用户等级信息
+  // GET    /api/leaderboard/level   等级排行榜
   require('../controllers/level')(app, db);
 
   // ============================================================
@@ -112,8 +121,11 @@ function registerRoutes(app, db) {
   // ============================================================
   // 自定义表情
   // ============================================================
-  // GET    /api/emoji               表情列表
+  // GET    /api/emoji/public        公共表情列表
+  // GET    /api/emoji/my            我的收藏
   // POST   /api/emoji               上传表情
+  // POST   /api/emoji/:id/collect   收藏表情
+  // DELETE /api/emoji/:id/collect   取消收藏
   // DELETE /api/emoji/:id           删除表情
   require('../controllers/emoji')(app, db);
 

@@ -1,10 +1,3 @@
-// Lightbox helper
-function openLightbox(url) {
-  if (!url || !url.startsWith('/uploads/')) return;
-  Alpine.store('lightbox').src = url;
-  Alpine.store('lightbox').open = true;
-}
-
 document.addEventListener('alpine:init', () => {
   // ============================================================
   // Forum Page Component
@@ -50,6 +43,7 @@ document.addEventListener('alpine:init', () => {
     calMissedSet: new Set(),
     calTodayStr: '',
     calStats: { currentStreak: 0, longestStreak: 0, totalDays: 0, missedCount: 0 },
+    retroactiveCost: 10,
 
     // New post modal
     newPostOpen: false,
@@ -107,7 +101,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     get roleBadgeClass() {
-      return this.isSuperAdmin ? 'bg-red-500' : 'bg-amber-500';
+      if (!this.user) return '';
+      return this.user.role === 'super_admin' ? 'bg-red-500 text-white' : this.user.role === 'admin' ? 'bg-amber-500 text-white' : '';
     },
 
     get unreadCount() {
@@ -124,22 +119,22 @@ document.addEventListener('alpine:init', () => {
       if (this.currentTag || this.searchQuery) return '';
       if (this.currentCat === 'all') return '欢迎来到社区，参与讨论吧';
       const cat = this.categoriesData.find(c => c.name === this.currentCat);
-      if (cat && cat.section_type === 'announcement') return '官方公告和通知';
-      if (cat && cat.section_type === 'hot') return '根据你的兴趣推荐的热门帖子';
+      if (cat && cat.sectionType === 'announcement') return '官方公告和通知';
+      if (cat && cat.sectionType === 'hot') return '根据你的兴趣推荐的热门帖子';
       if (cat && cat.description) return cat.description;
       return '欢迎来到社区，参与讨论吧';
     },
 
     get specialCategories() {
-      return this.categoriesData.filter(c => c.section_type === 'announcement' || c.section_type === 'hot');
+      return this.categoriesData.filter(c => c.sectionType === 'announcement' || c.sectionType === 'hot');
     },
 
     get normalCategories() {
-      return this.categoriesData.filter(c => c.section_type === 'normal');
+      return this.categoriesData.filter(c => c.sectionType === 'normal');
     },
 
     get postableCategories() {
-      return this.categoriesData.filter(c => c.section_type !== 'hot');
+      return this.categoriesData.filter(c => c.sectionType !== 'hot');
     },
 
     get paginationRange() {
@@ -213,7 +208,7 @@ document.addEventListener('alpine:init', () => {
       if (cat && this.catExists(cat)) this.filterCategory(cat);
       if (tag) this.filterByTag(tag);
       if (this.user?.force_password_change) {
-        setTimeout(() => { document.querySelector('[x-data*="changePasswordModal"]').__x.$data.show(); }, 1000);
+        setTimeout(() => { const el = document.querySelector('[x-data*="changePasswordModal"]'); if (el && el.__x) el.__x.$data.show(); }, 1000);
       }
       if (this.isLoggedIn) this.loadUnreadCounts();
       window.addEventListener('auth-changed', async () => {
@@ -253,7 +248,7 @@ document.addEventListener('alpine:init', () => {
         const res = await api('/api/checkin/auto', { method: 'POST' });
         this.userPoints = res.points;
         if (this.user) this.user.points = res.points;
-        if (res.newCheckin) Alpine.store('toast').show('每日签到成功！积分 +10');
+        if (res.newCheckin) Alpine.store('toast').show('每日签到成功！');
         this.todayCheckedIn = res.checkedIn;
         this.checkinLoaded = true;
       } catch (e) { this.checkinLoaded = false; }
@@ -351,16 +346,6 @@ document.addEventListener('alpine:init', () => {
       return renderEmojiInText(text);
     },
 
-    relTime(iso) {
-      if (!iso) return '';
-      return relTime(iso);
-    },
-
-    sharePost(post, event) {
-      sharePost(post, event);
-    },
-
-    /** 切换点赞状态（乐观更新，失败自动回滚） */
     async toggleLike(p) {
       if (!this.isLoggedIn) { Alpine.store('toast').show('请先登录'); Alpine.store('auth').showLogin = true; return; }
       const wasLiked = this.likedIds.has(p.id);
@@ -550,7 +535,7 @@ document.addEventListener('alpine:init', () => {
         if (data.points) { this.userPoints = data.points; if (this.user) this.user.points = data.points; }
         if (this.currentCat !== 'all') this.filterCategory('all');
         else await this.loadPosts(1);
-        Alpine.store('toast').show('发布成功！积分 +5');
+        Alpine.store('toast').show('发布成功！');
       } catch (e) { Alpine.store('toast').show(e.message); }
       this.submittingPost = false;
     },
@@ -571,6 +556,7 @@ document.addEventListener('alpine:init', () => {
           totalDays: data.totalDays,
           missedCount: data.missedDays.length
         };
+        this.retroactiveCost = data.retroactiveCost || 10;
         this.calCheckinSet = new Set(data.checkinDates);
         this.calMissedSet = new Set(data.missedDays);
         this.calTodayStr = new Date().toLocaleDateString('sv-SE');
@@ -586,7 +572,7 @@ document.addEventListener('alpine:init', () => {
     selectMonth(m) { this.calMonth = m; this.showMonthPicker = false; },
 
     async doRetroactive(dateStr) {
-      if (!confirm(`确认补签 ${dateStr}？\n消耗 10 积分`)) return;
+      if (!confirm(`确认补签 ${dateStr}？\n消耗 ${this.retroactiveCost} 积分`)) return;
       try {
         const res = await api('/api/checkin/retroactive', { method: 'POST', body: JSON.stringify({ date: dateStr }) });
         this.userPoints = res.points;
@@ -603,7 +589,7 @@ document.addEventListener('alpine:init', () => {
     async createCategory() {
       if (!this.newCatName.trim() || !this.newCatLabel.trim()) { Alpine.store('toast').show('请填写标识和名称'); return; }
       try {
-        await api('/api/categories', { method: 'POST', body: JSON.stringify({ name: this.newCatName.trim(), label: this.newCatLabel.trim(), section_type: 'normal' }) });
+        await api('/api/categories', { method: 'POST', body: JSON.stringify({ name: this.newCatName.trim(), label: this.newCatLabel.trim(), sectionType: 'normal' }) });
         this.newCatName = ''; this.newCatLabel = '';
         await this.loadCategories();
         Alpine.store('toast').show('分类已添加');
@@ -727,10 +713,10 @@ document.addEventListener('alpine:init', () => {
       try {
         const data = await api('/api/admin/smtp');
         this.smtp = {
-          host: data.smtp_host || '',
-          port: data.smtp_port || '465',
-          secure: data.smtp_secure !== false,
-          user: data.smtp_user || '',
+          host: data.smtpHost || '',
+          port: data.smtpPort || '465',
+          secure: data.smtpSecure !== false,
+          user: data.smtpUser || '',
           pass: '',
           configured: data.configured || false
         };
@@ -739,7 +725,7 @@ document.addEventListener('alpine:init', () => {
 
     async saveSmtpConfig() {
       try {
-        await api('/api/admin/smtp', { method: 'PUT', body: JSON.stringify({ smtp_host: this.smtp.host, smtp_port: this.smtp.port, smtp_secure: this.smtp.secure, smtp_user: this.smtp.user, smtp_pass: this.smtp.pass }) });
+        await api('/api/admin/smtp', { method: 'PUT', body: JSON.stringify({ smtpHost: this.smtp.host, smtpPort: this.smtp.port, smtpSecure: this.smtp.secure, smtpUser: this.smtp.user, smtpPass: this.smtp.pass }) });
         this.smtpStatus = '✓ 配置已保存'; this.smtpStatusOk = true;
         setTimeout(() => { this.smtpStatus = ''; }, 3000);
       } catch (e) { this.smtpStatus = '✗ ' + e.message; this.smtpStatusOk = false; }
@@ -762,7 +748,7 @@ document.addEventListener('alpine:init', () => {
       try {
         const data = await api('/api/admin/check-update');
         if (data.hasUpdate) {
-          this.updateResult = `发现新版本 v${data.latestVersion} <a href="${data.releaseUrl}" target="_blank" class="underline">查看详情</a>`;
+          this.updateResult = `发现新版本 v${esc(data.latestVersion)} <a href="${escAttr(data.releaseUrl)}" target="_blank" class="underline">查看详情</a>`;
           this.updateResultOk = false;
           this.updateHasNew = true;
         } else {

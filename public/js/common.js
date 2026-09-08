@@ -6,6 +6,22 @@
 function esc(s) { const d = document.createElement('div'); d.textContent = s; return d.innerHTML; }
 function escAttr(s) { return esc(s).replace(/'/g, '&#39;'); }
 
+/** URL escape — prevents javascript: protocol and attribute breakout */
+function escUrl(url) {
+  if (!url) return '';
+  const s = String(url).replace(/"/g, '%22').replace(/'/g, '%27');
+  if (/^javascript:/i.test(s)) return '';
+  return s;
+}
+
+/** Avatar frame gradient styles (shared across components) */
+const FRAME_STYLES = {
+  gold: 'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
+  silver: 'linear-gradient(135deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
+  blue: 'linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%)',
+  purple: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #7e22ce 100%)'
+};
+
 /** Toast notification (requires #toastContainer div) */
 function toast(msg) {
   const el = document.createElement('div');
@@ -38,17 +54,11 @@ async function api(url, opts) {
 
 /** Render avatar (img or initial letter fallback), with optional frame glow */
 function avatarHtml(url, letter, size, frame) {
-  const frameStyles = {
-    gold: 'linear-gradient(135deg, #fde047 0%, #eab308 50%, #d97706 100%)',
-    silver: 'linear-gradient(135deg, #e5e7eb 0%, #9ca3af 50%, #6b7280 100%)',
-    blue: 'linear-gradient(135deg, #93c5fd 0%, #3b82f6 50%, #1d4ed8 100%)',
-    purple: 'linear-gradient(135deg, #d8b4fe 0%, #a855f7 50%, #7e22ce 100%)'
-  };
   let inner;
-  if (url) inner = `<img src="${url}" class="${size} rounded-full object-cover">`;
+  if (url) inner = `<img src="${escAttr(url)}" class="${size} rounded-full object-cover" alt="">`;
   else inner = `<div class="${size} rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-sm font-bold">${esc(letter)}</div>`;
-  if (frame && frameStyles[frame]) {
-    return `<div style="background:${frameStyles[frame]};padding:2px;border-radius:9999px;display:inline-flex">${inner}</div>`;
+  if (frame && FRAME_STYLES[frame]) {
+    return `<div style="background:${FRAME_STYLES[frame]};padding:2px;border-radius:9999px;display:inline-flex">${inner}</div>`;
   }
   return inner;
 }
@@ -94,3 +104,9 @@ function checkPasswordStrength(password, prefix) {
   textEl.textContent = label;
   textEl.style.color = color;
 }
+
+/** Category label/color maps (shared across pages) */
+const CATEGORY_MAP = { tech: '技术', life: '生活', notice: '公告' };
+const CATEGORY_COLORS = { tech: 'bg-blue-100 text-blue-700', life: 'bg-pink-100 text-pink-700', notice: 'bg-amber-100 text-amber-700' };
+function catLabel(cat) { return CATEGORY_MAP[cat] || cat; }
+function catColor(cat) { return CATEGORY_COLORS[cat] || 'bg-gray-100 text-gray-600'; }

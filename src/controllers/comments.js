@@ -1,8 +1,16 @@
+/**
+ * comments.js - 评论 CRUD 控制器
+ *
+ * 提供评论的创建、读取、更新、删除功能，
+ * 支持图片上传、楼层号、帖主置顶评论。
+ */
+
 const { requireAuth, requireNotMuted } = require('../middleware/auth');
 const { deleteImages, deleteFile, parseJsonField, intToBool } = require('../utils/helpers');
 const { commentUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS } = require('../services/level');
 const { createNotification } = require('../services/notification');
+const { isAdmin, parsePagination } = require('../services/post-helper');
 
 module.exports = function (app, db) {
 
@@ -10,9 +18,7 @@ module.exports = function (app, db) {
   app.get('/api/posts/:id/comments', (req, res) => {
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query, 50, 100);
 
     // 查询总数
     const { total } = db.prepare('SELECT COUNT(*) AS total FROM comments WHERE post_id = ?').get(pid);
@@ -62,6 +68,7 @@ module.exports = function (app, db) {
     if (!content && (!req.files || req.files.length === 0)) {
       return res.status(400).json({ error: '请输入评论内容或上传图片' });
     }
+    if (content && content.length > 10000) return res.status(400).json({ error: '评论最多10000字' });
 
     const post = db.prepare('SELECT id, author_id FROM posts WHERE id = ?').get(Number(req.params.id));
     if (!post) return res.status(404).json({ error: '帖子不存在' });
@@ -78,7 +85,7 @@ module.exports = function (app, db) {
       createNotification(db, { userId: post.author_id, fromUserId: req.session.userId, type: 'comment', postId: Number(req.params.id) });
     }
 
-    res.json({ commentId: result.lastInsertRowid });
+    res.json({ ok: true, commentId: result.lastInsertRowid });
   });
 
   app.put('/api/comments/:id', requireAuth, requireNotMuted(db), multerUpload(commentUpload.array('images', 3)), (req, res) => {
@@ -122,8 +129,7 @@ module.exports = function (app, db) {
     const isPostOwner = post && post.author_id === req.session.userId;
 
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(req.session.userId);
-    const isAdmin = user && (user.role === 'admin' || user.role === 'super_admin');
-    if (c.author_id !== req.session.userId && !isPostOwner && !isAdmin) {
+    if (c.author_id !== req.session.userId && !isPostOwner && !isAdmin(user)) {
       return res.status(403).json({ error: '只能删除自己的评论或自己帖子下的评论' });
     }
 

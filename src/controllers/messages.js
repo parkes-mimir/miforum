@@ -1,13 +1,19 @@
+/**
+ * messages.js - 私信系统控制器
+ *
+ * 提供会话创建、消息收发、未读数查询功能，
+ * 支持一对一私信和消息轮询。
+ */
+
 const { requireAuth } = require('../middleware/auth');
+const { parsePagination } = require('../services/post-helper');
 
 module.exports = function (app, db) {
 
   /** 获取当前用户的会话列表 */
   app.get('/api/conversations', requireAuth, (req, res) => {
     const userId = req.session.userId;
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit) || 20));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query);
 
     const { total } = db.prepare(`
       SELECT COUNT(*) AS total FROM conversation_participants WHERE user_id = ?
@@ -66,7 +72,7 @@ module.exports = function (app, db) {
     `).get(userId, targetId);
 
     if (existing) {
-      return res.json({ conversation: { id: existing.id } });
+      return res.json({ ok: true, conversation: { id: existing.id } });
     }
 
     const createConversation = db.transaction(() => {
@@ -78,7 +84,7 @@ module.exports = function (app, db) {
     });
 
     const conversationId = createConversation();
-    res.json({ conversation: { id: conversationId } });
+    res.json({ ok: true, conversation: { id: conversationId } });
   });
 
   /** 获取会话消息（分页，最新在前） */
@@ -91,9 +97,7 @@ module.exports = function (app, db) {
     ).get(convId, userId);
     if (!participant) return res.status(403).json({ error: '你不是该会话的参与者' });
 
-    const page = Math.max(1, parseInt(req.query.page) || 1);
-    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit) || 50));
-    const offset = (page - 1) * limit;
+    const { page, limit, offset } = parsePagination(req.query, 50, 100);
 
     const { total } = db.prepare(
       'SELECT COUNT(*) AS total FROM messages WHERE conversation_id = ?'
@@ -130,6 +134,7 @@ module.exports = function (app, db) {
     if (!content || !content.trim()) {
       return res.status(400).json({ error: '消息内容不能为空' });
     }
+    if (content.length > 5000) return res.status(400).json({ error: '消息最多5000字' });
 
     const participant = db.prepare(
       'SELECT id FROM conversation_participants WHERE conversation_id = ? AND user_id = ?'
@@ -154,7 +159,7 @@ module.exports = function (app, db) {
     });
 
     const messageId = sendMessage();
-    res.json({ messageId });
+    res.json({ ok: true, messageId });
   });
 
   /** 获取未读消息总数 */
