@@ -14,11 +14,16 @@ function calcStreaks(checkinDates) {
 
   const sorted = [...checkinDates].sort();
   const dateSet = new Set(sorted);
-  let current = 0, longest = 0, streak = 0;
+  let current = 0,
+    longest = 0,
+    streak = 0;
 
   const today = todayStr();
   let d = dateSet.has(today) ? today : addDays(today, -1);
-  while (dateSet.has(d)) { current++; d = addDays(d, -1); }
+  while (dateSet.has(d)) {
+    current++;
+    d = addDays(d, -1);
+  }
 
   for (let i = 0; i < sorted.length; i++) {
     if (i === 0 || daysBetween(sorted[i - 1], sorted[i]) === 1) streak++;
@@ -33,13 +38,21 @@ module.exports = function (app, db) {
   app.get('/api/checkin/today', (req, res) => {
     if (!req.session.userId) return res.json({ checkedIn: false });
     const today = todayStr();
-    const found = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    const found = db
+      .prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
       .get(req.session.userId, today);
     res.json({ checkedIn: !!found });
   });
 
   app.get('/api/checkin/history', requireAuth, (req, res) => {
-    const empty = { checkinDates: [], currentStreak: 0, longestStreak: 0, totalDays: 0, missedDays: [], retroactiveCost: 10 };
+    const empty = {
+      checkinDates: [],
+      currentStreak: 0,
+      longestStreak: 0,
+      totalDays: 0,
+      missedDays: [],
+      retroactiveCost: 10
+    };
     const user = db.prepare('SELECT * FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.json(empty);
 
@@ -48,11 +61,13 @@ module.exports = function (app, db) {
     const yearAgo = addDays(today, -364);
     const startDate = regDate > yearAgo ? regDate : yearAgo;
 
-    const userCheckins = db.prepare('SELECT check_in_date FROM check_ins WHERE user_id = ?')
-      .all(req.session.userId).map(c => c.check_in_date);
+    const userCheckins = db
+      .prepare('SELECT check_in_date FROM check_ins WHERE user_id = ?')
+      .all(req.session.userId)
+      .map((c) => c.check_in_date);
     const checkinSet = new Set(userCheckins);
 
-    const checkinDates = userCheckins.filter(d => d >= yearAgo);
+    const checkinDates = userCheckins.filter((d) => d >= yearAgo);
 
     const yesterday = addDays(today, -1);
     const missedDays = [];
@@ -78,7 +93,15 @@ module.exports = function (app, db) {
 
   app.post('/api/checkin/retroactive', requireAuth, (req, res) => {
     const { date } = req.body;
-    if (!date) return res.status(400).json({ error: '请指定补签日期' });
+    if (!date || !/^\d{4}-\d{2}-\d{2}$/.test(date)) {
+      return res.status(400).json({ error: '日期格式无效，请使用 YYYY-MM-DD' });
+    }
+
+    // 校验是否为有效日历日期
+    const dateObj = new Date(date + 'T00:00:00Z');
+    if (isNaN(dateObj.getTime()) || dateObj.toISOString().slice(0, 10) !== date) {
+      return res.status(400).json({ error: '无效的日期' });
+    }
 
     const user = db.prepare('SELECT id, created_at, points FROM profiles WHERE id = ?').get(req.session.userId);
     if (!user) return res.status(404).json({ error: '用户不存在' });
@@ -90,7 +113,8 @@ module.exports = function (app, db) {
     if (date < regDate || date >= today) {
       return res.status(400).json({ error: '只能补签注册日至昨天的日期' });
     }
-    const exists = db.prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
+    const exists = db
+      .prepare('SELECT id FROM check_ins WHERE user_id = ? AND check_in_date = ?')
       .get(req.session.userId, date);
     if (exists) return res.status(400).json({ error: '该日期已签到' });
     if ((user.points || 0) < cost) {
@@ -99,14 +123,21 @@ module.exports = function (app, db) {
 
     const doRetroactive = db.transaction(() => {
       db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(cost, req.session.userId);
-      db.prepare('INSERT INTO check_ins (user_id, check_in_date, retroactive, created_at) VALUES (?, ?, 1, datetime(\'now\'))')
-        .run(req.session.userId, date);
+      db.prepare(
+        "INSERT INTO check_ins (user_id, check_in_date, retroactive, created_at) VALUES (?, ?, 1, datetime('now'))"
+      ).run(req.session.userId, date);
       addExp(db, req.session.userId, EXP_REWARDS.retroactive);
     });
     doRetroactive();
 
     const updatedUser = db.prepare('SELECT points, exp FROM profiles WHERE id = ?').get(req.session.userId);
-    res.json({ ok: true, points: updatedUser.points, exp: updatedUser.exp, level_info: getLevelInfo(updatedUser.exp), date });
+    res.json({
+      ok: true,
+      points: updatedUser.points,
+      exp: updatedUser.exp,
+      level_info: getLevelInfo(updatedUser.exp),
+      date
+    });
   });
 
   /** 执行签到（内部函数，auto 和 manual 共用） */
@@ -116,7 +147,10 @@ module.exports = function (app, db) {
     if (exists) return { already: true };
 
     const txn = db.transaction(() => {
-      db.prepare("INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime('now'))").run(userId, today);
+      db.prepare("INSERT INTO check_ins (user_id, check_in_date, created_at) VALUES (?, ?, datetime('now'))").run(
+        userId,
+        today
+      );
       db.prepare('UPDATE profiles SET points = points + 10 WHERE id = ?').run(userId);
       addExp(db, userId, EXP_REWARDS.signin);
     });
@@ -132,7 +166,13 @@ module.exports = function (app, db) {
 
     const result = doCheckin(req.session.userId);
     if (result.already) return res.json({ checkedIn: true, points: user.points, newCheckin: false });
-    res.json({ checkedIn: true, points: result.points, newCheckin: true, exp: result.exp, level_info: result.level_info });
+    res.json({
+      checkedIn: true,
+      points: result.points,
+      newCheckin: true,
+      exp: result.exp,
+      level_info: result.level_info
+    });
   });
 
   app.post('/api/checkin', requireAuth, (req, res) => {

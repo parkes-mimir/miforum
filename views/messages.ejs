@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
-<%- include('partials/head', { title: '消息中心 - MiForum' }) %>
+<%- include('partials/head', { title: '消息中心 - MiForum', ogTitle: '消息中心 - MiForum', ogDesc: '通知、私信、点赞、收藏消息一站查看' }) %>
 <style>
 .msg-bubble{max-width:75%;padding:0.625rem 0.875rem;border-radius:1rem;font-size:0.875rem;line-height:1.4;word-break:break-word}
 .msg-sent{background:#4f46e5;color:#fff;border-bottom-right:0.25rem}
@@ -216,7 +216,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/messages.js?v=1.2.3"></script>
-<script src="/js/alpine.min.js?v=1.2.3"></script>
+<script src="/js/pages/messages.js?v=1.2.4"></script>
+<script src="/js/alpine.min.js?v=1.2.4"></script>
 </body>
 </html>

@@ -7,6 +7,17 @@
 <meta name="format-detection" content="telephone=no">
 <link rel="manifest" href="/manifest.json">
 <title><%= typeof title !== 'undefined' ? title : 'MiForum' %></title>
+<meta property="og:title" content="<%= typeof ogTitle !== 'undefined' ? ogTitle : 'MiForum' %>">
+<meta property="og:description" content="<%= typeof ogDesc !== 'undefined' ? ogDesc : 'Flarum 风格的轻量论坛，技术交流与生活分享' %>">
+<meta property="og:image" content="<%= typeof ogImage !== 'undefined' && ogImage ? ogImage : (typeof siteUrl !== 'undefined' && siteUrl ? siteUrl + '/preview.png' : '/preview.png') %>">
+<meta property="og:type" content="website">
+<% if (typeof pageUrl !== 'undefined' && pageUrl) { %>
+<meta property="og:url" content="<%= pageUrl %>">
+<% } %>
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="<%= typeof ogTitle !== 'undefined' ? ogTitle : 'MiForum' %>">
+<meta name="twitter:description" content="<%= typeof ogDesc !== 'undefined' ? ogDesc : 'Flarum 风格的轻量论坛，技术交流与生活分享' %>">
+<meta name="twitter:image" content="<%= typeof ogImage !== 'undefined' && ogImage ? ogImage : (typeof siteUrl !== 'undefined' && siteUrl ? siteUrl + '/preview.png' : '/preview.png') %>">
 <link rel="stylesheet" href="css/tailwind.css">
 <style>
   *{font-family:system-ui,-apple-system,"Microsoft YaHei","PingFang SC",sans-serif}

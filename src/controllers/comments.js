@@ -13,112 +13,143 @@ const { createNotification } = require('../services/notification');
 const { isAdmin, parsePagination } = require('../services/post-helper');
 
 module.exports = function (app, db) {
-
   /** 获取帖子评论（支持分页） */
   app.get('/api/posts/:id/comments', (req, res) => {
     const pid = Number(req.params.id);
     const post = db.prepare('SELECT author_id FROM posts WHERE id = ?').get(pid);
+    if (!post) return res.status(404).json({ error: '帖子不存在' });
     const { page, limit, offset } = parsePagination(req.query, 50, 100);
 
     // 查询总数
     const { total } = db.prepare('SELECT COUNT(*) AS total FROM comments WHERE post_id = ?').get(pid);
 
-    // 查询当前页数据
-    const commentsRaw = db.prepare(`
+    // 查询当前页数据（置顶优先，再按时间正序）
+    const commentsRaw = db
+      .prepare(
+        `
       SELECT c.*,
         pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
         pr.title AS author_title, pr.avatar_frame AS author_avatar_frame
       FROM comments c
       LEFT JOIN profiles pr ON pr.id = c.author_id
       WHERE c.post_id = ?
-      ORDER BY c.created_at ASC
+      ORDER BY c.pinned DESC, c.created_at ASC
       LIMIT ? OFFSET ?
-    `).all(pid, limit, offset);
+    `
+      )
+      .all(pid, limit, offset);
 
     const floorMap = {};
-    commentsRaw.forEach((c, i) => { floorMap[c.id] = offset + i + 1; });
+    commentsRaw.forEach((c, i) => {
+      floorMap[c.id] = offset + i + 1;
+    });
 
-    const comments = [...commentsRaw]
-      .sort((a, b) => {
-        const ap = intToBool(a.pinned) ? 1 : 0;
-        const bp = intToBool(b.pinned) ? 1 : 0;
-        if (ap !== bp) return bp - ap;
-        return new Date(a.created_at) - new Date(b.created_at);
-      })
-      .map(c => ({
-        ...c,
-        images: parseJsonField(c.images, []),
-        pinned: intToBool(c.pinned),
-        author_avatar_url: c.author_avatar_url || null,
-        author_title: c.author_title || null,
-        author_avatar_frame: c.author_avatar_frame || null,
-        floor: floorMap[c.id],
-        is_post_owner: post ? c.author_id === post.author_id : false
-      }));
+    const comments = commentsRaw.map((c) => ({
+      ...c,
+      images: parseJsonField(c.images, []),
+      pinned: intToBool(c.pinned),
+      author_avatar_url: c.author_avatar_url || null,
+      author_title: c.author_title || null,
+      author_avatar_frame: c.author_avatar_frame || null,
+      floor: floorMap[c.id],
+      is_post_owner: c.author_id === post.author_id
+    }));
 
     res.json({
       comments,
-      postOwnerId: post ? post.author_id : null,
+      postOwnerId: post.author_id,
       pagination: { page, limit, total, pages: Math.ceil(total / limit) }
     });
   });
 
-  app.post('/api/posts/:id/comments', requireAuth, requireNotMuted(db), multerUpload(commentUpload.array('images', 3)), (req, res) => {
-    const { content } = req.body;
-    if (!content && (!req.files || req.files.length === 0)) {
-      return res.status(400).json({ error: '请输入评论内容或上传图片' });
+  app.post(
+    '/api/posts/:id/comments',
+    requireAuth,
+    requireNotMuted(db),
+    multerUpload(commentUpload.array('images', 3)),
+    (req, res) => {
+      const { content } = req.body;
+      if (!content && (!req.files || req.files.length === 0)) {
+        return res.status(400).json({ error: '请输入评论内容或上传图片' });
+      }
+      if (content && content.length > 10000) return res.status(400).json({ error: '评论最多10000字' });
+
+      const post = db.prepare('SELECT id, author_id FROM posts WHERE id = ?').get(Number(req.params.id));
+      if (!post) return res.status(404).json({ error: '帖子不存在' });
+
+      const images = req.files ? req.files.map((f) => '/uploads/' + f.filename) : [];
+
+      const result = db.transaction(() => {
+        const insertResult = db
+          .prepare(
+            `
+        INSERT INTO comments (post_id, author_id, content, images, created_at)
+        VALUES (?, ?, ?, ?, datetime('now'))
+      `
+          )
+          .run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
+
+        addExp(db, req.session.userId, EXP_REWARDS.comment);
+        if (post.author_id && post.author_id !== req.session.userId) {
+          addExp(db, post.author_id, EXP_REWARDS.receive_comment);
+          createNotification(db, {
+            userId: post.author_id,
+            fromUserId: req.session.userId,
+            type: 'comment',
+            postId: Number(req.params.id)
+          });
+        }
+
+        return insertResult;
+      })();
+
+      res.json({ ok: true, commentId: result.lastInsertRowid });
     }
-    if (content && content.length > 10000) return res.status(400).json({ error: '评论最多10000字' });
+  );
 
-    const post = db.prepare('SELECT id, author_id FROM posts WHERE id = ?').get(Number(req.params.id));
-    if (!post) return res.status(404).json({ error: '帖子不存在' });
+  app.put(
+    '/api/comments/:id',
+    requireAuth,
+    requireNotMuted(db),
+    multerUpload(commentUpload.array('images', 3)),
+    (req, res) => {
+      const { content, removeImages } = req.body;
+      if (!content && (!req.files || req.files.length === 0)) {
+        return res.status(400).json({ error: '评论不能为空' });
+      }
 
-    const images = req.files ? req.files.map(f => '/uploads/' + f.filename) : [];
-    const result = db.prepare(`
-      INSERT INTO comments (post_id, author_id, content, images, created_at)
-      VALUES (?, ?, ?, ?, datetime('now'))
-    `).run(Number(req.params.id), req.session.userId, content || '', JSON.stringify(images));
+      const cid = Number(req.params.id);
+      const c = db.prepare('SELECT * FROM comments WHERE id = ?').get(cid);
+      if (!c) return res.status(404).json({ error: '评论不存在' });
+      if (c.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的评论' });
 
-    addExp(db, req.session.userId, EXP_REWARDS.comment);
-    if (post.author_id && post.author_id !== req.session.userId) {
-      addExp(db, post.author_id, EXP_REWARDS.receive_comment);
-      createNotification(db, { userId: post.author_id, fromUserId: req.session.userId, type: 'comment', postId: Number(req.params.id) });
+      let currentImages = parseJsonField(c.images, []);
+
+      if (removeImages) {
+        let removeList;
+        try {
+          removeList = JSON.parse(removeImages);
+        } catch (e) {
+          return res.status(400).json({ error: 'removeImages 格式错误' });
+        }
+        removeList.forEach(deleteFile);
+        currentImages = currentImages.filter((u) => !removeList.includes(u));
+      }
+
+      if (req.files && req.files.length > 0) {
+        const newImages = req.files.map((f) => '/uploads/' + f.filename);
+        currentImages = [...currentImages, ...newImages];
+      }
+
+      db.prepare('UPDATE comments SET content = ?, images = ? WHERE id = ?').run(
+        content !== undefined ? content : c.content,
+        JSON.stringify(currentImages),
+        cid
+      );
+
+      res.json({ ok: true });
     }
-
-    res.json({ ok: true, commentId: result.lastInsertRowid });
-  });
-
-  app.put('/api/comments/:id', requireAuth, requireNotMuted(db), multerUpload(commentUpload.array('images', 3)), (req, res) => {
-    const { content, removeImages } = req.body;
-    if (!content && (!req.files || req.files.length === 0)) {
-      return res.status(400).json({ error: '评论不能为空' });
-    }
-
-    const cid = Number(req.params.id);
-    const c = db.prepare('SELECT * FROM comments WHERE id = ?').get(cid);
-    if (!c) return res.status(404).json({ error: '评论不存在' });
-    if (c.author_id !== req.session.userId) return res.status(403).json({ error: '只能编辑自己的评论' });
-
-    let currentImages = parseJsonField(c.images, []);
-
-    if (removeImages) {
-      let removeList;
-      try { removeList = JSON.parse(removeImages); }
-      catch (e) { return res.status(400).json({ error: 'removeImages 格式错误' }); }
-      removeList.forEach(deleteFile);
-      currentImages = currentImages.filter(u => !removeList.includes(u));
-    }
-
-    if (req.files && req.files.length > 0) {
-      const newImages = req.files.map(f => '/uploads/' + f.filename);
-      currentImages = [...currentImages, ...newImages];
-    }
-
-    db.prepare('UPDATE comments SET content = ?, images = ? WHERE id = ?')
-      .run(content || c.content, JSON.stringify(currentImages), cid);
-
-    res.json({ ok: true });
-  });
+  );
 
   app.delete('/api/comments/:id', requireAuth, (req, res) => {
     const cid = Number(req.params.id);

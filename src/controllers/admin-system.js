@@ -6,7 +6,7 @@
  */
 
 const { requireAdmin: requireAdminFactory } = require('../middleware/auth');
-const { encryptText } = require('../utils/helpers');
+const { encryptText, decryptText } = require('../utils/helpers');
 const { getSmtpRawConfig } = require('../utils/email');
 
 module.exports = function (app, db) {
@@ -29,7 +29,9 @@ module.exports = function (app, db) {
     if (!smtpHost || !smtpUser) {
       return res.status(400).json({ error: '请填写 SMTP 主机和用户名' });
     }
-    const upsert = db.prepare('INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?');
+    const upsert = db.prepare(
+      'INSERT INTO settings (key, value) VALUES (?, ?) ON CONFLICT(key) DO UPDATE SET value = ?'
+    );
     upsert.run('smtp_host', smtpHost, smtpHost);
     upsert.run('smtp_port', smtpPort || '465', smtpPort || '465');
     upsert.run('smtp_secure', smtpSecure ? 'true' : 'false', smtpSecure ? 'true' : 'false');
@@ -83,26 +85,49 @@ module.exports = function (app, db) {
       const pkg = require('../../package.json');
       const currentVersion = pkg.version;
 
-      const response = await fetch('https://api.github.com/repos/parkes-mimir/miforum/releases/latest', {
-        headers: { 'User-Agent': 'MiForum' }
-      });
+      const controller = new AbortController();
+      const timeout = setTimeout(() => controller.abort(), 10000);
 
-      if (!response.ok) {
-        return res.json({ hasUpdate: false, message: '无法获取最新版本信息' });
+      let data;
+      try {
+        const response = await fetch('https://api.github.com/repos/parkes-mimir/miforum/releases/latest', {
+          headers: { 'User-Agent': 'MiForum/' + currentVersion },
+          signal: controller.signal
+        });
+        clearTimeout(timeout);
+
+        if (response.status === 403) {
+          return res.json({ hasUpdate: false, message: 'GitHub API 请求频率限制，请稍后再试' });
+        }
+        if (response.status === 404) {
+          return res.json({ hasUpdate: false, message: '暂无发布版本' });
+        }
+        if (!response.ok) {
+          return res.json({ hasUpdate: false, message: '无法获取最新版本信息 (HTTP ' + response.status + ')' });
+        }
+        data = await response.json();
+      } catch (fetchErr) {
+        clearTimeout(timeout);
+        if (fetchErr.name === 'AbortError') {
+          return res.json({ hasUpdate: false, message: '请求超时，请检查网络或配置 GITHUB_MIRROR' });
+        }
+        return res.json({ hasUpdate: false, message: '网络错误: ' + fetchErr.message });
       }
 
-      const data = await response.json();
-      const latestVersion = data.tag_name.replace('v', '');
+      if (!data.tag_name) {
+        return res.json({ hasUpdate: false, message: 'GitHub API 响应格式异常' });
+      }
 
+      const latestVersion = data.tag_name.replace(/^v/, '');
       const current = currentVersion.split('.').map(Number);
       const latest = latestVersion.split('.').map(Number);
 
       let hasUpdate = false;
       for (let i = 0; i < 3; i++) {
-        if (latest[i] > current[i]) {
+        if ((latest[i] || 0) > (current[i] || 0)) {
           hasUpdate = true;
           break;
-        } else if (latest[i] < current[i]) {
+        } else if ((latest[i] || 0) < (current[i] || 0)) {
           break;
         }
       }
@@ -111,9 +136,9 @@ module.exports = function (app, db) {
         hasUpdate,
         currentVersion,
         latestVersion,
-        releaseUrl: data.html_url,
-        releaseNotes: data.body || '',
-        publishedAt: data.published_at
+        releaseUrl: data.html_url || 'https://github.com/parkes-mimir/miforum/releases',
+        releaseNotes: (data.body || '').slice(0, 500),
+        publishedAt: data.published_at || ''
       });
     } catch (err) {
       res.json({ hasUpdate: false, message: '检查更新失败: ' + err.message });

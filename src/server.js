@@ -50,28 +50,30 @@ function createApp() {
   app.set('trust proxy', 1);
 
   // 安全 HTTP 头
-  app.use(helmet({
-    contentSecurityPolicy: {
-      directives: {
-        defaultSrc: ["'self'"],
-        scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Alpine.js v3 需要 unsafe-eval 用于表达式求值
-        scriptSrcAttr: ["'unsafe-inline'"],
-        styleSrc: ["'self'", "'unsafe-inline'"],
-        imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
-        fontSrc: ["'self'", 'data:'],
-        connectSrc: ["'self'", 'http:', 'https:'],
-        frameSrc: ["'none'"],
-        objectSrc: ["'none'"],
-        baseUri: ["'self'"],
-        formAction: ["'self'"],
-        frameAncestors: ["'self'"],
-        upgradeInsecureRequests: null  // 禁用 HTTP 升级 HTTPS
-      }
-    },
-    crossOriginEmbedderPolicy: false,
-    crossOriginResourcePolicy: false,
-    hsts: false  // 禁用 HSTS，本地 HTTP 访问
-  }));
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'", "'unsafe-inline'", "'unsafe-eval'"], // Alpine.js v3 需要 unsafe-eval 用于表达式求值
+          scriptSrcAttr: ["'unsafe-inline'"],
+          styleSrc: ["'self'", "'unsafe-inline'"],
+          imgSrc: ["'self'", 'data:', 'blob:', 'http:', 'https:'],
+          fontSrc: ["'self'", 'data:'],
+          connectSrc: ["'self'", 'http:', 'https:'],
+          frameSrc: ["'none'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          formAction: ["'self'"],
+          frameAncestors: ["'self'"],
+          upgradeInsecureRequests: null // 禁用 HTTP 升级 HTTPS
+        }
+      },
+      crossOriginEmbedderPolicy: false,
+      crossOriginResourcePolicy: false,
+      hsts: false // 禁用 HSTS，本地 HTTP 访问
+    })
+  );
 
   // CORS 配置（白名单模式）
   const allowedOrigins = (process.env.CORS_ORIGINS || '').split(',').filter(Boolean);
@@ -125,13 +127,13 @@ function createApp() {
 
   const apiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: isTest ? 10000 : (isDev ? 500 : 100),
+    max: isTest ? 10000 : isDev ? 500 : 100,
     message: { error: '请求过于频繁，请稍后再试' }
   });
 
   const authLimiter = rateLimit({
     windowMs: 15 * 60 * 1000,
-    max: isTest ? 10000 : (isDev ? 50 : 10),
+    max: isTest ? 10000 : isDev ? 50 : 10,
     message: { error: '登录尝试过于频繁，请15分钟后再试' }
   });
 
@@ -158,19 +160,21 @@ function createApp() {
   });
 
   // 静态文件
-  app.use(express.static(path.join(__dirname, '../public'), {
-    etag: true,
-    lastModified: true,
-    setHeaders: (res, filePath) => {
-      if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
-        // 图片缓存7天
-        res.setHeader('Cache-Control', 'public, max-age=604800');
-      } else if (/\.(js|css)$/i.test(filePath)) {
-        // JS/CSS 不缓存（开发阶段频繁修改）
-        res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+  app.use(
+    express.static(path.join(__dirname, '../public'), {
+      etag: true,
+      lastModified: true,
+      setHeaders: (res, filePath) => {
+        if (/\.(png|jpg|jpeg|gif|webp|svg|ico)$/i.test(filePath)) {
+          // 图片缓存7天
+          res.setHeader('Cache-Control', 'public, max-age=604800');
+        } else if (/\.(js|css)$/i.test(filePath)) {
+          // JS/CSS 不缓存（开发阶段频繁修改）
+          res.setHeader('Cache-Control', 'no-cache, no-store, must-revalidate');
+        }
       }
-    }
-  }));
+    })
+  );
   app.use('/uploads', express.static(UPLOADS_DIR, { etag: true, lastModified: true, maxAge: '7d' }));
 
   // favicon 不存在时返回 204，避免浏览器报错
@@ -201,25 +205,31 @@ function createApp() {
   sessionDb.pragma('journal_mode = WAL');
 
   // 优雅退出（关闭主数据库和 session 数据库）
-  const shutdown = () => { closeDb(); sessionDb.close(); process.exit(0); };
+  const shutdown = () => {
+    closeDb();
+    sessionDb.close();
+    process.exit(0);
+  };
   process.on('SIGINT', shutdown);
   process.on('SIGTERM', shutdown);
 
-  app.use(session({
-    store: new SqliteStore({
-      client: sessionDb,
-      expired: { clear: true, intervalMs: 900000 } // 每15分钟清理过期会话
-    }),
-    secret: SESSION_SECRET,
-    resave: false,
-    saveUninitialized: false,
-    cookie: {
-      maxAge: 7 * 24 * 60 * 60 * 1000,
-      httpOnly: true,
-      secure: cookieSecure,
-      sameSite: 'lax'
-    }
-  }));
+  app.use(
+    session({
+      store: new SqliteStore({
+        client: sessionDb,
+        expired: { clear: true, intervalMs: 900000 } // 每15分钟清理过期会话
+      }),
+      secret: SESSION_SECRET,
+      resave: false,
+      saveUninitialized: false,
+      cookie: {
+        maxAge: 7 * 24 * 60 * 60 * 1000,
+        httpOnly: true,
+        secure: cookieSecure,
+        sameSite: 'lax'
+      }
+    })
+  );
 
   // 页面路由（使用 EJS 模板渲染，注入用户主题偏好避免闪烁）
   // 必须在 session 中间件之后，才能读取 req.session.userId
@@ -242,17 +252,49 @@ function createApp() {
   }
 
   function renderPage(view) {
+    const siteUrl = process.env.SITE_URL || '';
     return (req, res) => {
       const theme = getUserTheme(req.session?.userId);
-      res.render(view, { theme });
+      const pageUrl = siteUrl ? siteUrl + req.path : '';
+      res.render(view, { theme, siteUrl, pageUrl });
     };
   }
 
   app.get('/', renderPage('forum'));
   app.get('/shop', renderPage('shop'));
   app.get('/messages', renderPage('messages'));
-  app.get('/post.html', renderPage('post'));
   app.get('/profile.html', renderPage('profile'));
+
+  // 帖子详情页：服务端查询帖子数据用于 OG 标签（微信/社交分享卡片）
+  app.get('/post.html', (req, res) => {
+    const theme = getUserTheme(req.session?.userId);
+    const siteUrl = process.env.SITE_URL || '';
+    const pageUrl = siteUrl ? siteUrl + req.path : '';
+    let ogTitle = 'MiForum - 帖子详情';
+    let ogDesc = '查看帖子内容、评论和投票';
+    let ogImage = '';
+
+    const pid = Number(req.query.id);
+    if (pid) {
+      try {
+        const db = getDb();
+        const post = db.prepare('SELECT title, content, images FROM posts WHERE id = ?').get(pid);
+        if (post) {
+          ogTitle = post.title || ogTitle;
+          ogDesc = (post.content || '')
+            .replace(/\[img:\d+\]/g, '')
+            .replace(/\[emoji:[^\]]+\]/g, '')
+            .slice(0, 100);
+          const imgs = JSON.parse(post.images || '[]');
+          if (imgs.length > 0 && siteUrl) {
+            ogImage = siteUrl + imgs[0];
+          }
+        }
+      } catch (e) {}
+    }
+
+    res.render('post', { theme, siteUrl, pageUrl, ogTitle, ogDesc, ogImage });
+  });
 
   return app;
 }
@@ -264,7 +306,11 @@ function killPort(port) {
   try {
     const pids = execSync(`ss -tlnp | grep :${port} | grep -oP 'pid=\\K\\d+'`, { encoding: 'utf8' }).trim();
     if (pids) {
-      pids.split('\n').forEach(pid => { try { process.kill(Number(pid)); } catch (e) {} });
+      pids.split('\n').forEach((pid) => {
+        try {
+          process.kill(Number(pid));
+        } catch (e) {}
+      });
       return true;
     }
   } catch (e) {}
@@ -276,6 +322,15 @@ function startServer() {
   const db = getDb();
   const app = createApp();
   registerRoutes(app, db);
+
+  // 404 处理（在所有路由之后）
+  app.use((req, res) => {
+    if (req.path.startsWith('/api/')) {
+      return res.status(404).json({ error: '接口不存在' });
+    }
+    const theme = getUserTheme(req.session?.userId);
+    res.status(404).render('404', { theme });
+  });
 
   // 启动日志显示数据库路径
   console.log(`  数据库: ${require('./database').DB_FILE}`);

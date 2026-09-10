@@ -67,7 +67,10 @@ module.exports = function (app, db) {
       const backupName = `backup-${new Date().toISOString().slice(0, 10)}.tar.gz`;
       try {
         const backupFile = safePath(path.join(backupDir, backupName));
-        execSync(`tar -czf "${backupFile}" --exclude=node_modules --exclude=data.db --exclude=.git --exclude=backups .`, { cwd: projectRoot, timeout: 30000 });
+        execSync(
+          `tar -czf "${backupFile}" --exclude=node_modules --exclude=data.db --exclude=.git --exclude=backups .`,
+          { cwd: projectRoot, timeout: 30000 }
+        );
       } catch (e) {
         console.warn('备份失败，继续更新:', e.message);
       }
@@ -86,26 +89,34 @@ module.exports = function (app, db) {
 
         const releaseData = await new Promise((resolve, reject) => {
           const apiUrl = mirrorUrl(`https://api.github.com/repos/${repo}/releases/latest`);
-          const req = https.get(apiUrl, {
-            headers: { 'User-Agent': 'MiForum/' + pkg.version },
-            timeout: 15000
-          }, (res) => {
-            let data = '';
-            res.on('data', chunk => data += chunk);
-            res.on('end', () => {
-              if (res.statusCode !== 200) return reject(new Error('无法获取最新版本信息'));
-              try {
-                resolve(JSON.parse(data));
-              } catch (e) {
-                reject(new Error('GitHub API 响应格式错误'));
-              }
-            });
-          });
+          const req = https.get(
+            apiUrl,
+            {
+              headers: { 'User-Agent': 'MiForum/' + pkg.version },
+              timeout: 15000
+            },
+            (res) => {
+              let data = '';
+              res.on('data', (chunk) => (data += chunk));
+              res.on('end', () => {
+                if (res.statusCode !== 200) return reject(new Error('无法获取最新版本信息'));
+                try {
+                  resolve(JSON.parse(data));
+                } catch (e) {
+                  reject(new Error('GitHub API 响应格式错误'));
+                }
+              });
+            }
+          );
           req.on('error', reject);
-          req.setTimeout(15000, () => { req.destroy(); reject(new Error('请求超时，请检查网络或配置 GITHUB_MIRROR 环境变量')); });
+          req.setTimeout(15000, () => {
+            req.destroy();
+            reject(new Error('请求超时，请检查网络或配置 GITHUB_MIRROR 环境变量'));
+          });
         });
 
         const latestTag = releaseData.tag_name;
+        if (!latestTag) throw new Error('GitHub API 响应中缺少 tag_name');
         const tarUrl = mirrorUrl(`https://github.com/${repo}/archive/refs/tags/${latestTag}.tar.gz`);
 
         const tmpDir = path.join(projectRoot, '.update-tmp');
@@ -114,23 +125,41 @@ module.exports = function (app, db) {
 
         await new Promise((resolve, reject) => {
           const file = fs.createWriteStream(path.join(tmpDir, 'update.tar.gz'));
-          https.get(tarUrl, { headers: { 'User-Agent': 'MiForum' } }, (response) => {
-            if (response.statusCode === 302 || response.statusCode === 301) {
-              https.get(response.headers.location, { headers: { 'User-Agent': 'MiForum' } }, (res2) => {
-                res2.pipe(file);
-                file.on('finish', () => { file.close(); resolve(); });
-              }).on('error', reject);
-            } else {
-              response.pipe(file);
-              file.on('finish', () => { file.close(); resolve(); });
-            }
-          }).on('error', reject);
+          https
+            .get(tarUrl, { headers: { 'User-Agent': 'MiForum' } }, (response) => {
+              if (response.statusCode === 302 || response.statusCode === 301) {
+                https
+                  .get(response.headers.location, { headers: { 'User-Agent': 'MiForum' } }, (res2) => {
+                    res2.pipe(file);
+                    file.on('finish', () => {
+                      file.close();
+                      resolve();
+                    });
+                  })
+                  .on('error', reject);
+              } else {
+                response.pipe(file);
+                file.on('finish', () => {
+                  file.close();
+                  resolve();
+                });
+              }
+            })
+            .on('error', reject);
           file.on('error', reject);
         });
 
         execSync('tar -xzf update.tar.gz --strip-components=1', { cwd: safePath(tmpDir), timeout: 30000 });
 
-        const copyItems = ['src', 'public', 'package.json', 'package-lock.json', 'tailwind.config.js', 'Dockerfile', '.eslintrc.json'];
+        const copyItems = [
+          'src',
+          'public',
+          'package.json',
+          'package-lock.json',
+          'tailwind.config.js',
+          'Dockerfile',
+          '.eslintrc.json'
+        ];
         for (const item of copyItems) {
           const src = safePath(path.join(tmpDir, item));
           const dest = safePath(path.join(projectRoot, item));
@@ -155,8 +184,19 @@ module.exports = function (app, db) {
           version: latestTag
         });
       } else {
-        execSync('git pull --rebase origin main', { cwd: safePath(projectRoot), timeout: 60000 });
-        execSync('npm install --omit=dev', { cwd: safePath(projectRoot), timeout: 120000 });
+        // Git 模式：拉取最新代码
+        try {
+          execSync('git fetch origin main', { cwd: safePath(projectRoot), timeout: 30000 });
+          execSync('git reset --hard origin/main', { cwd: safePath(projectRoot), timeout: 30000 });
+        } catch (gitErr) {
+          throw new Error('Git 拉取失败: ' + gitErr.message);
+        }
+
+        try {
+          execSync('npm install --omit=dev', { cwd: safePath(projectRoot), timeout: 120000 });
+        } catch (npmErr) {
+          throw new Error('依赖安装失败: ' + npmErr.message);
+        }
 
         res.json({
           ok: true,

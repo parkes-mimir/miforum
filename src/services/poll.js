@@ -7,7 +7,7 @@
  * @param {Object} db - Database instance
  * @param {number} postId - Post ID
  * @param {string} question - Poll question
- * @param {string[]} options - Array of option texts
+ * @param {string[]} options - Array of option texts (min 2)
  * @param {Object} [settings] - Poll settings
  * @param {string} [settings.pollType='single'] - 'single' or 'multiple'
  * @param {number} [settings.maxChoices=1] - Max choices for multiple
@@ -15,12 +15,26 @@
  * @returns {number} Poll ID
  */
 function createPoll(db, postId, question, options, settings = {}) {
+  if (!question || typeof question !== 'string' || !question.trim()) {
+    throw new Error('投票问题不能为空');
+  }
+  if (!Array.isArray(options) || options.length < 2) {
+    throw new Error('投票至少需要2个选项');
+  }
+  if (options.length > 10) {
+    throw new Error('投票最多10个选项');
+  }
+
   const { pollType = 'single', maxChoices = 1, closeAt } = settings;
 
-  const result = db.prepare(`
+  const result = db
+    .prepare(
+      `
     INSERT INTO polls (post_id, question, poll_type, max_choices, close_at, created_at)
     VALUES (?, ?, ?, ?, ?, datetime('now'))
-  `).run(postId, question, pollType, maxChoices, closeAt || null);
+  `
+    )
+    .run(postId, question.trim(), pollType, maxChoices, closeAt || null);
 
   const pollId = result.lastInsertRowid;
   const insertOption = db.prepare(`
@@ -28,7 +42,7 @@ function createPoll(db, postId, question, options, settings = {}) {
   `);
 
   options.forEach((text, i) => {
-    insertOption.run(pollId, text, i);
+    insertOption.run(pollId, String(text).trim(), i);
   });
 
   return pollId;

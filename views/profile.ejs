@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="zh-CN" data-theme="<%= theme.theme %>" data-color="<%= theme.themeColor %>">
 <head>
-<%- include('partials/head', { title: 'MiForum - 个人资料' }) %>
+<%- include('partials/head', { title: 'MiForum - 个人资料', ogTitle: 'MiForum - 个人资料', ogDesc: '查看用户资料、帖子、点赞和收藏' }) %>
 <style>
   @media (max-width: 639px) {
     .profile-stat:active{background:#eef2ff}
@@ -135,7 +135,7 @@
       <div class="flex border-b border-gray-100">
         <button @click="switchTab('posts')" :class="activeTab === 'posts' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的帖子</button>
         <button x-show="!(isPrivate && !isOwner)" @click="switchTab('likes')" :class="activeTab === 'likes' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的点赞</button>
-        <button x-show="!(isPrivate && !isOwner)" @click="switchTab('bookmarks')" :class="activeTab === 'bookmarks' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">TA的收藏</button>
+        <button x-show="isOwner" @click="switchTab('bookmarks')" :class="activeTab === 'bookmarks' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent hover:text-gray-600'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">我的收藏</button>
       </div>
       <!-- Tab Content -->
       <div class="p-4 sm:p-5">
@@ -382,7 +382,7 @@
 <style>@keyframes level-shine { 0%{transform:translateX(-100%)} 100%{transform:translateX(300%)} }</style>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/profile.js?v=1.2.3"></script>
-<script src="/js/alpine.min.js?v=1.2.3"></script>
+<script src="/js/pages/profile.js?v=1.2.4"></script>
+<script src="/js/alpine.min.js?v=1.2.4"></script>
 </body>
 </html>

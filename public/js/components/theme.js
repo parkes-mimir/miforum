@@ -73,6 +73,29 @@ function injectThemeCSS() {
     [data-theme="dark"] .skeleton { background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important; }
     [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #475569; }
     [data-theme="dark"] ::-webkit-scrollbar-track { background: #1e293b; }
+
+    /* 暗色模式 hover 状态 */
+    [data-theme="dark"] .hover\\:bg-gray-50:hover { background-color: #1e293b; }
+    [data-theme="dark"] .hover\\:bg-gray-100:hover { background-color: #1e293b; }
+    [data-theme="dark"] .hover\\:bg-gray-200:hover { background-color: #334155; }
+    [data-theme="dark"] .hover\\:bg-white:hover { background-color: var(--card); }
+
+    /* 暗色模式 primary-50 太亮，降低亮度 */
+    [data-theme="dark"] .bg-primary-50 { background-color: rgba(99, 102, 241, 0.1) !important; }
+    [data-theme="dark"] .hover\\:bg-primary-50:hover { background-color: rgba(99, 102, 241, 0.15) !important; }
+
+    /* 暗色模式阴影调整 */
+    [data-theme="dark"] .shadow-lg { --tw-shadow: 0 10px 15px -3px rgba(0,0,0,0.4), 0 4px 6px -4px rgba(0,0,0,0.3); box-shadow: var(--tw-shadow); }
+    [data-theme="dark"] .shadow-xl { --tw-shadow: 0 20px 25px -5px rgba(0,0,0,0.4), 0 8px 10px -6px rgba(0,0,0,0.3); box-shadow: var(--tw-shadow); }
+    [data-theme="dark"] .shadow-2xl { --tw-shadow: 0 25px 50px -12px rgba(0,0,0,0.5); box-shadow: var(--tw-shadow); }
+
+    /* 暗色模式分割线 */
+    [data-theme="dark"] .divide-gray-100 > :not([hidden]) ~ :not([hidden]) { border-color: var(--bdr); }
+    [data-theme="dark"] .divide-gray-200 > :not([hidden]) ~ :not([hidden]) { border-color: var(--bdr); }
+
+    /* 暗色模式 focus ring */
+    [data-theme="dark"] .focus\\:ring-primary-300:focus { --tw-ring-color: var(--c300); }
+    [data-theme="dark"] .focus\\:ring-primary-500:focus { --tw-ring-color: var(--c500); }
   `;
 
   const style = document.createElement('style');
@@ -81,12 +104,15 @@ function injectThemeCSS() {
 }
 
 // ============================================================
-// API 同步（防抖 500ms）
+// API 同步（防抖 500ms，仅登录用户）
 // ============================================================
 let _syncTimer = null;
 function syncToServer(theme, color) {
   clearTimeout(_syncTimer);
   _syncTimer = setTimeout(() => {
+    // 检查是否登录（auth store 可能还没加载）
+    const authStore = Alpine.store('auth');
+    if (!authStore || !authStore.user) return;
     fetch('/api/preferences', {
       method: 'PUT',
       headers: { 'Content-Type': 'application/json' },
@@ -156,6 +182,7 @@ document.addEventListener('alpine:init', () => {
 
     /** 设置主题色 */
     setColor(color) {
+      if (!THEME_COLORS[color]) return;
       this.color = color;
       this._save();
       this._apply();
@@ -163,12 +190,13 @@ document.addEventListener('alpine:init', () => {
 
     /** 保存偏好：localStorage（游客兜底）+ 服务端同步（登录用户） */
     _save() {
-      const themeValue = this.isDark ? 'dark' : 'light';
+      // 读取服务端原始 theme 值（可能是 'auto'），切换暗色时不丢失
+      const serverTheme = document.documentElement.getAttribute('data-theme');
+      const themeValue = serverTheme === 'auto' ? 'auto' : (this.isDark ? 'dark' : 'light');
       localStorage.setItem('miforum-theme', JSON.stringify({
         dark: this.isDark,
         color: this.color
       }));
-      // 同步到服务器（登录用户会存 DB，未登录 401 静默失败）
       syncToServer(themeValue, this.color);
     },
 
@@ -187,9 +215,12 @@ document.addEventListener('alpine:init', () => {
       const vars = this.isDark ? DARK_VARS : LIGHT_VARS;
       Object.entries(vars).forEach(([k, v]) => html.style.setProperty(k, v));
 
-      // 更新 theme-color meta 标签（PWA 状态栏颜色）
+      // 更新 theme-color meta 标签（PWA 状态栏颜色，跟随主题色）
       const meta = document.querySelector('meta[name="theme-color"]');
-      if (meta) meta.setAttribute('content', this.isDark ? '#1a1a2e' : '#4f46e5');
+      if (meta) {
+        const colorMap = { purple: '#9333ea', blue: '#2563eb', green: '#16a34a', orange: '#ea580c', rose: '#e11d48' };
+        meta.setAttribute('content', this.isDark ? '#1a1a2e' : (colorMap[this.color] || '#9333ea'));
+      }
     }
   });
 });

@@ -7,7 +7,7 @@
  *   API 请求 → Network Only（不缓存，避免泄露登录态）
  */
 
-const CACHE_VERSION = 'miforum-static-v1.2.3';
+const CACHE_VERSION = 'miforum-static-v1.2.4';
 const STATIC_ASSETS = [
   '/',
   '/css/tailwind.css',

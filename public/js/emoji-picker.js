@@ -167,7 +167,7 @@ class EmojiPicker {
     const q = this.searchQuery.toLowerCase();
     let html = '';
     EMOJI_CATEGORIES.forEach(cat => {
-      const filtered = q ? cat.emojis.filter(() => cat.label.includes(q) || cat.name.includes(q)) : cat.emojis;
+      const filtered = q ? (cat.label.includes(q) || cat.name.includes(q) ? cat.emojis : []) : cat.emojis;
       if (filtered.length === 0) return;
       html += `<div class="mb-2"><p class="text-[10px] text-gray-400 font-medium px-1 mb-1">${cat.label}</p><div class="flex flex-wrap gap-0.5">`;
       filtered.forEach(emoji => {
@@ -185,8 +185,10 @@ class EmojiPicker {
     }
     let html = '<div class="flex flex-wrap gap-1">';
     this.myEmojis.forEach(emoji => {
-      html += `<button onclick="this.closest('.emoji-picker').__picker.insertCustom(${emoji.id}, '${emoji.image_url}', '${esc(emoji.name)}')" class="w-14 h-14 flex items-center justify-center rounded hover:bg-gray-100 transition p-1.5" title=":${esc(emoji.name)}:">
-        <img src="${emoji.image_url}" class="max-w-full max-h-full object-contain">
+      const safeUrl = escAttr(emoji.image_url);
+      const safeName = escAttr(emoji.name);
+      html += `<button onclick="this.closest('.emoji-picker').__picker.insertCustom(${emoji.id}, '${safeUrl}', '${safeName}')" class="w-14 h-14 flex items-center justify-center rounded hover:bg-gray-100 transition p-1.5" title=":${safeName}:">
+        <img src="${safeUrl}" class="max-w-full max-h-full object-contain" alt="">
       </button>`;
     });
     html += '</div>';

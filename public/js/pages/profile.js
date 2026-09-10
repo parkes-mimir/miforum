@@ -225,6 +225,7 @@ document.addEventListener('alpine:init', () => {
     showEdit: false,
     showCropper: false,
     showPasswordModal: false,
+    changingPassword: false,
     editForm: { username: '', bio: '', location: '', website: '', profilePublic: true },
     passwordForm: { old: '', new: '', confirm: '' },
     selectedTitle: '',
@@ -275,12 +276,12 @@ document.addEventListener('alpine:init', () => {
     get profileAvatarHtml() {
       if (!this.profile) return '';
       const letter = (this.profile.username || '?')[0].toUpperCase();
-      if (this.profile.avatar_url) return `<img src="${this.profile.avatar_url}" class="w-full h-full object-cover">`;
+      if (this.profile.avatar_url) return `<img src="${escAttr(this.profile.avatar_url)}" class="w-full h-full object-cover" alt="">`;
       return `<div class="w-full h-full rounded-full bg-white/20 flex items-center justify-center text-3xl font-bold text-white">${esc(letter)}</div>`;
     },
     get editAvatarPreviewHtml() {
       if (!this.profile) return '';
-      if (this.profile.avatar_url) return `<img src="${this.profile.avatar_url}" class="w-full h-full object-cover">`;
+      if (this.profile.avatar_url) return `<img src="${escAttr(this.profile.avatar_url)}" class="w-full h-full object-cover" alt="">`;
       return (this.profile.username || '?')[0].toUpperCase();
     },
     get avatarFrameStyle() {
@@ -339,7 +340,7 @@ document.addEventListener('alpine:init', () => {
         const { posts, pagination } = await api('/api/users/' + this.profileUid + '/posts?page=' + page + '&limit=20');
         this.posts = posts;
         this.postsPagination = pagination;
-      } catch (e) {}
+      } catch (e) { Alpine.store('toast').show(e.message); }
     },
 
     async loadLikes(page) {
@@ -393,7 +394,9 @@ document.addEventListener('alpine:init', () => {
     handleAvatarSelect(e) {
       const file = e.target.files[0];
       if (!file) return;
-      if (file.size > 10 * 1024 * 1024) { toast('头像不能超过10MB'); return; }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
+      if (!allowedTypes.includes(file.type)) { Alpine.store('toast').show('仅支持 JPG/PNG/GIF/WebP/BMP 格式'); return; }
+      if (file.size > 10 * 1024 * 1024) { Alpine.store('toast').show('头像不能超过10MB'); return; }
       this.editAvatarFile = file;
       const reader = new FileReader();
       reader.onload = (ev) => {
@@ -424,11 +427,11 @@ document.addEventListener('alpine:init', () => {
         this.titleOptions = [{ name: '无称号', value: '' }, ...titles];
         const frames = orders.filter(o => o.item_type === 'avatar_frame' && o.status === 'completed').map(o => ({ name: o.item_name, value: o.item_value || o.item_name }));
         this.frameOptions = [{ name: '无边框', value: '' }, ...frames];
-      } catch (e) {}
+      } catch (e) { Alpine.store('toast').show('加载道具失败'); }
     },
 
     async saveProfile() {
-      if (!this.editForm.username.trim()) { toast('用户名不能为空'); return; }
+      if (!this.editForm.username.trim()) { Alpine.store('toast').show('用户名不能为空'); return; }
       try {
         const fd = new FormData();
         fd.append('username', this.editForm.username.trim());
@@ -453,21 +456,25 @@ document.addEventListener('alpine:init', () => {
         this.hideEditModal();
         this.loading = true;
         await this.loadProfile();
-        toast('资料已更新');
-      } catch (e) { toast(e.message); }
+        Alpine.store('toast').show('资料已更新');
+      } catch (e) { Alpine.store('toast').show(e.message); }
     },
 
     async doChangePassword() {
+      if (this.changingPassword) return;
       const { old: oldPw, new: newPw, confirm: confirmPw } = this.passwordForm;
-      if (!oldPw || !newPw || !confirmPw) { toast('请填写所有字段'); return; }
-      if (newPw.length < 6) { toast('新密码至少6位'); return; }
-      if (newPw !== confirmPw) { toast('两次输入的密码不一致'); return; }
-      if (oldPw === newPw) { toast('新密码不能与旧密码相同'); return; }
+      if (!oldPw || !newPw || !confirmPw) { Alpine.store('toast').show('请填写所有字段'); return; }
+      if (newPw.length < 6) { Alpine.store('toast').show('新密码至少6位'); return; }
+      if (newPw.length > 72) { Alpine.store('toast').show('新密码最多72位'); return; }
+      if (newPw !== confirmPw) { Alpine.store('toast').show('两次输入的密码不一致'); return; }
+      if (oldPw === newPw) { Alpine.store('toast').show('新密码不能与旧密码相同'); return; }
+      this.changingPassword = true;
       try {
         await api('/api/change-password', { method: 'POST', body: JSON.stringify({ oldPassword: oldPw, newPassword: newPw }) });
         this.showPasswordModal = false;
-        toast('密码修改成功！');
-      } catch (e) { toast(e.message); }
+        Alpine.store('toast').show('密码修改成功！');
+      } catch (e) { Alpine.store('toast').show(e.message); }
+      this.changingPassword = false;
     }
   }));
 });

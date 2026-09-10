@@ -70,9 +70,12 @@ module.exports = function (app, db) {
       }
 
       const newBio = bio !== undefined ? bio.slice(0, 200) : user.bio;
-      const newLocation = location !== undefined ? location : user.location;
-      const newWebsite = website !== undefined ? website : user.website;
-      const newProfilePublic = profilePublic !== undefined ? boolToInt(profilePublic === 'true' || profilePublic === true) : user.profile_public;
+      const newLocation = location !== undefined ? String(location).slice(0, 50) : user.location;
+      const newWebsite = website !== undefined ? String(website).slice(0, 200) : user.website;
+      const newProfilePublic =
+        profilePublic !== undefined
+          ? boolToInt(profilePublic === 'true' || profilePublic === true)
+          : user.profile_public;
 
       let newAvatarUrl = user.avatar_url;
       if (req.file) {
@@ -86,37 +89,70 @@ module.exports = function (app, db) {
         if (title === '' || title === null) {
           newTitle = null;
         } else {
-          const owned = db.prepare(`
+          const titleStr = String(title).slice(0, 20);
+          const owned = db
+            .prepare(
+              `
             SELECT s.value FROM shop_orders o
             JOIN shop_items s ON s.id = o.item_id
             WHERE o.user_id = ? AND o.item_type = 'title' AND o.status = 'completed'
               AND s.value = ?
-          `).get(user.id, title);
+          `
+            )
+            .get(user.id, titleStr);
           if (!owned) throw new Error('未拥有该称号');
-          newTitle = title;
+          newTitle = titleStr;
         }
       }
       if (avatarFrame !== undefined) {
         if (avatarFrame === '' || avatarFrame === null) {
           newFrame = null;
         } else {
-          const owned = db.prepare(`
+          const frameStr = String(avatarFrame).slice(0, 20);
+          const owned = db
+            .prepare(
+              `
             SELECT s.value FROM shop_orders o
             JOIN shop_items s ON s.id = o.item_id
             WHERE o.user_id = ? AND o.item_type = 'avatar_frame' AND o.status = 'completed'
               AND s.value = ?
-          `).get(user.id, avatarFrame);
+          `
+            )
+            .get(user.id, frameStr);
           if (!owned) throw new Error('未拥有该头像框');
-          newFrame = avatarFrame === 'none' ? null : avatarFrame;
+          newFrame = frameStr === 'none' ? null : frameStr;
         }
       }
 
-      db.prepare(`
+      db.prepare(
+        `
         UPDATE profiles SET username = ?, bio = ?, location = ?, website = ?,
         profile_public = ?, avatar_url = ?, rename_chances = ?, title = ?, avatar_frame = ? WHERE id = ?
-      `).run(newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, newTitle, newFrame, user.id);
+      `
+      ).run(
+        newUsername,
+        newBio,
+        newLocation,
+        newWebsite,
+        newProfilePublic,
+        newAvatarUrl,
+        newRenameChances,
+        newTitle,
+        newFrame,
+        user.id
+      );
 
-      return { newUsername, newBio, newLocation, newWebsite, newProfilePublic, newAvatarUrl, newRenameChances, newTitle, newFrame };
+      return {
+        newUsername,
+        newBio,
+        newLocation,
+        newWebsite,
+        newProfilePublic,
+        newAvatarUrl,
+        newRenameChances,
+        newTitle,
+        newFrame
+      };
     });
 
     try {
@@ -125,10 +161,16 @@ module.exports = function (app, db) {
       res.json({
         ok: true,
         user: {
-          id: updated.id, display_id: updated.display_id, username: updated.username, email: updated.email,
-          avatar_url: updated.avatar_url, bio: updated.bio,
-          location: updated.location, website: updated.website,
-          profile_public: intToBool(updated.profile_public), points: updated.points || 0,
+          id: updated.id,
+          display_id: updated.display_id,
+          username: updated.username,
+          email: updated.email,
+          avatar_url: updated.avatar_url,
+          bio: updated.bio,
+          location: updated.location,
+          website: updated.website,
+          profile_public: intToBool(updated.profile_public),
+          points: updated.points || 0,
           title: updated.title || null,
           avatar_frame: updated.avatar_frame || null,
           rename_chances: updated.rename_chances || 0
@@ -161,9 +203,13 @@ module.exports = function (app, db) {
       privacyFilter = ' AND p.private = 0';
     }
 
-    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM posts p WHERE p.author_id = ?${privacyFilter}`).get(...queryParams);
+    const { total } = db
+      .prepare(`SELECT COUNT(*) AS total FROM posts p WHERE p.author_id = ?${privacyFilter}`)
+      .get(...queryParams);
 
-    const posts = db.prepare(`
+    const posts = db
+      .prepare(
+        `
       SELECT p.*,
         (SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) AS likes_count,
         (SELECT COUNT(*) FROM comments WHERE post_id = p.id) AS comments_count
@@ -171,7 +217,10 @@ module.exports = function (app, db) {
       WHERE p.author_id = ?${privacyFilter}
       ORDER BY p.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(...queryParams, limit, offset).map(p => formatPost(p));
+    `
+      )
+      .all(...queryParams, limit, offset)
+      .map((p) => formatPost(p));
 
     res.json({
       posts,
@@ -197,9 +246,15 @@ module.exports = function (app, db) {
       privacyFilter = ' AND p.private = 0';
     }
 
-    const { total } = db.prepare(`SELECT COUNT(*) AS total FROM post_likes pl JOIN posts p ON p.id = pl.post_id WHERE pl.user_id = ?${privacyFilter}`).get(uid);
+    const { total } = db
+      .prepare(
+        `SELECT COUNT(*) AS total FROM post_likes pl JOIN posts p ON p.id = pl.post_id WHERE pl.user_id = ?${privacyFilter}`
+      )
+      .get(uid);
 
-    const posts = db.prepare(`
+    const posts = db
+      .prepare(
+        `
       SELECT p.*,
         pr.display_id AS author_display_id, pr.username AS author_name, pr.avatar_url AS author_avatar_url,
         pr.title AS author_title, pr.avatar_frame AS author_avatar_frame,
@@ -211,7 +266,10 @@ module.exports = function (app, db) {
       WHERE pl.user_id = ?${privacyFilter}
       ORDER BY pl.created_at DESC
       LIMIT ? OFFSET ?
-    `).all(uid, limit, offset).map(p => formatPost(p));
+    `
+      )
+      .all(uid, limit, offset)
+      .map((p) => formatPost(p));
 
     res.json({
       posts,

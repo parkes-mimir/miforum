@@ -51,14 +51,16 @@ document.addEventListener('alpine:init', () => {
       const u = this.user;
       if (!u) return '';
       const letter = (u.username || '?')[0].toUpperCase();
-      if (u.avatar_url) return `<img src="${u.avatar_url}" class="w-full h-full object-cover rounded-full">`;
+      if (u.avatar_url) return `<img src="${escAttr(u.avatar_url)}" class="w-full h-full object-cover rounded-full" alt="">`;
       return letter;
     },
 
     get exchangePreviewAfterStyle() {
       if (!this.exchangeItem || this.exchangeItem.type !== 'avatar_frame') return '';
-      const s = { gold: 'box-shadow:0 0 0 3px #fbbf24,0 0 8px #fbbf2440', silver: 'border:3px solid #94a3b8', blue: 'box-shadow:0 0 0 3px #3b82f6,0 0 8px #3b82f640', purple: 'box-shadow:0 0 0 3px #a855f7,0 0 12px #a855f740' };
-      return s[this.exchangeItem.value] || '';
+      const s = FRAME_STYLES;
+      const val = this.exchangeItem.value;
+      if (s[val]) return `background:${s[val]};padding:3px;border-radius:9999px;display:inline-flex`;
+      return '';
     },
 
     async init() {
@@ -90,7 +92,7 @@ document.addEventListener('alpine:init', () => {
         });
         Alpine.store('toast').show(result.message);
         Alpine.store('auth').user.points = result.points;
-        if (result.rename_chances !== undefined) Alpine.store('auth').user.rename_chances = result.rename_chances;
+        if (result.renameChances !== undefined) Alpine.store('auth').user.rename_chances = result.renameChances;
         this.hideExchangeModal();
         await Alpine.store('shop').loadOrders();
       } catch (e) {

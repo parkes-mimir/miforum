@@ -21,15 +21,15 @@ const DAILY_EXP_LIMIT = 100;
 
 /** 各行为获得的经验值 */
 const EXP_REWARDS = {
-  register: 50,       // 注册（一次性）
-  signin: 10,         // 签到
-  retroactive: 5,     // 补签
-  post: 15,           // 发帖
-  comment: 5,         // 评论
-  vote: 2,            // 投票
-  receive_like: 2,    // 收到点赞
+  register: 50, // 注册（一次性）
+  signin: 10, // 签到
+  retroactive: 5, // 补签
+  post: 15, // 发帖
+  comment: 5, // 评论
+  vote: 2, // 投票
+  receive_like: 2, // 收到点赞
   receive_comment: 1, // 收到评论
-  bookmark: 2         // 收藏帖子
+  bookmark: 2 // 收藏帖子
 };
 
 // ============================================================
@@ -49,7 +49,8 @@ function getLevel(exp) {
 function getLevelTheme(level) {
   if (level >= 10) {
     return {
-      stage: 'crown', stageName: '皇冠',
+      stage: 'crown',
+      stageName: '皇冠',
       icon: '👑',
       badgeBg: 'linear-gradient(90deg, #fbbf24 0%, #ef4444 50%, #f59e0b 100%)',
       badgeText: '#ffffff',
@@ -62,7 +63,8 @@ function getLevelTheme(level) {
   }
   if (level >= 7) {
     return {
-      stage: 'sun', stageName: '太阳',
+      stage: 'sun',
+      stageName: '太阳',
       icon: '☀️',
       badgeBg: 'linear-gradient(90deg, #fbbf24 0%, #f97316 100%)',
       badgeText: '#ffffff',
@@ -75,7 +77,8 @@ function getLevelTheme(level) {
   }
   if (level >= 4) {
     return {
-      stage: 'moon', stageName: '月亮',
+      stage: 'moon',
+      stageName: '月亮',
       icon: '🌙',
       badgeBg: 'linear-gradient(90deg, #a78bfa 0%, #6366f1 100%)',
       badgeText: '#ffffff',
@@ -87,7 +90,8 @@ function getLevelTheme(level) {
     };
   }
   return {
-    stage: 'star', stageName: '星星',
+    stage: 'star',
+    stageName: '星星',
     icon: '⭐',
     badgeBg: 'linear-gradient(90deg, #93c5fd 0%, #3b82f6 100%)',
     badgeText: '#ffffff',
@@ -108,17 +112,28 @@ function getLevelInfo(exp) {
   const need = nextBase - curBase;
   const have = exp - curBase;
   const remain = Math.max(0, need - have);
-  const progress = need > 0 ? Math.min(100, Math.round(have / need * 100)) : 100;
+  const progress = need > 0 ? Math.min(100, Math.round((have / need) * 100)) : 100;
   const theme = getLevelTheme(level);
   return {
-    level, icon: theme.icon,
-    exp, cur_base: curBase, next_base: nextBase, next_level: nextLevel,
-    need, have, remain, progress,
+    level,
+    icon: theme.icon,
+    exp,
+    cur_base: curBase,
+    next_base: nextBase,
+    next_level: nextLevel,
+    need,
+    have,
+    remain,
+    progress,
     max_level: MAX_LEVEL,
-    stage: theme.stage, stage_name: theme.stageName,
-    badge_bg: theme.badgeBg, badge_text: theme.badgeText,
-    card_bg: theme.cardBg, card_border: theme.cardBorder,
-    progress_bg: theme.progressBg, progress_fill: theme.progressFill,
+    stage: theme.stage,
+    stage_name: theme.stageName,
+    badge_bg: theme.badgeBg,
+    badge_text: theme.badgeText,
+    card_bg: theme.cardBg,
+    card_border: theme.cardBorder,
+    progress_bg: theme.progressBg,
+    progress_fill: theme.progressFill,
     accent_color: theme.accentColor
   };
 }
@@ -133,25 +148,34 @@ function getLevelInfo(exp) {
  * @param {Object} db 数据库实例
  * @param {number} userId
  * @param {number} amount
- * @returns {number|null}
+ * @returns {{ exp: number, capped: boolean }}
  */
 function addExp(db, userId, amount) {
   if (!Number.isFinite(amount) || amount === 0) return null;
 
+  let capped = false;
+
   // 注册经验不受每日上限限制
   if (amount !== EXP_REWARDS.register) {
     const today = todayStr();
-    const row = db.prepare(`
+    const row = db
+      .prepare(
+        `
       SELECT COALESCE(SUM(amount), 0) AS total
       FROM exp_log WHERE user_id = ? AND date = ?
-    `).get(userId, today);
+    `
+      )
+      .get(userId, today);
 
     const remaining = Math.max(0, DAILY_EXP_LIMIT - row.total);
     if (remaining <= 0) {
       const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
-      return u ? u.exp : 0;
+      return { exp: u ? u.exp : 0, capped: true };
     }
-    amount = Math.min(amount, remaining);
+    if (amount > remaining) {
+      amount = remaining;
+      capped = true;
+    }
   }
 
   db.prepare('UPDATE profiles SET exp = MAX(0, exp + ?) WHERE id = ?').run(amount, userId);
@@ -160,8 +184,11 @@ function addExp(db, userId, amount) {
   const today = todayStr();
   db.prepare('INSERT INTO exp_log (user_id, amount, date) VALUES (?, ?, ?)').run(userId, amount, today);
 
+  // 清理30天前的EXP日志（防止无限增长）
+  db.prepare("DELETE FROM exp_log WHERE date < date('now', '-30 days')").run();
+
   const u = db.prepare('SELECT exp FROM profiles WHERE id = ?').get(userId);
-  return u ? u.exp : 0;
+  return { exp: u ? u.exp : 0, capped };
 }
 
 module.exports = {

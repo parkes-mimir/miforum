@@ -15,13 +15,17 @@ module.exports = function registerShopRoutes(app, db) {
 
   app.get('/api/shop/orders', requireAuth, (req, res) => {
     const userId = req.session.userId;
-    const orders = db.prepare(`
+    const orders = db
+      .prepare(
+        `
       SELECT o.*, si.name AS item_name, si.icon AS item_icon, si.value AS item_value
       FROM shop_orders o
       LEFT JOIN shop_items si ON si.id = o.item_id
       WHERE o.user_id = ?
       ORDER BY o.created_at DESC
-    `).all(userId);
+    `
+      )
+      .all(userId);
     res.json({ orders });
   });
 
@@ -42,7 +46,9 @@ module.exports = function registerShopRoutes(app, db) {
 
     // 检查是否已拥有同一商品（同一称号/头像框不可重复购买，但可以买不同的）
     if (item.type === 'title' || item.type === 'avatar_frame') {
-      const hasOwned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?').get(userId, item.id, 'completed');
+      const hasOwned = db
+        .prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?')
+        .get(userId, item.id, 'completed');
       if (hasOwned) {
         return res.status(400).json({ error: `你已经拥有「${item.name}」，不可重复购买` });
       }
@@ -52,30 +58,37 @@ module.exports = function registerShopRoutes(app, db) {
       db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(item.price, userId);
       if (item.stock > 0) db.prepare('UPDATE shop_items SET stock = stock - 1 WHERE id = ?').run(item.id);
 
-      db.prepare(`
+      db.prepare(
+        `
         INSERT INTO shop_orders (user_id, item_id, item_name, item_type, price, status, created_at)
         VALUES (?, ?, ?, ?, ?, 'completed', datetime('now'))
-      `).run(userId, item.id, item.name, item.type, item.price);
+      `
+      ).run(userId, item.id, item.name, item.type, item.price);
 
       if (item.type === 'rename_card') {
         db.prepare('UPDATE profiles SET rename_chances = rename_chances + 1 WHERE id = ?').run(userId);
       } else if (item.type === 'title') {
         db.prepare('UPDATE profiles SET title = ? WHERE id = ?').run(item.value, userId);
       } else if (item.type === 'avatar_frame') {
-        db.prepare('UPDATE profiles SET avatar_frame = ? WHERE id = ?').run(item.value === 'none' ? null : item.value, userId);
+        db.prepare('UPDATE profiles SET avatar_frame = ? WHERE id = ?').run(
+          item.value === 'none' ? null : item.value,
+          userId
+        );
       }
     });
     doExchange();
 
-    const updatedUser = db.prepare('SELECT points, rename_chances, title, avatar_frame FROM profiles WHERE id = ?').get(userId);
+    const updatedUser = db
+      .prepare('SELECT points, rename_chances, title, avatar_frame FROM profiles WHERE id = ?')
+      .get(userId);
     res.json({
       ok: true,
       message: `成功兑换 ${item.name}`,
-      order: { item_id: item.id, item_name: item.name, item_type: item.type, price: item.price },
+      order: { itemId: item.id, itemName: item.name, itemType: item.type, price: item.price },
       points: updatedUser.points || 0,
-      rename_chances: updatedUser.rename_chances || 0,
+      renameChances: updatedUser.rename_chances || 0,
       title: updatedUser.title || null,
-      avatar_frame: updatedUser.avatar_frame || null
+      avatarFrame: updatedUser.avatar_frame || null
     });
   });
 
@@ -92,7 +105,9 @@ module.exports = function registerShopRoutes(app, db) {
     }
 
     // 检查是否已拥有（免费的"无头像框"和用户已购买的都算可装备）
-    const owned = db.prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?').get(userId, item.id, 'completed');
+    const owned = db
+      .prepare('SELECT id FROM shop_orders WHERE user_id = ? AND item_id = ? AND status = ?')
+      .get(userId, item.id, 'completed');
     if (!owned && item.price > 0) {
       return res.status(403).json({ error: '你还没有购买此商品' });
     }

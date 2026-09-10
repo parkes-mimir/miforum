@@ -132,7 +132,8 @@ document.addEventListener('alpine:init', () => {
       html = html.replace(/\[img:(\d+)\]/g, (match, index) => {
         const i = parseInt(index, 10);
         if (i >= 0 && i < images.length) {
-          return `<img src="${images[i]}" class="rounded-xl max-w-full max-h-96 object-cover cursor-pointer hover:opacity-90 transition my-2" onclick="openLightbox('${escAttr(images[i])}')">`;
+          const safeUrl = escAttr(images[i]);
+          return `<img src="${safeUrl}" class="rounded-xl max-w-full max-h-96 object-cover cursor-pointer hover:opacity-90 transition my-2" onclick="openLightbox('${safeUrl}')" alt="图片">`;
         }
         return match;
       });
@@ -259,38 +260,54 @@ document.addEventListener('alpine:init', () => {
 
     async toggleLike() {
       if (!this.user) { Alpine.store('toast').show('请先登录'); return; }
+      const wasLiked = this.liked;
+      const oldCount = this.post.likes_count || 0;
+
+      // 乐观更新
+      this.liked = !wasLiked;
+      this.post.likes_count = wasLiked ? Math.max(0, oldCount - 1) : oldCount + 1;
+
       try {
-        if (this.liked) {
+        if (wasLiked) {
           await api('/api/like/' + this.post.id, { method: 'DELETE' });
-          this.post.likes_count--;
-          this.liked = false;
         } else {
           await api('/api/like/' + this.post.id, { method: 'POST' });
-          this.post.likes_count++;
-          this.liked = true;
         }
-      } catch (e) { Alpine.store('toast').show(e.message); }
+      } catch (e) {
+        // 回滚
+        this.liked = wasLiked;
+        this.post.likes_count = oldCount;
+        Alpine.store('toast').show(e.message);
+      }
     },
 
     async toggleBookmark() {
       if (!this.user) { Alpine.store('toast').show('请先登录'); return; }
+      const wasBookmarked = this.bookmarked;
+
+      // 乐观更新
+      this.bookmarked = !wasBookmarked;
+
       try {
-        if (this.bookmarked) {
+        if (wasBookmarked) {
           await api('/api/bookmark/' + this.post.id, { method: 'DELETE' });
-          this.bookmarked = false;
           Alpine.store('toast').show('已取消收藏');
         } else {
           await api('/api/bookmark/' + this.post.id, { method: 'POST' });
-          this.bookmarked = true;
           Alpine.store('toast').show('收藏成功');
         }
-      } catch (e) { Alpine.store('toast').show(e.message); }
+      } catch (e) {
+        // 回滚
+        this.bookmarked = wasBookmarked;
+        Alpine.store('toast').show(e.message);
+      }
     },
 
     async castVote() {
       if (!this.user) { Alpine.store('toast').show('请先登录'); return; }
       if (!this.poll) return;
-      const selected = Array.from(document.querySelectorAll('.poll-input:checked')).map(i => Number(i.value));
+      const container = document.querySelector('[x-show="!editing && poll"]');
+      const selected = container ? Array.from(container.querySelectorAll('.poll-input:checked')).map(i => Number(i.value)) : [];
       if (!selected.length) { Alpine.store('toast').show('请选择一个选项'); return; }
       try {
         await api('/api/polls/' + this.poll.id + '/vote', { method: 'POST', body: JSON.stringify({ optionIds: selected }) });
@@ -329,6 +346,8 @@ document.addEventListener('alpine:init', () => {
     },
 
     cancelEditPost() {
+      this.editNewImages.forEach(f => { if (f.objectUrl) URL.revokeObjectURL(f.objectUrl); });
+      this.editNewImages = [];
       this.editing = false;
       this.editDeletePoll = false;
     },
@@ -362,19 +381,24 @@ document.addEventListener('alpine:init', () => {
         event.target.value = '';
         return;
       }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
       files.forEach(f => {
+        if (!allowedTypes.includes(f.type)) { Alpine.store('toast').show(`"${f.name}" 不是支持的图片格式`); return; }
+        if (f.size > 10 * 1024 * 1024) { Alpine.store('toast').show(`"${f.name}" 超过10MB`); return; }
         this.editNewImages.push({ file: f, objectUrl: URL.createObjectURL(f) });
       });
       event.target.value = '';
     },
 
     removeEditNewImg(idx) {
+      const img = this.editNewImages[idx];
+      if (img && img.objectUrl) URL.revokeObjectURL(img.objectUrl);
       this.editNewImages.splice(idx, 1);
     },
 
     insertEditImageAtCursor(index) {
       const tag = `[img:${index}]`;
-      const ta = document.querySelector('textarea[x-model="editContent"]');
+      const ta = this.$el?.querySelector('textarea[x-model="editContent"]') || document.querySelector('textarea[x-model="editContent"]');
       if (!ta) return;
       const start = ta.selectionStart;
       const end = ta.selectionEnd;
@@ -427,7 +451,7 @@ document.addEventListener('alpine:init', () => {
           fd.append('pollQuestion', pollQ);
           fd.append('pollOptions', JSON.stringify(pollOpts));
           fd.append('pollType', this.editPollMultiple ? 'multiple' : 'single');
-          fd.append('pollMaxChoices', pollOpts.length);
+          fd.append('pollMaxChoices', this.editPollMultiple ? pollOpts.length : 1);
           const durationMap = { '1h': 1, '6h': 6, '1d': 24, '3d': 72, '7d': 168, '30d': 720 };
           const hours = durationMap[this.editPollDuration];
           if (hours) fd.append('pollCloseAt', new Date(Date.now() + hours * 3600000).toISOString());
@@ -436,6 +460,8 @@ document.addEventListener('alpine:init', () => {
         const res = await fetch('/api/posts/' + this.post.id, { method: 'PUT', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '修改失败');
+        this.editNewImages.forEach(f => URL.revokeObjectURL(f.objectUrl));
+        this.editNewImages = [];
         this.editDeletePoll = false;
         Alpine.store('toast').show('修改成功');
         this.editing = false;
@@ -468,7 +494,10 @@ document.addEventListener('alpine:init', () => {
         event.target.value = '';
         return;
       }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
       files.forEach(f => {
+        if (!allowedTypes.includes(f.type)) { Alpine.store('toast').show(`"${f.name}" 不是支持的图片格式`); return; }
+        if (f.size > 10 * 1024 * 1024) { Alpine.store('toast').show(`"${f.name}" 超过10MB`); return; }
         this.commentImages.push({ file: f, objectUrl: URL.createObjectURL(f) });
       });
       event.target.value = '';
@@ -487,6 +516,7 @@ document.addEventListener('alpine:init', () => {
         const res = await fetch('/api/posts/' + this.post.id + '/comments', { method: 'POST', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '评论失败');
+        this.commentImages.forEach(f => URL.revokeObjectURL(f.objectUrl));
         this.commentInput = '';
         this.commentImages = [];
         await this.loadComments(this.commentPage);
@@ -511,7 +541,9 @@ document.addEventListener('alpine:init', () => {
     },
 
     cancelEditComment(c) {
+      (c._editNewImages || []).forEach(f => { if (f.objectUrl) URL.revokeObjectURL(f.objectUrl); });
       c._editing = false;
+      c._editNewImages = [];
     },
 
     markRemoveCImg(c, url) {
@@ -533,13 +565,18 @@ document.addEventListener('alpine:init', () => {
         event.target.value = '';
         return;
       }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
       files.forEach(f => {
+        if (!allowedTypes.includes(f.type)) { Alpine.store('toast').show(`"${f.name}" 不是支持的图片格式`); return; }
+        if (f.size > 10 * 1024 * 1024) { Alpine.store('toast').show(`"${f.name}" 超过10MB`); return; }
         c._editNewImages.push({ file: f, objectUrl: URL.createObjectURL(f) });
       });
       event.target.value = '';
     },
 
     removeEditCNewImg(c, idx) {
+      const img = (c._editNewImages || [])[idx];
+      if (img && img.objectUrl) URL.revokeObjectURL(img.objectUrl);
       (c._editNewImages || []).splice(idx, 1);
     },
 
@@ -559,6 +596,7 @@ document.addEventListener('alpine:init', () => {
         const res = await fetch('/api/comments/' + c.id, { method: 'PUT', body: fd });
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '修改失败');
+        st.newImages.forEach(f => URL.revokeObjectURL(f.objectUrl));
         c._editing = false;
         await this.loadComments(this.commentPage);
         Alpine.store('toast').show('已更新');

@@ -19,7 +19,9 @@ function getEncKey() {
     const secret = process.env.SESSION_SECRET;
     if (!secret) {
       // 生成随机密钥并警告（不使用硬编码字符串）
-      console.error('  ⚠ 警告: SESSION_SECRET 未设置，SMTP 密码加密使用随机密钥！重启后已加密的密码将无法解密。请在 .env 中设置 SESSION_SECRET');
+      console.error(
+        '  ⚠ 警告: SESSION_SECRET 未设置，SMTP 密码加密使用随机密钥！重启后已加密的密码将无法解密。请在 .env 中设置 SESSION_SECRET'
+      );
       _encKey = crypto.randomBytes(32);
     } else {
       _encKey = crypto.createHash('sha256').update(secret).digest();
@@ -88,7 +90,11 @@ function deleteImages(images) {
 function parseJsonField(val, fallback) {
   if (val === null || val === undefined) return fallback;
   if (Array.isArray(val) || typeof val === 'object') return val;
-  try { return JSON.parse(val); } catch (e) { return fallback; }
+  try {
+    return JSON.parse(val);
+  } catch (e) {
+    return fallback;
+  }
 }
 
 /**
@@ -110,12 +116,17 @@ function intToBool(v) {
 }
 
 /**
- * 日期转字符串（YYYY-MM-DD）
- * @param {Date|string} d
+ * 日期转 YYYY-MM-DD 字符串
+ * @param {string|Date} d - 日期
  * @returns {string}
  */
 function dateStr(d) {
-  return new Date(d).toLocaleDateString('sv-SE');
+  const date = new Date(d);
+  if (isNaN(date.getTime())) return '';
+  const y = date.getFullYear();
+  const m = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${y}-${m}-${day}`;
 }
 
 /**

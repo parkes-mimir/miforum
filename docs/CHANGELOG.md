@@ -4,6 +4,46 @@
 
 ---
 
+## [1.2.4] - 2026-09-08 - parkes-mimir
+
+### 新增
+- 搜索功能：侧边栏搜索输入框，支持回车搜索、清除按钮、URL 同步
+- 404 页面：API 返回 JSON，页面渲染友好 404 提示
+- 每日 EXP 上限感知：addExp 返回 capped 状态，调用方可感知截断
+- EXP 日志自动清理：30 天前记录自动删除，防止表无限增长
+
+### 修复
+- 修复注册无密码最大长度限制（>72 位 bcrypt 截断导致登录失败）
+- 修复注册验证码提示不明确（"请填写所有字段"改为"请填写验证码"）
+- 修复 Emoji picker XSS：image_url 未转义注入 onclick 处理器
+- 修复前后端连接崩溃：admin-system.js 缺失 decryptText 导入（SMTP 测试报错）
+- 修复 logout 回调未处理（响应在 session 销毁前发送）
+- 修复侧边栏 section_type 与 API 返回 sectionType 不一致
+- 修复 Emoji 搜索逻辑错误（filter 回调参数未使用）
+- 修复用户删除时孤立会话未清理（对方看到空会话）
+- 修复用户删除时验证码表未清理
+- 修复帖子图片 URL 未转义（XSS 风险）
+- 修复 insertImageAtCursor 使用全局选择器（可能选错元素）
+- 修复后端未校验图片总数（仅前端限制 30 张）
+- 修复密码修改无 loading 状态（可重复点击）
+- 修复称号/头像框无长度限制
+- 修复所在地/网站字段无长度限制
+- 修复商店兑换响应 rename_chances 命名不统一（改为 camelCase）
+- 修复帖子/评论/私信内容长度限制与搜索 LIKE 转义
+- 修复帖子编辑分类标签显示原始 key 而非中文名称
+- 修复收藏标签页显示他人收藏（改为仅自己可见）
+- 修复 profile.js 全部 toast() 统一为 Alpine.store('toast').show()
+- 修复 head.ejs 添加 manifest.json 链接
+- 修复 404 处理器注册顺序（移到路由之后）
+
+### 变更
+- 密码最大长度统一为 72 位（注册 + 修改密码）
+- 头像框预览改用 FRAME_STYLES gradient（与 common.js 一致）
+- 分类管理 label 限制统一为 20 字
+- verify codes 表随用户删除自动清理
+
+---
+
 ## [1.2.3] - 2026-09-08 - parkes-mimir
 
 ### 新增

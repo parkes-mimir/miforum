@@ -44,6 +44,7 @@ document.addEventListener('alpine:init', () => {
     calTodayStr: '',
     calStats: { currentStreak: 0, longestStreak: 0, totalDays: 0, missedCount: 0 },
     retroactiveCost: 10,
+    retroactiveLoading: false,
 
     // New post modal
     newPostOpen: false,
@@ -203,7 +204,9 @@ document.addEventListener('alpine:init', () => {
       const cat = params.get('category');
       const tag = params.get('tag');
       const sort = params.get('sort');
+      const search = params.get('search');
       if (sort && ['newest', 'most_liked', 'oldest'].includes(sort)) this.currentSort = sort;
+      if (search) this.searchQuery = search;
       await this.loadPosts(1);
       if (cat && this.catExists(cat)) this.filterCategory(cat);
       if (tag) this.filterByTag(tag);
@@ -314,12 +317,21 @@ document.addEventListener('alpine:init', () => {
     doSearch() {
       if (!this.searchQuery.trim()) {
         this.currentTag = null;
+        this.searchQuery = '';
         this.loadPosts(1);
+        // 清除 URL 中的 search 参数
+        const url = new URL(window.location);
+        url.searchParams.delete('search');
+        window.history.replaceState({}, '', url);
         return;
       }
       this.currentTag = null;
       this.currentCat = 'all';
       this.loadPosts(1);
+      // 同步搜索词到 URL
+      const url = new URL(window.location);
+      url.searchParams.set('search', this.searchQuery.trim());
+      window.history.replaceState({}, '', url);
     },
 
     catLabel(name) {
@@ -445,6 +457,7 @@ document.addEventListener('alpine:init', () => {
       this.newPostCategory = this.postableCategories[0]?.name || 'tech';
       this.newPostPrivate = false;
       this.newPostTags = [];
+      this.selectedImages.forEach(f => { if (f._url) URL.revokeObjectURL(f._url); });
       this.selectedImages = [];
       this.showPollForm = false;
       this.pollQuestion = '';
@@ -477,7 +490,9 @@ document.addEventListener('alpine:init', () => {
     handleImageSelect(event) {
       const files = Array.from(event.target.files);
       if (this.selectedImages.length + files.length > 30) { Alpine.store('toast').show('最多上传30张图片'); event.target.value = ''; return; }
+      const allowedTypes = ['image/jpeg', 'image/png', 'image/gif', 'image/webp', 'image/bmp'];
       for (const f of files) {
+        if (!allowedTypes.includes(f.type)) { Alpine.store('toast').show(`"${f.name}" 不是支持的图片格式`); continue; }
         if (f.size > 10 * 1024 * 1024) { Alpine.store('toast').show(`"${f.name}" 超过10MB`); continue; }
         f._url = URL.createObjectURL(f);
         this.selectedImages.push(f);
@@ -486,7 +501,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     insertImageAtCursor(index) {
-      const textarea = document.querySelector('textarea[x-model="newPostContent"]');
+      const textarea = this.$el?.querySelector('textarea[x-model="newPostContent"]') || document.querySelector('textarea[x-model="newPostContent"]');
       if (!textarea) return;
       const tag = `[img:${index}]`;
       const start = textarea.selectionStart;
@@ -522,7 +537,7 @@ document.addEventListener('alpine:init', () => {
             formData.append('pollQuestion', this.pollQuestion.trim());
             formData.append('pollOptions', JSON.stringify(opts));
             formData.append('pollType', this.pollMultiple ? 'multiple' : 'single');
-            formData.append('pollMaxChoices', opts.length);
+            formData.append('pollMaxChoices', this.pollMultiple ? opts.length : 1);
             const durationMap = { '1h': 1, '6h': 6, '1d': 24, '3d': 72, '7d': 168, '30d': 720 };
             const hours = durationMap[this.pollDuration];
             if (hours) formData.append('pollCloseAt', new Date(Date.now() + hours * 3600000).toISOString());
@@ -532,7 +547,7 @@ document.addEventListener('alpine:init', () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '发布失败');
         this.newPostOpen = false;
-        if (data.points) { this.userPoints = data.points; if (this.user) this.user.points = data.points; }
+        if (data.points !== undefined) { this.userPoints = data.points; if (this.user) this.user.points = data.points; }
         if (this.currentCat !== 'all') this.filterCategory('all');
         else await this.loadPosts(1);
         Alpine.store('toast').show('发布成功！');
@@ -572,7 +587,9 @@ document.addEventListener('alpine:init', () => {
     selectMonth(m) { this.calMonth = m; this.showMonthPicker = false; },
 
     async doRetroactive(dateStr) {
+      if (this.retroactiveLoading) return;
       if (!confirm(`确认补签 ${dateStr}？\n消耗 ${this.retroactiveCost} 积分`)) return;
+      this.retroactiveLoading = true;
       try {
         const res = await api('/api/checkin/retroactive', { method: 'POST', body: JSON.stringify({ date: dateStr }) });
         this.userPoints = res.points;
@@ -581,6 +598,7 @@ document.addEventListener('alpine:init', () => {
         await this.loadCheckin();
         Alpine.store('toast').show(`补签成功！${dateStr}，剩余 ${res.points} 积分`);
       } catch (e) { Alpine.store('toast').show(e.message); }
+      this.retroactiveLoading = false;
     },
 
     // Category Management
@@ -752,7 +770,7 @@ document.addEventListener('alpine:init', () => {
           this.updateResultOk = false;
           this.updateHasNew = true;
         } else {
-          this.updateResult = '✓ 已是最新版本'; this.updateResultOk = true;
+          this.updateResult = data.message || '✓ 已是最新版本'; this.updateResultOk = true;
         }
       } catch (e) { this.updateResult = '✗ ' + e.message; this.updateResultOk = false; }
       this.updateChecking = false;

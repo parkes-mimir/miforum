@@ -44,10 +44,12 @@ document.addEventListener('alpine:init', () => {
       }
       this.loadBadges();
       this.$nextTick(() => {
-        new EmojiPicker({
-          trigger: this.$refs.emojiBtn,
-          target: this.$refs.chatInput
-        });
+        if (this.$refs.emojiBtn && this.$refs.chatInput) {
+          new EmojiPicker({
+            trigger: this.$refs.emojiBtn,
+            target: this.$refs.chatInput
+          });
+        }
       });
     },
 
@@ -68,7 +70,7 @@ document.addEventListener('alpine:init', () => {
 
     convAvatarHtml(c) {
       const letter = c.other_username ? c.other_username[0].toUpperCase() : '?';
-      return avatarHtml(c.other_avatar_url, letter, 'w-10 h-10');
+      return avatarHtml(c.other_avatar_url, letter, 'w-10 h-10', c.other_avatar_frame);
     },
 
     async loadConversations() {
@@ -89,7 +91,7 @@ document.addEventListener('alpine:init', () => {
       this.chatOtherUserId = c.other_user_id;
       const letter = c.other_username ? c.other_username[0].toUpperCase() : '?';
       this.chatAvatarHtml = c.other_avatar_url
-        ? `<img src="${c.other_avatar_url}" class="w-8 h-8 rounded-full object-cover">`
+        ? `<img src="${escAttr(c.other_avatar_url)}" class="w-8 h-8 rounded-full object-cover" alt="">`
         : `<div class="w-8 h-8 rounded-full bg-primary-100 text-primary-700 flex items-center justify-center text-xs font-bold">${esc(letter)}</div>`;
       await this.loadChatMessages();
       this.loadBadges();
@@ -125,7 +127,7 @@ document.addEventListener('alpine:init', () => {
           if (el) el.scrollTop = el.scrollHeight;
         });
       } catch (e) {
-        if (!silent) window.dispatchEvent(new CustomEvent('toast', { detail: e.message }));
+        if (!silent) Alpine.store('toast').show(e.message);
       }
     },
 
@@ -141,11 +143,28 @@ document.addEventListener('alpine:init', () => {
       if (!this.currentConvId) return;
       const content = this.chatInput.trim();
       if (!content) return;
+      const inputEl = this.chatInput;
+      this.chatInput = '';
       try {
-        await api('/api/conversations/' + this.currentConvId + '/messages', { method: 'POST', body: JSON.stringify({ content }) });
-        this.chatInput = '';
-        await this.loadChatMessages();
+        const data = await api('/api/conversations/' + this.currentConvId + '/messages', { method: 'POST', body: JSON.stringify({ content }) });
+        // 追加新消息到列表（避免全量刷新）
+        this.chatMessages.push({
+          id: data.messageId,
+          conversation_id: this.currentConvId,
+          sender_id: this.user.id,
+          content: content,
+          created_at: new Date().toISOString(),
+          sender_name: this.user.username,
+          sender_avatar_url: this.user.avatar_url,
+          sender_avatar_frame: this.user.avatar_frame,
+          sender_display_id: this.user.display_id
+        });
+        this.$nextTick(() => {
+          const el = this.$refs.chatMessages;
+          if (el) el.scrollTop = el.scrollHeight;
+        });
       } catch (e) {
+        this.chatInput = inputEl;
         Alpine.store('toast').show(e.message);
       }
     },
@@ -168,10 +187,16 @@ document.addEventListener('alpine:init', () => {
     async readNotif(n) {
       try {
         await api('/api/notifications/' + n.id + '/read', { method: 'PUT' });
+        n.read = true;
         this.loadBadges();
-        if (n.post_id) window.open('/post.html?id=' + n.post_id, '_blank');
-        if (this.currentSection !== 'messages') this.loadNotifications(this.currentSection);
-      } catch (e) {}
+        if (n.post_id && n.post_title) {
+          window.open('/post.html?id=' + n.post_id, '_blank');
+        } else if (n.post_id && !n.post_title) {
+          Alpine.store('toast').show('帖子已被删除');
+        }
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
     },
 
     async markTypeRead(type) {
