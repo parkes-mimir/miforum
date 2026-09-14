@@ -1,6 +1,6 @@
 {
   "name": "miforum",
-  "version": "1.2.4",
+  "version": "1.2.5",
   "private": true,
   "license": "MIT",
   "lint-staged": {
@@ -16,6 +16,7 @@
     "start": "node src/server.js",
     "dev": "node --watch src/server.js",
     "test": "jest --verbose --forceExit --detectOpenHandles",
+    "test:e2e": "npx playwright test",
     "test:coverage": "jest --coverage --forceExit --detectOpenHandles",
     "test:watch": "jest --watch",
     "lint": "eslint src/",
@@ -45,6 +46,7 @@
     "nodemailer": "^9.1.1"
   },
   "devDependencies": {
+    "@playwright/test": "^1.63.0",
     "eslint": "^8.50.0",
     "husky": "^9.1.7",
     "jest": "^30.5.1",

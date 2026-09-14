@@ -76,6 +76,11 @@ function registerRoutes(app, db) {
   // POST   /api/shop/exchange       兑换商品
   // POST   /api/shop/equip          装备
   // POST   /api/shop/unequip        卸下装备
+  // GET    /api/admin/shop/items    管理员商品列表
+  // POST   /api/admin/shop/items    创建商品
+  // PUT    /api/admin/shop/items/:id 更新商品
+  // DELETE /api/admin/shop/items/:id 删除商品
+  // GET    /api/admin/shop/orders   管理员兑换记录
   require('../controllers/shop')(app, db);
 
   // ============================================================

@@ -263,7 +263,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.4** — 全面代码质量审计 + Bug 修复 + 安全加固
+**最新版本 v1.2.5** — 帖子草稿功能 + 防误触保护
 
 ## 声明
 

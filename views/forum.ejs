@@ -221,11 +221,14 @@
 </div>
 
 <!-- New Post Modal -->
-<div x-show="newPostOpen" x-transition.opacity @click.self="newPostOpen = false" @keydown.escape.window="if(newPostOpen) newPostOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="发布话题">
+<div x-show="newPostOpen" x-transition.opacity @click.self="closeNewPostModal()" @keydown.escape.window="if(newPostOpen) closeNewPostModal()" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="发布话题">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[90vh] flex flex-col fade-in">
     <div class="flex items-center justify-between p-5 border-b border-gray-100 flex-shrink-0">
-      <h2 class="text-lg font-bold" x-text="editingPostId ? '编辑话题' : '发布新话题'">发布新话题</h2>
-      <button @click="newPostOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+      <div class="flex items-center gap-2">
+        <h2 class="text-lg font-bold" x-text="editingPostId ? '编辑话题' : '发布新话题'">发布新话题</h2>
+        <span x-show="hasDraft && !editingPostId" class="text-xs px-2 py-0.5 rounded-full bg-amber-100 text-amber-700">有草稿</span>
+      </div>
+      <button @click="closeNewPostModal()" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
     <div class="flex-1 overflow-y-auto p-5 space-y-4">
       <div><label class="block text-sm font-medium text-gray-700 mb-1">标题</label><input x-model="newPostTitle" type="text" placeholder="请输入话题标题" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
@@ -307,8 +310,9 @@
         <span class="text-sm text-gray-600">私密帖子（仅自己可见）</span>
       </label>
     </div>
-    <div class="p-5 border-t border-gray-100 flex-shrink-0">
-      <button @click="doNewPost()" :disabled="submittingPost" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition" x-text="submittingPost ? '发布中...' : '发布话题'"></button>
+    <div class="p-5 border-t border-gray-100 flex-shrink-0 flex gap-3">
+      <button x-show="hasDraft && !editingPostId" @click="discardDraft()" class="px-4 py-2.5 border border-gray-200 text-gray-500 text-sm rounded-xl hover:bg-gray-50 transition">清除草稿</button>
+      <button @click="doNewPost()" :disabled="submittingPost" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition" x-text="submittingPost ? '发布中...' : '发布话题'"></button>
     </div>
   </div>
 </div>
@@ -432,10 +436,12 @@
       </div>
       <button @click="adminPanelOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
     </div>
-    <div class="flex border-b border-gray-100">
-      <button @click="adminTab = 'users'" :class="adminTab === 'users' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">用户管理</button>
-      <button @click="adminTab = 'smtp'; loadSmtpConfig()" :class="adminTab === 'smtp' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">邮箱设置</button>
-      <button @click="adminTab = 'about'; loadVersionInfo()" :class="adminTab === 'about' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">关于</button>
+    <div class="flex border-b border-gray-100 overflow-x-auto">
+      <button @click="adminTab = 'users'" :class="adminTab === 'users' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">用户管理</button>
+      <button @click="adminTab = 'shop'; loadAdminShopItems()" :class="adminTab === 'shop' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">商品管理</button>
+      <button @click="adminTab = 'orders'; loadAdminOrders()" :class="adminTab === 'orders' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">兑换记录</button>
+      <button @click="adminTab = 'smtp'; loadSmtpConfig()" :class="adminTab === 'smtp' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">邮箱设置</button>
+      <button @click="adminTab = 'about'; loadVersionInfo()" :class="adminTab === 'about' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">关于</button>
     </div>
     <div x-show="adminTab === 'users'" class="flex-1 overflow-y-auto p-5 space-y-3">
       <template x-for="u in adminUsers" :key="u.id">
@@ -473,6 +479,82 @@
       </template>
       <p x-show="adminUsers.length === 0" class="text-sm text-gray-400 text-center py-8">暂无用户</p>
     </div>
+
+    <!-- 商品管理 -->
+    <div x-show="adminTab === 'shop'" class="flex-1 overflow-y-auto p-5">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-sm font-semibold text-gray-700">商品列表</h3>
+        <button @click="showShopItemForm = !showShopItemForm; editingShopItem = null; resetShopItemForm()" class="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition" x-text="showShopItemForm ? '取消' : '+ 添加商品'"></button>
+      </div>
+      <!-- 商品表单 -->
+      <div x-show="showShopItemForm" class="bg-gray-50 rounded-xl p-4 mb-4 space-y-3">
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs text-gray-500 mb-1">名称 *</label><input x-model="shopItemForm.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="商品名称"></div>
+          <div><label class="block text-xs text-gray-500 mb-1">类型 *</label><select x-model="shopItemForm.type" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"><option value="title">称号</option><option value="avatar_frame">头像框</option><option value="rename_card">改名卡</option></select></div>
+        </div>
+        <div><label class="block text-xs text-gray-500 mb-1">描述</label><input x-model="shopItemForm.description" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="商品描述"></div>
+        <div class="grid grid-cols-3 gap-3">
+          <div><label class="block text-xs text-gray-500 mb-1">图标（emoji）</label><input x-model="shopItemForm.icon" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="如：⭐"></div>
+          <div><label class="block text-xs text-gray-500 mb-1">值（称号/头像框名）</label><input x-model="shopItemForm.value" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="如：活跃达人"></div>
+          <div><label class="block text-xs text-gray-500 mb-1">价格 *</label><input x-model.number="shopItemForm.price" type="number" min="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="积分"></div>
+        </div>
+        <div class="grid grid-cols-2 gap-3">
+          <div><label class="block text-xs text-gray-500 mb-1">库存（-1 为无限）</label><input x-model.number="shopItemForm.stock" type="number" min="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="-1"></div>
+          <div class="flex items-end pb-2"><label class="flex items-center gap-2 cursor-pointer"><input x-model="shopItemForm.enabled" type="checkbox" class="w-4 h-4 rounded text-primary-600"><span class="text-sm text-gray-600">上架</span></label></div>
+        </div>
+        <button @click="saveShopItem()" class="w-full py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition" x-text="editingShopItem ? '保存修改' : '添加商品'"></button>
+      </div>
+      <!-- 商品列表 -->
+      <div class="space-y-2">
+        <template x-for="item in adminShopItems" :key="item.id">
+          <div class="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+            <span class="text-2xl" x-text="item.icon || '🎁'"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900" x-text="item.name"></span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600" x-text="item.type"></span>
+                <span x-show="!item.enabled" class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-500">已下架</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-0.5"><span x-text="item.price + ' 积分'"></span> · <span x-text="item.stock === -1 ? '无限库存' : '库存 ' + item.stock"></span><span x-show="item.value"> · <span x-text="item.value"></span></span></div>
+            </div>
+            <div class="flex gap-1.5">
+              <button @click="editShopItem(item)" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">编辑</button>
+              <button @click="toggleShopItemEnabled(item)" class="text-xs px-2 py-1 rounded-lg transition" :class="item.enabled ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-green-50 text-green-600 hover:bg-green-100'" x-text="item.enabled ? '下架' : '上架'"></button>
+              <button @click="deleteShopItem(item)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="adminShopItems.length === 0" class="text-sm text-gray-400 text-center py-8">暂无商品</p>
+      </div>
+    </div>
+
+    <!-- 兑换记录 -->
+    <div x-show="adminTab === 'orders'" class="flex-1 overflow-y-auto p-5">
+      <h3 class="text-sm font-semibold text-gray-700 mb-4">兑换记录</h3>
+      <div class="space-y-2">
+        <template x-for="o in adminOrders" :key="o.id">
+          <div class="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
+            <span class="text-xl" x-text="o.item_icon || '🎁'"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900" x-text="o.username || '未知用户'"></span>
+                <span class="text-xs text-gray-400" x-text="'#' + o.display_id"></span>
+                <span class="text-xs text-gray-400">兑换了</span>
+                <span class="text-sm font-medium text-primary-600" x-text="o.item_name"></span>
+              </div>
+              <div class="text-xs text-gray-400 mt-0.5"><span x-text="'-' + o.price + ' 积分'"></span> · <span x-text="relTime(o.created_at)"></span></div>
+            </div>
+          </div>
+        </template>
+        <p x-show="adminOrders.length === 0" class="text-sm text-gray-400 text-center py-8">暂无兑换记录</p>
+      </div>
+      <div x-show="adminOrdersPagination && adminOrdersPagination.pages > 1" class="flex justify-center gap-2 mt-4">
+        <button x-show="adminOrdersPagination.page > 1" @click="loadAdminOrders(adminOrdersPagination.page - 1)" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>
+        <span class="px-3 py-1.5 text-sm text-gray-500" x-text="adminOrdersPagination.page + ' / ' + adminOrdersPagination.pages"></span>
+        <button x-show="adminOrdersPagination.page < adminOrdersPagination.pages" @click="loadAdminOrders(adminOrdersPagination.page + 1)" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>
+      </div>
+    </div>
+
     <div x-show="adminTab === 'smtp'" class="flex-1 overflow-y-auto p-5">
       <div class="space-y-4 max-w-md mx-auto">
         <div><label class="block text-xs font-medium text-gray-500 mb-1">SMTP 主机</label><input x-model="smtp.host" type="text" placeholder="smtp.qq.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
@@ -539,7 +621,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/forum.js?v=1.2.4"></script>
-<script src="/js/alpine.min.js?v=1.2.4"></script>
+<script src="/js/pages/forum.js?v=1.2.5"></script>
+<script src="/js/alpine.min.js?v=1.2.5"></script>
 </body>
 </html>

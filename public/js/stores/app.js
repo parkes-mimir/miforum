@@ -36,7 +36,10 @@ document.addEventListener('alpine:init', () => {
         const { user } = await api('/api/me');
         this.user = user;
       } catch (e) {
-        this.user = null;
+        // 只有 401（未登录）才清空用户，其他错误（如 429 限频）保持状态
+        if (e.message && e.message.includes('请先登录')) {
+          this.user = null;
+        }
       }
     },
 

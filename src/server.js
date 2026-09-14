@@ -41,6 +41,27 @@ function getLocalIps() {
 }
 
 // ============================================================
+// 获取用户主题偏好（模块级，供 createApp 和 startServer 共用）
+// ============================================================
+const VALID_THEMES = ['light', 'dark', 'auto'];
+const VALID_COLORS = ['purple', 'blue', 'green', 'orange', 'rose'];
+
+function getUserTheme(userId) {
+  const defaults = { theme: 'auto', themeColor: 'purple' };
+  if (!userId) return defaults;
+  try {
+    const db = getDb();
+    const u = db.prepare('SELECT theme, theme_color FROM profiles WHERE id = ?').get(userId);
+    return {
+      theme: u && VALID_THEMES.includes(u.theme) ? u.theme : defaults.theme,
+      themeColor: u && VALID_COLORS.includes(u.theme_color) ? u.theme_color : defaults.themeColor
+    };
+  } catch (e) {
+    return defaults;
+  }
+}
+
+// ============================================================
 // 创建 Express 应用
 // ============================================================
 function createApp() {
@@ -127,8 +148,10 @@ function createApp() {
 
   const apiLimiter = rateLimit({
     windowMs: 1 * 60 * 1000,
-    max: isTest ? 10000 : isDev ? 500 : 100,
-    message: { error: '请求过于频繁，请稍后再试' }
+    max: isTest ? 10000 : isDev ? 500 : 300,
+    message: { error: '请求过于频繁，请稍后再试' },
+    standardHeaders: true,
+    legacyHeaders: false
   });
 
   const authLimiter = rateLimit({
@@ -233,23 +256,6 @@ function createApp() {
 
   // 页面路由（使用 EJS 模板渲染，注入用户主题偏好避免闪烁）
   // 必须在 session 中间件之后，才能读取 req.session.userId
-  const VALID_THEMES = ['light', 'dark', 'auto'];
-  const VALID_COLORS = ['purple', 'blue', 'green', 'orange', 'rose'];
-
-  function getUserTheme(userId) {
-    const defaults = { theme: 'auto', themeColor: 'purple' };
-    if (!userId) return defaults;
-    try {
-      const db = getDb();
-      const u = db.prepare('SELECT theme, theme_color FROM profiles WHERE id = ?').get(userId);
-      return {
-        theme: u && VALID_THEMES.includes(u.theme) ? u.theme : defaults.theme,
-        themeColor: u && VALID_COLORS.includes(u.theme_color) ? u.theme_color : defaults.themeColor
-      };
-    } catch (e) {
-      return defaults;
-    }
-  }
 
   function renderPage(view) {
     const siteUrl = process.env.SITE_URL || '';
@@ -323,7 +329,7 @@ function startServer() {
   const app = createApp();
   registerRoutes(app, db);
 
-  // 404 处理（在所有路由之后）
+  // 404 处理（在所有 API 路由之后）
   app.use((req, res) => {
     if (req.path.startsWith('/api/')) {
       return res.status(404).json({ error: '接口不存在' });

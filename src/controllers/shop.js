@@ -5,9 +5,10 @@
  * 支持称号和头像框类型的道具。
  */
 
-const { requireAuth } = require('../middleware/auth');
+const { requireAuth, requireAdmin: requireAdminFactory } = require('../middleware/auth');
 
 module.exports = function registerShopRoutes(app, db) {
+  const requireAdmin = requireAdminFactory(db);
   app.get('/api/shop/items', (req, res) => {
     const items = db.prepare('SELECT * FROM shop_items WHERE enabled = 1').all();
     res.json({ items });
@@ -138,5 +139,122 @@ module.exports = function registerShopRoutes(app, db) {
     const item = db.prepare('SELECT * FROM shop_items WHERE id = ? AND enabled = 1').get(itemId);
     if (!item) return res.status(404).json({ error: '商品不存在' });
     res.json({ item });
+  });
+
+  // ============================================================
+  // 管理员接口
+  // ============================================================
+
+  /** 获取所有商品（含下架商品） */
+  app.get('/api/admin/shop/items', requireAdmin, (req, res) => {
+    const items = db.prepare('SELECT * FROM shop_items ORDER BY id ASC').all();
+    res.json({ items });
+  });
+
+  /** 创建商品 */
+  app.post('/api/admin/shop/items', requireAdmin, (req, res) => {
+    const { name, description, icon, type, value, price, stock } = req.body;
+    if (!name || !type || price === undefined) {
+      return res.status(400).json({ error: '缺少必填字段（name, type, price）' });
+    }
+    const validTypes = ['title', 'avatar_frame', 'rename_card'];
+    if (!validTypes.includes(type)) {
+      return res.status(400).json({ error: '无效的商品类型，支持：title, avatar_frame, rename_card' });
+    }
+    if (price < 0) return res.status(400).json({ error: '价格不能为负数' });
+
+    const result = db
+      .prepare(
+        `
+      INSERT INTO shop_items (name, description, icon, type, value, price, stock, enabled)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+    `
+      )
+      .run(
+        String(name).slice(0, 50),
+        String(description || '').slice(0, 200),
+        icon || '',
+        type,
+        value || null,
+        Math.floor(price),
+        stock !== undefined ? Math.floor(stock) : -1
+      );
+
+    const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(result.lastInsertRowid);
+    res.json({ ok: true, item });
+  });
+
+  /** 更新商品 */
+  app.put('/api/admin/shop/items/:id', requireAdmin, (req, res) => {
+    const itemId = Number(req.params.id);
+    const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(itemId);
+    if (!item) return res.status(404).json({ error: '商品不存在' });
+
+    const { name, description, icon, value, price, stock, enabled } = req.body;
+    db.prepare(
+      `
+      UPDATE shop_items SET name = ?, description = ?, icon = ?, value = ?, price = ?, stock = ?, enabled = ?
+      WHERE id = ?
+    `
+    ).run(
+      name !== undefined ? String(name).slice(0, 50) : item.name,
+      description !== undefined ? String(description).slice(0, 200) : item.description,
+      icon !== undefined ? icon : item.icon,
+      value !== undefined ? value : item.value,
+      price !== undefined ? Math.floor(price) : item.price,
+      stock !== undefined ? Math.floor(stock) : item.stock,
+      enabled !== undefined ? (enabled ? 1 : 0) : item.enabled,
+      itemId
+    );
+
+    const updated = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(itemId);
+    res.json({ ok: true, item: updated });
+  });
+
+  /** 删除商品 */
+  app.delete('/api/admin/shop/items/:id', requireAdmin, (req, res) => {
+    const itemId = Number(req.params.id);
+    const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(itemId);
+    if (!item) return res.status(404).json({ error: '商品不存在' });
+
+    // 检查是否有已完成的订单
+    const orderCount = db.prepare('SELECT COUNT(*) AS c FROM shop_orders WHERE item_id = ?').get(itemId).c;
+    if (orderCount > 0) {
+      // 有订单，只下架不删除
+      db.prepare('UPDATE shop_items SET enabled = 0 WHERE id = ?').run(itemId);
+      return res.json({ ok: true, message: '商品有历史订单，已下架而非删除' });
+    }
+
+    db.prepare('DELETE FROM shop_items WHERE id = ?').run(itemId);
+    res.json({ ok: true, message: '商品已删除' });
+  });
+
+  /** 获取所有兑换记录（含用户信息） */
+  app.get('/api/admin/shop/orders', requireAdmin, (req, res) => {
+    const page = Math.max(1, parseInt(req.query.page, 10) || 1);
+    const limit = Math.min(100, Math.max(1, parseInt(req.query.limit, 10) || 20));
+    const offset = (page - 1) * limit;
+
+    const { total } = db.prepare('SELECT COUNT(*) AS total FROM shop_orders').get();
+
+    const orders = db
+      .prepare(
+        `
+      SELECT o.*,
+        u.username, u.display_id, u.avatar_url,
+        si.name AS item_name, si.icon AS item_icon, si.value AS item_value
+      FROM shop_orders o
+      LEFT JOIN profiles u ON u.id = o.user_id
+      LEFT JOIN shop_items si ON si.id = o.item_id
+      ORDER BY o.created_at DESC
+      LIMIT ? OFFSET ?
+    `
+      )
+      .all(limit, offset);
+
+    res.json({
+      orders,
+      pagination: { page, limit, total, pages: Math.ceil(total / limit) }
+    });
   });
 };

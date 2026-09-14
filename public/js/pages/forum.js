@@ -76,6 +76,12 @@ document.addEventListener('alpine:init', () => {
     adminPanelOpen: false,
     adminTab: 'users',
     adminUsers: [],
+    adminShopItems: [],
+    adminOrders: [],
+    adminOrdersPagination: null,
+    showShopItemForm: false,
+    editingShopItem: null,
+    shopItemForm: { name: '', description: '', icon: '', type: 'title', value: '', price: 0, stock: -1, enabled: true },
     smtp: { host: '', port: '465', secure: true, user: '', pass: '', configured: false },
     smtpStatus: '',
     smtpStatusOk: true,
@@ -447,7 +453,104 @@ document.addEventListener('alpine:init', () => {
     showNewPostModal() {
       if (!this.isLoggedIn) { Alpine.store('toast').show('请先登录'); Alpine.store('auth').showLogin = true; return; }
       this.resetPostForm();
+      this.restoreDraft();
       this.newPostOpen = true;
+      this._startDraftAutoSave();
+    },
+
+    /** 检查表单是否有内容 */
+    get hasPostContent() {
+      return !!(this.newPostTitle.trim() || this.newPostContent.trim() || this.newPostTags.length > 0 || this.selectedImages.length > 0);
+    },
+
+    /** 检查是否有草稿 */
+    get hasDraft() {
+      try {
+        return !!localStorage.getItem('miforum-draft');
+      } catch (e) { return false; }
+    },
+
+    /** 关闭弹窗（有内容时自动保存草稿） */
+    closeNewPostModal() {
+      if (this.editingPostId) {
+        this.newPostOpen = false;
+        return;
+      }
+      if (this.hasPostContent) {
+        this.saveDraft();
+        Alpine.store('toast').show('已自动保存为草稿');
+      } else {
+        this.discardDraft();
+      }
+      this.newPostOpen = false;
+      this._stopDraftAutoSave();
+    },
+
+    /** 保存草稿到 localStorage */
+    saveDraft() {
+      try {
+        const draft = {
+          title: this.newPostTitle,
+          content: this.newPostContent,
+          category: this.newPostCategory,
+          tags: this.newPostTags,
+          isPrivate: this.newPostPrivate,
+          showPollForm: this.showPollForm,
+          pollQuestion: this.pollQuestion,
+          pollOptions: this.pollOptions,
+          pollMultiple: this.pollMultiple,
+          pollDuration: this.pollDuration,
+          savedAt: Date.now()
+        };
+        localStorage.setItem('miforum-draft', JSON.stringify(draft));
+      } catch (e) {}
+    },
+
+    /** 从 localStorage 恢复草稿 */
+    restoreDraft() {
+      try {
+        const saved = localStorage.getItem('miforum-draft');
+        if (!saved) return;
+        const draft = JSON.parse(saved);
+        // 草稿超过 7 天自动清除
+        if (Date.now() - (draft.savedAt || 0) > 7 * 24 * 60 * 60 * 1000) {
+          localStorage.removeItem('miforum-draft');
+          return;
+        }
+        this.newPostTitle = draft.title || '';
+        this.newPostContent = draft.content || '';
+        this.newPostCategory = draft.category || this.postableCategories[0]?.name || 'tech';
+        this.newPostTags = draft.tags || [];
+        this.newPostPrivate = draft.isPrivate || false;
+        this.showPollForm = draft.showPollForm || false;
+        this.pollQuestion = draft.pollQuestion || '';
+        this.pollOptions = draft.pollOptions || ['', ''];
+        this.pollMultiple = draft.pollMultiple || false;
+        this.pollDuration = draft.pollDuration || '';
+      } catch (e) {}
+    },
+
+    /** 清除草稿 */
+    discardDraft() {
+      try {
+        localStorage.removeItem('miforum-draft');
+      } catch (e) {}
+    },
+
+    /** 开始自动保存草稿（每 5 秒） */
+    _startDraftAutoSave() {
+      this._stopDraftAutoSave();
+      this._draftTimer = setInterval(() => {
+        if (this.hasPostContent) this.saveDraft();
+      }, 5000);
+    },
+
+    /** 停止自动保存 */
+    _stopDraftAutoSave() {
+      if (this._draftTimer) {
+        clearInterval(this._draftTimer);
+        this._draftTimer = null;
+      }
     },
 
     resetPostForm() {
@@ -547,6 +650,8 @@ document.addEventListener('alpine:init', () => {
         const data = await res.json();
         if (!res.ok) throw new Error(data.error || '发布失败');
         this.newPostOpen = false;
+        this.discardDraft();
+        this._stopDraftAutoSave();
         if (data.points !== undefined) { this.userPoints = data.points; if (this.user) this.user.points = data.points; }
         if (this.currentCat !== 'all') this.filterCategory('all');
         else await this.loadPosts(1);
@@ -723,6 +828,77 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('toast').show('超级管理员已转让');
         await Alpine.store('auth').load();
         this.adminPanelOpen = false;
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    // Shop Management
+    async loadAdminShopItems() {
+      try {
+        const { items } = await api('/api/admin/shop/items');
+        this.adminShopItems = items;
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    resetShopItemForm() {
+      this.shopItemForm = { name: '', description: '', icon: '', type: 'title', value: '', price: 0, stock: -1, enabled: true };
+      this.editingShopItem = null;
+    },
+
+    editShopItem(item) {
+      this.editingShopItem = item;
+      this.shopItemForm = {
+        name: item.name || '',
+        description: item.description || '',
+        icon: item.icon || '',
+        type: item.type || 'title',
+        value: item.value || '',
+        price: item.price || 0,
+        stock: item.stock ?? -1,
+        enabled: !!item.enabled
+      };
+      this.showShopItemForm = true;
+    },
+
+    async saveShopItem() {
+      if (!this.shopItemForm.name.trim()) { Alpine.store('toast').show('请输入商品名称'); return; }
+      if (this.shopItemForm.price < 0) { Alpine.store('toast').show('价格不能为负数'); return; }
+      try {
+        const body = JSON.stringify(this.shopItemForm);
+        if (this.editingShopItem) {
+          await api('/api/admin/shop/items/' + this.editingShopItem.id, { method: 'PUT', body });
+          Alpine.store('toast').show('商品已更新');
+        } else {
+          await api('/api/admin/shop/items', { method: 'POST', body });
+          Alpine.store('toast').show('商品已添加');
+        }
+        this.showShopItemForm = false;
+        this.resetShopItemForm();
+        await this.loadAdminShopItems();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async toggleShopItemEnabled(item) {
+      try {
+        await api('/api/admin/shop/items/' + item.id, { method: 'PUT', body: JSON.stringify({ enabled: !item.enabled }) });
+        Alpine.store('toast').show(item.enabled ? '已下架' : '已上架');
+        await this.loadAdminShopItems();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async deleteShopItem(item) {
+      if (!confirm(`确定删除商品「${item.name}」？`)) return;
+      try {
+        const data = await api('/api/admin/shop/items/' + item.id, { method: 'DELETE' });
+        Alpine.store('toast').show(data.message || '已删除');
+        await this.loadAdminShopItems();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async loadAdminOrders(page = 1) {
+      try {
+        const data = await api('/api/admin/shop/orders?page=' + page + '&limit=20');
+        this.adminOrders = data.orders || [];
+        this.adminOrdersPagination = data.pagination || null;
       } catch (e) { Alpine.store('toast').show(e.message); }
     },
 
