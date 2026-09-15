@@ -68,6 +68,25 @@ module.exports = function (app, db) {
       params.push(userId || 0);
     }
 
+    // 过滤仅频道成员可见的板块帖子
+    if (!adminCheck) {
+      whereSql += ` AND (
+        p.category NOT IN (SELECT name FROM categories WHERE visibility = 'members' AND channel_id IS NOT NULL)
+        OR p.category IN (
+          SELECT c.name FROM categories c
+          JOIN channel_members cm ON cm.channel_id = c.channel_id AND cm.user_id = ?
+          WHERE c.visibility = 'members' AND c.channel_id IS NOT NULL
+        )
+        OR p.category IN (
+          SELECT c.name FROM categories c
+          JOIN board_visible_members bvm ON bvm.board_id = c.id AND bvm.user_id = ?
+          WHERE c.visibility = 'selected' AND c.channel_id IS NOT NULL
+        )
+        OR p.category IN (SELECT name FROM categories WHERE visibility = 'all' OR channel_id IS NULL)
+      )`;
+      params.push(userId || 0, userId || 0);
+    }
+
     if (category && category !== 'all') {
       whereSql += ' AND p.category = ?';
       params.push(category);
@@ -147,6 +166,28 @@ module.exports = function (app, db) {
       const user = userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId) : null;
       if (p.author_id !== userId && !isAdmin(user)) {
         return res.status(404).json({ error: '帖子不存在' });
+      }
+    }
+
+    // 板块可见性检查
+    const userId = req.session.userId || null;
+    const user = userId ? db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId) : null;
+    if (!isAdmin(user)) {
+      const board = db.prepare('SELECT visibility, channel_id FROM categories WHERE name = ?').get(p.category);
+      if (board && board.channel_id) {
+        if (board.visibility === 'members') {
+          const isMember = db
+            .prepare('SELECT id FROM channel_members WHERE channel_id = ? AND user_id = ?')
+            .get(board.channel_id, userId);
+          if (!isMember) return res.status(404).json({ error: '帖子不存在' });
+        } else if (board.visibility === 'selected') {
+          const isVisible = db
+            .prepare(
+              'SELECT id FROM board_visible_members WHERE board_id = (SELECT id FROM categories WHERE name = ?) AND user_id = ?'
+            )
+            .get(p.category, userId);
+          if (!isVisible) return res.status(404).json({ error: '帖子不存在' });
+        }
       }
     }
 

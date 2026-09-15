@@ -27,17 +27,25 @@ const LONG_CONTENT_THRESHOLD = 100;
  */
 function getUserInteractedCategories(db, userId) {
   if (!userId) return new Set();
-  const liked = db.prepare(`
+  const liked = db
+    .prepare(
+      `
     SELECT DISTINCT p.category FROM post_likes pl
     JOIN posts p ON p.id = pl.post_id WHERE pl.user_id = ?
-  `).all(userId);
-  const commented = db.prepare(`
+  `
+    )
+    .all(userId);
+  const commented = db
+    .prepare(
+      `
     SELECT DISTINCT p.category FROM comments c
     JOIN posts p ON p.id = c.post_id WHERE c.author_id = ?
-  `).all(userId);
+  `
+    )
+    .all(userId);
   const set = new Set();
-  liked.forEach(r => set.add(r.category));
-  commented.forEach(r => set.add(r.category));
+  liked.forEach((r) => set.add(r.category));
+  commented.forEach((r) => set.add(r.category));
   return set;
 }
 
@@ -46,17 +54,25 @@ function getUserInteractedCategories(db, userId) {
  */
 function getUserInteractedAuthors(db, userId) {
   if (!userId) return new Set();
-  const liked = db.prepare(`
+  const liked = db
+    .prepare(
+      `
     SELECT DISTINCT p.author_id FROM post_likes pl
     JOIN posts p ON p.id = pl.post_id WHERE pl.user_id = ?
-  `).all(userId);
-  const commented = db.prepare(`
+  `
+    )
+    .all(userId);
+  const commented = db
+    .prepare(
+      `
     SELECT DISTINCT p.author_id FROM comments c
     JOIN posts p ON p.id = c.post_id WHERE c.author_id = ?
-  `).all(userId);
+  `
+    )
+    .all(userId);
   const set = new Set();
-  liked.forEach(r => set.add(r.author_id));
-  commented.forEach(r => set.add(r.author_id));
+  liked.forEach((r) => set.add(r.author_id));
+  commented.forEach((r) => set.add(r.author_id));
   return set;
 }
 
@@ -64,16 +80,16 @@ function getUserInteractedAuthors(db, userId) {
  * 计算帖子的最终热度分数
  */
 function calculateScore(row, interactedCategories, interactedAuthors) {
-  const baseScore = row.likes_count * WEIGHT_LIKES
-    + row.comments_count * WEIGHT_COMMENTS
-    + row.bookmarks_count * WEIGHT_BOOKMARKS;
+  const baseScore =
+    row.likes_count * WEIGHT_LIKES + row.comments_count * WEIGHT_COMMENTS + row.bookmarks_count * WEIGHT_BOOKMARKS;
 
   const ageHours = Math.max(0, (Date.now() - new Date(row.created_at + 'Z').getTime()) / 3600000);
   const decay = 1 / Math.pow(ageHours + DECAY_OFFSET, DECAY_EXPONENT);
 
   const hasImages = parseJsonField(row.images, []).length > 0;
   const contentLength = (row.content || '').length;
-  const quality = (hasImages ? QUALITY_IMAGES : 1.0) * (contentLength > LONG_CONTENT_THRESHOLD ? QUALITY_LONG_CONTENT : 1.0);
+  const quality =
+    (hasImages ? QUALITY_IMAGES : 1.0) * (contentLength > LONG_CONTENT_THRESHOLD ? QUALITY_LONG_CONTENT : 1.0);
 
   const categoryBoost = interactedCategories.has(row.category) ? BOOST_CATEGORY : 1.0;
   const authorBoost = interactedAuthors.has(row.author_id) ? BOOST_AUTHOR : 1.0;
@@ -96,12 +112,10 @@ function getHotPosts(db, userId, page, limit) {
   page = Math.max(1, parseInt(page, 10) || 1);
   limit = Math.min(50, Math.max(1, parseInt(limit, 10) || 20));
 
-  const cutoffDate = new Date(Date.now() - MAX_AGE_DAYS * 86400000)
-    .toISOString()
-    .slice(0, 19)
-    .replace('T', ' ');
+  const cutoffDate = new Date(Date.now() - MAX_AGE_DAYS * 86400000).toISOString().slice(0, 19).replace('T', ' ');
 
   let privacyFilter = 'AND p.private = 0';
+  let visibilityFilter = '';
   const params = [cutoffDate];
 
   if (userId) {
@@ -111,12 +125,34 @@ function getHotPosts(db, userId, page, limit) {
     } else {
       privacyFilter = 'AND (p.private = 0 OR p.author_id = ?)';
       params.push(userId);
+
+      // 板块可见性过滤
+      visibilityFilter = `AND (
+        p.category NOT IN (SELECT name FROM categories WHERE visibility IN ('members', 'selected') AND channel_id IS NOT NULL)
+        OR p.category IN (
+          SELECT c.name FROM categories c
+          JOIN channel_members cm ON cm.channel_id = c.channel_id AND cm.user_id = ?
+          WHERE c.visibility = 'members' AND c.channel_id IS NOT NULL
+        )
+        OR p.category IN (
+          SELECT c.name FROM categories c
+          JOIN board_visible_members bvm ON bvm.board_id = c.id AND bvm.user_id = ?
+          WHERE c.visibility = 'selected' AND c.channel_id IS NOT NULL
+        )
+      )`;
+      params.push(userId, userId);
     }
+  } else {
+    // 未登录用户不能看到 members/selected 板块
+    visibilityFilter =
+      "AND p.category NOT IN (SELECT name FROM categories WHERE visibility IN ('members', 'selected') AND channel_id IS NOT NULL)";
   }
 
   // 先用 SQL 取候选集（按基础分数预排序，限制数量避免内存溢出）
   const candidateLimit = Math.max(200, page * limit * 3);
-  const rows = db.prepare(`
+  const rows = db
+    .prepare(
+      `
     SELECT p.*,
       pr.display_id AS author_display_id, pr.username AS author_name,
       pr.avatar_url AS author_avatar_url, pr.title AS author_title,
@@ -126,18 +162,20 @@ function getHotPosts(db, userId, page, limit) {
       (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
     FROM posts p
     LEFT JOIN profiles pr ON pr.id = p.author_id
-    WHERE p.created_at >= ? ${privacyFilter}
+    WHERE p.created_at >= ? ${privacyFilter} ${visibilityFilter}
     ORDER BY p.pinned DESC,
       ((SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) * 3 +
        (SELECT COUNT(*) FROM comments WHERE post_id = p.id) * 2 +
        (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id)) DESC
     LIMIT ?
-  `).all(...params, candidateLimit);
+  `
+    )
+    .all(...params, candidateLimit);
 
   const interactedCategories = getUserInteractedCategories(db, userId);
   const interactedAuthors = getUserInteractedAuthors(db, userId);
 
-  const scored = rows.map(row => ({
+  const scored = rows.map((row) => ({
     row,
     score: calculateScore(row, interactedCategories, interactedAuthors)
   }));

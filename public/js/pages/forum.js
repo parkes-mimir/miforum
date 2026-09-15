@@ -7,7 +7,7 @@ document.addEventListener('alpine:init', () => {
     loading: true,
     sidebarOpen: false,
     searchQuery: '',
-    currentCat: 'all',
+    currentCat: 'hot',
     currentTag: null,
     currentSort: 'newest',
     sortOptions: [
@@ -160,10 +160,9 @@ document.addEventListener('alpine:init', () => {
 
     get pageSub() {
       if (this.currentTag || this.searchQuery) return '';
-      if (this.currentCat === 'all') return '欢迎来到社区，参与讨论吧';
+      if (this.currentCat === 'hot') return '根据你的兴趣推荐的热门帖子';
       const cat = this.categoriesData.find(c => c.name === this.currentCat);
       if (cat && cat.sectionType === 'announcement') return '官方公告和通知';
-      if (cat && cat.sectionType === 'hot') return '根据你的兴趣推荐的热门帖子';
       if (cat && cat.description) return cat.description;
       return '欢迎来到社区，参与讨论吧';
     },
@@ -635,7 +634,7 @@ document.addEventListener('alpine:init', () => {
     async loadPosts(page = 1) {
       this.loading = true;
       const params = new URLSearchParams();
-      if (this.currentCat !== 'all') params.set('category', this.currentCat);
+      params.set('category', this.currentCat);
       if (this.currentTag) params.set('tag', this.currentTag);
       if (this.searchQuery) params.set('search', this.searchQuery);
       params.set('sort', this.currentSort);
@@ -694,7 +693,7 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       this.currentTag = null;
-      this.currentCat = 'all';
+      this.currentCat = 'hot';
       this.loadPosts(1);
       // 同步搜索词到 URL
       const url = new URL(window.location);
@@ -703,7 +702,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     catLabel(name) {
-      if (name === 'all') return '全部话题';
+      if (name === 'hot') return '热门';
       const c = this.categoriesData.find(c => c.name === name);
       return c ? c.label : name;
     },
@@ -714,7 +713,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     catExists(name) {
-      return name === 'all' || this.categoriesData.some(c => c.name === name);
+      return name === 'hot' || this.categoriesData.some(c => c.name === name);
     },
 
     postAvatarHtml(p) {
@@ -1015,8 +1014,9 @@ document.addEventListener('alpine:init', () => {
         this.discardDraft();
         this._stopDraftAutoSave();
         if (data.points !== undefined) { this.userPoints = data.points; if (this.user) this.user.points = data.points; }
-        if (this.currentCat !== 'all') this.filterCategory('all');
-        else await this.loadPosts(1);
+        // 发帖成功后跳转到帖子所在分类
+        const postCat = this.newPostCategory || 'tech';
+        this.filterCategory(postCat);
         Alpine.store('toast').show('发布成功！');
       } catch (e) { Alpine.store('toast').show(e.message); }
       this.submittingPost = false;
@@ -1098,7 +1098,7 @@ document.addEventListener('alpine:init', () => {
       try {
         await api('/api/categories/' + c.id, { method: 'DELETE' });
         await this.loadCategories();
-        if (this.currentCat === c.name) this.filterCategory('all');
+        if (this.currentCat === c.name) this.filterCategory('hot');
         Alpine.store('toast').show('分类已删除');
       } catch (e) { Alpine.store('toast').show(e.message); }
     },
