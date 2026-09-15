@@ -19,6 +19,23 @@ document.addEventListener('alpine:init', () => {
 
     // Data
     categoriesData: [],
+    channelsData: [],
+    channelBoards: {},
+    expandedChannels: {},
+    currentChannel: null,
+
+    // Channel management modals
+    channelModalOpen: false,
+    channelModalMode: 'create',
+    channelForm: { name: '', label: '', description: '', icon: '', joinPolicy: 'open' },
+    editingChannelId: null,
+    boardModalOpen: false,
+    boardForm: { name: '', label: '', description: '', icon: '', channelId: null },
+    channelSettingsOpen: false,
+    channelSettingsTab: 'info',
+    channelMembers: [],
+    channelSettingsForm: { label: '', description: '', icon: '', joinPolicy: 'open' },
+
     posts: [],
     tagCloud: [],
     likedIds: new Set(),
@@ -81,7 +98,13 @@ document.addEventListener('alpine:init', () => {
     adminOrdersPagination: null,
     showShopItemForm: false,
     editingShopItem: null,
-    shopItemForm: { name: '', description: '', icon: '', type: 'title', value: '', price: 0, stock: -1, enabled: true },
+    shopItemForm: { name: '', description: '', icon: '', type: 'title', value: '', titleColor: '#4f46e5', price: 0, stock: -1, enabled: true, checkinRequired: 0 },
+
+    // Redemption codes
+    redemptionCodes: [],
+    showCodeForm: false,
+    codeForm: { rewardType: 'points', rewardValue: 100, maxUses: 1, expiresAt: '' },
+
     smtp: { host: '', port: '465', secure: true, user: '', pass: '', configured: false },
     smtpStatus: '',
     smtpStatusOk: true,
@@ -203,7 +226,7 @@ document.addEventListener('alpine:init', () => {
     async init() {
       await Alpine.store('auth').load();
       this.userPoints = this.user?.points || 0;
-      await this.loadCategories();
+      await Promise.all([this.loadCategories(), this.loadChannels()]);
       await this.loadCheckin();
       // Read URL params
       const params = new URLSearchParams(window.location.search);
@@ -249,6 +272,175 @@ document.addEventListener('alpine:init', () => {
           this.newPostCategory = this.postableCategories[0]?.name || 'tech';
         }
       } catch (e) {}
+    },
+
+    async loadChannels() {
+      try {
+        const { channels } = await api('/api/channels');
+        this.channelsData = channels || [];
+        // 初始化频道展开状态（确保 Alpine.js 响应式）
+        const expanded = {};
+        const boards = {};
+        this.channelsData.forEach(ch => {
+          expanded[ch.id] = this.expandedChannels[ch.id] || false;
+          boards[ch.id] = this.channelBoards[ch.id] || null;
+        });
+        this.expandedChannels = expanded;
+        this.channelBoards = boards;
+        // 自动展开官方频道
+        const official = this.channelsData.find(c => c.is_official);
+        if (official) {
+          this.expandedChannels[official.id] = true;
+          await this.loadChannelBoards(official.id);
+        }
+      } catch (e) {}
+    },
+
+    async loadChannelBoards(channelId) {
+      try {
+        const { boards } = await api('/api/channels/' + channelId + '/boards');
+        // 创建新对象确保 Alpine.js 响应式触发
+        this.channelBoards = { ...this.channelBoards, [channelId]: boards || [] };
+      } catch (e) {
+        this.channelBoards = { ...this.channelBoards, [channelId]: [] };
+      }
+    },
+
+    async toggleChannel(channelId) {
+      // 创建新对象确保 Alpine.js 响应式触发
+      this.expandedChannels = { ...this.expandedChannels, [channelId]: !this.expandedChannels[channelId] };
+      if (this.expandedChannels[channelId] && !this.channelBoards[channelId]) {
+        await this.loadChannelBoards(channelId);
+      }
+    },
+
+    showCreateChannelModal() {
+      this.channelModalMode = 'create';
+      this.channelForm = { name: '', label: '', description: '', icon: '', joinPolicy: 'open' };
+      this.editingChannelId = null;
+      this.channelModalOpen = true;
+    },
+
+    showEditChannelModal(ch) {
+      this.channelModalMode = 'edit';
+      this.channelForm = {
+        name: ch.name,
+        label: ch.label,
+        description: ch.description || '',
+        icon: ch.icon || '',
+        joinPolicy: ch.join_policy || 'open'
+      };
+      this.editingChannelId = ch.id;
+      this.channelModalOpen = true;
+    },
+
+    async saveChannel() {
+      if (!this.channelForm.name.trim() || !this.channelForm.label.trim()) {
+        Alpine.store('toast').show('请填写频道标识和名称');
+        return;
+      }
+      try {
+        if (this.channelModalMode === 'create') {
+          await api('/api/channels', { method: 'POST', body: JSON.stringify(this.channelForm) });
+          Alpine.store('toast').show('频道创建成功');
+        } else {
+          await api('/api/channels/' + this.editingChannelId, { method: 'PUT', body: JSON.stringify(this.channelForm) });
+          Alpine.store('toast').show('频道已更新');
+        }
+        this.channelModalOpen = false;
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async deleteChannel(ch) {
+      if (!confirm(`确定删除频道「${ch.label}」？\n该频道下的所有板块将一并删除。`)) return;
+      try {
+        await api('/api/channels/' + ch.id, { method: 'DELETE' });
+        Alpine.store('toast').show('频道已删除');
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    showCreateBoardModal(channelId) {
+      this.boardForm = { name: '', label: '', description: '', icon: '', channelId };
+      this.boardModalOpen = true;
+    },
+
+    async saveBoard() {
+      if (!this.boardForm.name.trim() || !this.boardForm.label.trim()) {
+        Alpine.store('toast').show('请填写板块标识和名称');
+        return;
+      }
+      try {
+        await api('/api/categories', {
+          method: 'POST',
+          body: JSON.stringify({
+            name: this.boardForm.name,
+            label: this.boardForm.label,
+            description: this.boardForm.description,
+            icon: this.boardForm.icon,
+            channelId: this.boardForm.channelId
+          })
+        });
+        Alpine.store('toast').show('板块创建成功');
+        this.boardModalOpen = false;
+        await this.loadChannelBoards(this.boardForm.channelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    showChannelSettings(ch) {
+      this.channelSettingsForm = {
+        label: ch.label,
+        description: ch.description || '',
+        icon: ch.icon || '',
+        joinPolicy: ch.join_policy || 'open'
+      };
+      this.editingChannelId = ch.id;
+      this.channelSettingsTab = 'info';
+      this.channelSettingsOpen = true;
+      this.loadChannelMembers(ch.id);
+    },
+
+    async loadChannelMembers(channelId) {
+      try {
+        const { members } = await api('/api/channels/' + channelId + '/members');
+        this.channelMembers = members || [];
+      } catch (e) {
+        this.channelMembers = [];
+      }
+    },
+
+    async saveChannelSettings() {
+      try {
+        await api('/api/channels/' + this.editingChannelId, {
+          method: 'PUT',
+          body: JSON.stringify(this.channelSettingsForm)
+        });
+        Alpine.store('toast').show('频道设置已保存');
+        this.channelSettingsOpen = false;
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async setMemberRole(userId, role) {
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/members/' + userId + '/role', {
+          method: 'PUT',
+          body: JSON.stringify({ role })
+        });
+        Alpine.store('toast').show('角色已更新');
+        await this.loadChannelMembers(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
     },
 
     async loadCheckin() {
@@ -840,7 +1032,7 @@ document.addEventListener('alpine:init', () => {
     },
 
     resetShopItemForm() {
-      this.shopItemForm = { name: '', description: '', icon: '', type: 'title', value: '', price: 0, stock: -1, enabled: true };
+      this.shopItemForm = { name: '', description: '', icon: '', type: 'title', value: '', titleColor: '#4f46e5', price: 0, stock: -1, enabled: true, checkinRequired: 0 };
       this.editingShopItem = null;
     },
 
@@ -854,7 +1046,8 @@ document.addEventListener('alpine:init', () => {
         value: item.value || '',
         price: item.price || 0,
         stock: item.stock ?? -1,
-        enabled: !!item.enabled
+        enabled: !!item.enabled,
+        checkinRequired: item.checkin_required || 0
       };
       this.showShopItemForm = true;
     },
@@ -899,6 +1092,43 @@ document.addEventListener('alpine:init', () => {
         const data = await api('/api/admin/shop/orders?page=' + page + '&limit=20');
         this.adminOrders = data.orders || [];
         this.adminOrdersPagination = data.pagination || null;
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    // Redemption Codes
+    async loadRedemptionCodes() {
+      try {
+        const { codes } = await api('/api/admin/redemption-codes');
+        this.redemptionCodes = codes || [];
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async createRedemptionCode() {
+      if (!this.codeForm.rewardValue || this.codeForm.rewardValue <= 0) {
+        Alpine.store('toast').show('请输入有效的奖励值');
+        return;
+      }
+      try {
+        const body = {
+          rewardType: this.codeForm.rewardType,
+          rewardValue: this.codeForm.rewardValue,
+          maxUses: this.codeForm.maxUses || 1,
+          expiresAt: this.codeForm.expiresAt || null
+        };
+        const { code } = await api('/api/admin/redemption-codes', { method: 'POST', body: JSON.stringify(body) });
+        Alpine.store('toast').show(`兑换码已创建: ${code.code}`);
+        this.showCodeForm = false;
+        this.codeForm = { rewardType: 'points', rewardValue: 100, maxUses: 1, expiresAt: '' };
+        await this.loadRedemptionCodes();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async deleteRedemptionCode(code) {
+      if (!confirm(`确定删除兑换码「${code.code}」？`)) return;
+      try {
+        await api('/api/admin/redemption-codes/' + code.id, { method: 'DELETE' });
+        Alpine.store('toast').show('兑换码已删除');
+        await this.loadRedemptionCodes();
       } catch (e) { Alpine.store('toast').show(e.message); }
     },
 

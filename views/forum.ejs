@@ -61,40 +61,52 @@
         </div>
       </div>
       <div class="flex items-center justify-between mb-3 px-3">
-        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">版块分类</p>
-        <button x-show="isAdmin" @click="showCategoryModal()" class="text-xs text-gray-400 hover:text-primary-600 transition" title="管理分类">
-          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+        <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider">频道</p>
+        <button x-show="isLoggedIn" @click="showCreateChannelModal()" class="text-xs text-gray-400 hover:text-primary-600 transition" title="创建频道">
+          <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
       </div>
       <button @click="filterCategory('all')" :class="currentCat === 'all' ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 11H5m14 0a2 2 0 012 2v6a2 2 0 01-2 2H5a2 2 0 01-2-2v-6a2 2 0 012-2m14 0V9a2 2 0 00-2-2M5 11V9a2 2 0 012-2m0 0V5a2 2 0 012-2h6a2 2 0 012 2v2M7 7h10"/></svg>
         全部话题
       </button>
-      <template x-for="c in specialCategories" :key="c.id">
-        <button @click="filterCategory(c.name)" :data-cat="c.name" :class="currentCat === c.name ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-          <span class="text-lg" x-text="c.icon || (c.sectionType === 'announcement' ? '📢' : '🔥')"></span>
-          <span class="font-medium" x-text="c.label"></span>
-        </button>
+      <!-- 频道列表 -->
+      <template x-for="ch in channelsData" :key="ch.id">
+        <div class="mt-1">
+          <div class="flex items-center gap-1">
+            <button @click="toggleChannel(ch.id)" :class="currentChannel === ch.id ? 'bg-primary-50 text-primary-700' : 'text-gray-600 hover:bg-gray-50'" class="sidebar-link flex-1 flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm transition min-w-0">
+              <span class="text-lg" x-text="ch.icon || '💬'"></span>
+              <span class="font-medium flex-1 truncate" x-text="ch.label"></span>
+              <span class="text-xs text-gray-400" x-text="ch.member_count || 0"></span>
+              <svg class="w-4 h-4 text-gray-400 transition-transform flex-shrink-0" :class="expandedChannels[ch.id] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
+            </button>
+            <button x-show="ch.user_role === 'owner' || ch.user_role === 'admin' || isSuperAdmin" @click="showChannelSettings(ch)" class="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600" title="频道设置">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+          </div>
+          <!-- 频道板块列表 -->
+          <div x-show="expandedChannels[ch.id]" class="ml-4 mt-1 space-y-0.5">
+            <template x-for="board in channelBoards[ch.id] || []" :key="board.id">
+              <button @click="filterCategory(board.name)" :data-cat="board.name" :class="currentCat === board.name ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
+                <span class="text-base" x-text="board.icon || '💬'"></span>
+                <span x-text="board.label"></span>
+              </button>
+            </template>
+            <button x-show="isLoggedIn && (ch.user_role === 'owner' || ch.user_role === 'admin' || isAdmin)" @click="showCreateBoardModal(ch.id)" class="w-full flex items-center gap-2 px-3 py-2 rounded-xl text-xs text-gray-400 hover:text-primary-600 hover:bg-gray-50 transition">
+              <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+              添加板块
+            </button>
+          </div>
+        </div>
       </template>
-      <template x-if="normalCategories.length > 0">
-        <div class="mt-2 mb-1 px-3"><p class="text-[10px] font-semibold text-gray-400 uppercase tracking-wider">普通板块</p></div>
-      </template>
-      <template x-for="c in normalCategories" :key="c.id">
-        <button @click="filterCategory(c.name)" :data-cat="c.name" :class="currentCat === c.name ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-          <span class="text-base" x-text="c.icon || '💬'"></span>
-          <span x-text="c.label"></span>
-        </button>
-      </template>
-      <button x-show="isLoggedIn" @click="showCreateSectionModal()" class="w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-400 hover:text-primary-600 hover:bg-gray-50 transition mt-1">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
-        创建板块
-      </button>
+    </nav>
+    <div class="px-4 pb-4">
       <a href="/shop" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
         <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M16 11V7a4 4 0 00-8 0v4M5 9h14l1 12H4L5 9z"/></svg>
         积分商店
       </a>
-    </nav>
-    <div class="p-4">
+    </div>
+    <div class="px-4 pb-4">
       <p class="text-xs font-semibold text-gray-400 uppercase tracking-wider mb-3 px-1">热门标签</p>
       <div class="flex flex-wrap gap-1.5 px-1">
         <template x-for="t in tagCloud" :key="t.name">
@@ -426,183 +438,6 @@
   </div>
 </div>
 
-<!-- Admin Panel Modal -->
-<div x-show="adminPanelOpen" x-transition.opacity @click.self="adminPanelOpen = false" @keydown.escape.window="if(adminPanelOpen) adminPanelOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="管理面板">
-  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-2xl mx-4 max-h-[85vh] flex flex-col fade-in">
-    <div class="flex items-center justify-between p-5 border-b border-gray-100">
-      <div class="flex items-center gap-3">
-        <h2 class="text-lg font-bold">管理面板</h2>
-        <span :class="isSuperAdmin ? 'bg-red-500 text-white' : 'bg-amber-500 text-white'" class="text-xs px-2 py-0.5 rounded-full" x-text="isSuperAdmin ? '超级管理员' : '管理员'"></span>
-      </div>
-      <button @click="adminPanelOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
-    </div>
-    <div class="flex border-b border-gray-100 overflow-x-auto">
-      <button @click="adminTab = 'users'" :class="adminTab === 'users' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">用户管理</button>
-      <button @click="adminTab = 'shop'; loadAdminShopItems()" :class="adminTab === 'shop' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">商品管理</button>
-      <button @click="adminTab = 'orders'; loadAdminOrders()" :class="adminTab === 'orders' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">兑换记录</button>
-      <button @click="adminTab = 'smtp'; loadSmtpConfig()" :class="adminTab === 'smtp' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">邮箱设置</button>
-      <button @click="adminTab = 'about'; loadVersionInfo()" :class="adminTab === 'about' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-shrink-0 px-4 py-3 text-sm font-medium border-b-2 transition">关于</button>
-    </div>
-    <div x-show="adminTab === 'users'" class="flex-1 overflow-y-auto p-5 space-y-3">
-      <template x-for="u in adminUsers" :key="u.id">
-        <div class="bg-gray-50 rounded-xl p-3">
-          <div class="flex items-center gap-3">
-            <a :href="'/profile.html?id=' + u.id" class="flex-shrink-0" x-html="adminAvatarHtml(u)"></a>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2 flex-wrap">
-                <span class="text-sm font-semibold text-gray-900 truncate" x-text="u.username"></span>
-                <span class="text-xs text-gray-400" x-text="'#' + u.display_id"></span>
-                <span x-show="u.role === 'super_admin'" class="text-xs px-1.5 py-0.5 rounded bg-red-500 text-white">超管</span>
-                <span x-show="u.role === 'admin'" class="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white">管理</span>
-                <span x-show="u.muted" class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-600">已禁言</span>
-              </div>
-              <div class="text-xs text-gray-400 mt-0.5"><span x-text="u.email"></span> · <span x-text="u.points + '积分'"></span></div>
-            </div>
-          </div>
-          <div class="flex items-center gap-1.5 mt-2 flex-wrap">
-            <template x-if="isSuperAdmin && u.role !== 'super_admin'">
-              <span class="contents">
-                <button x-show="u.role !== 'admin'" @click="grantAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-amber-500 text-white hover:bg-amber-600 transition">设为管理</button>
-                <button x-show="u.role === 'admin'" @click="revokeAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">撤销管理</button>
-                <button @click="transferSuperAdmin(u)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">转让超管</button>
-              </span>
-            </template>
-            <template x-if="u.role !== 'super_admin'">
-              <span class="contents">
-                <button @click="rewardPoints(u)" class="text-xs px-2 py-1 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">奖励积分</button>
-                <button @click="toggleMute(u)" :class="u.muted ? 'bg-green-50 text-green-600 hover:bg-green-100' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="text-xs px-2 py-1 rounded-lg transition" x-text="u.muted ? '解禁' : '禁言'"></button>
-                <button @click="adminDeleteUser(u)" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-red-50 hover:text-red-500 transition">删除</button>
-              </span>
-            </template>
-          </div>
-        </div>
-      </template>
-      <p x-show="adminUsers.length === 0" class="text-sm text-gray-400 text-center py-8">暂无用户</p>
-    </div>
-
-    <!-- 商品管理 -->
-    <div x-show="adminTab === 'shop'" class="flex-1 overflow-y-auto p-5">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-sm font-semibold text-gray-700">商品列表</h3>
-        <button @click="showShopItemForm = !showShopItemForm; editingShopItem = null; resetShopItemForm()" class="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition" x-text="showShopItemForm ? '取消' : '+ 添加商品'"></button>
-      </div>
-      <!-- 商品表单 -->
-      <div x-show="showShopItemForm" class="bg-gray-50 rounded-xl p-4 mb-4 space-y-3">
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-500 mb-1">名称 *</label><input x-model="shopItemForm.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="商品名称"></div>
-          <div><label class="block text-xs text-gray-500 mb-1">类型 *</label><select x-model="shopItemForm.type" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white focus:outline-none focus:ring-2 focus:ring-primary-300"><option value="title">称号</option><option value="avatar_frame">头像框</option><option value="rename_card">改名卡</option></select></div>
-        </div>
-        <div><label class="block text-xs text-gray-500 mb-1">描述</label><input x-model="shopItemForm.description" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="商品描述"></div>
-        <div class="grid grid-cols-3 gap-3">
-          <div><label class="block text-xs text-gray-500 mb-1">图标（emoji）</label><input x-model="shopItemForm.icon" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="如：⭐"></div>
-          <div><label class="block text-xs text-gray-500 mb-1">值（称号/头像框名）</label><input x-model="shopItemForm.value" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="如：活跃达人"></div>
-          <div><label class="block text-xs text-gray-500 mb-1">价格 *</label><input x-model.number="shopItemForm.price" type="number" min="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="积分"></div>
-        </div>
-        <div class="grid grid-cols-2 gap-3">
-          <div><label class="block text-xs text-gray-500 mb-1">库存（-1 为无限）</label><input x-model.number="shopItemForm.stock" type="number" min="-1" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm focus:outline-none focus:ring-2 focus:ring-primary-300" placeholder="-1"></div>
-          <div class="flex items-end pb-2"><label class="flex items-center gap-2 cursor-pointer"><input x-model="shopItemForm.enabled" type="checkbox" class="w-4 h-4 rounded text-primary-600"><span class="text-sm text-gray-600">上架</span></label></div>
-        </div>
-        <button @click="saveShopItem()" class="w-full py-2 bg-primary-600 text-white text-sm font-semibold rounded-lg hover:bg-primary-700 transition" x-text="editingShopItem ? '保存修改' : '添加商品'"></button>
-      </div>
-      <!-- 商品列表 -->
-      <div class="space-y-2">
-        <template x-for="item in adminShopItems" :key="item.id">
-          <div class="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-            <span class="text-2xl" x-text="item.icon || '🎁'"></span>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-900" x-text="item.name"></span>
-                <span class="text-xs px-1.5 py-0.5 rounded bg-gray-200 text-gray-600" x-text="item.type"></span>
-                <span x-show="!item.enabled" class="text-xs px-1.5 py-0.5 rounded bg-red-100 text-red-500">已下架</span>
-              </div>
-              <div class="text-xs text-gray-400 mt-0.5"><span x-text="item.price + ' 积分'"></span> · <span x-text="item.stock === -1 ? '无限库存' : '库存 ' + item.stock"></span><span x-show="item.value"> · <span x-text="item.value"></span></span></div>
-            </div>
-            <div class="flex gap-1.5">
-              <button @click="editShopItem(item)" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-primary-50 hover:text-primary-600 transition">编辑</button>
-              <button @click="toggleShopItemEnabled(item)" class="text-xs px-2 py-1 rounded-lg transition" :class="item.enabled ? 'bg-amber-50 text-amber-600 hover:bg-amber-100' : 'bg-green-50 text-green-600 hover:bg-green-100'" x-text="item.enabled ? '下架' : '上架'"></button>
-              <button @click="deleteShopItem(item)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button>
-            </div>
-          </div>
-        </template>
-        <p x-show="adminShopItems.length === 0" class="text-sm text-gray-400 text-center py-8">暂无商品</p>
-      </div>
-    </div>
-
-    <!-- 兑换记录 -->
-    <div x-show="adminTab === 'orders'" class="flex-1 overflow-y-auto p-5">
-      <h3 class="text-sm font-semibold text-gray-700 mb-4">兑换记录</h3>
-      <div class="space-y-2">
-        <template x-for="o in adminOrders" :key="o.id">
-          <div class="bg-gray-50 rounded-xl p-3 flex items-center gap-3">
-            <span class="text-xl" x-text="o.item_icon || '🎁'"></span>
-            <div class="flex-1 min-w-0">
-              <div class="flex items-center gap-2">
-                <span class="text-sm font-medium text-gray-900" x-text="o.username || '未知用户'"></span>
-                <span class="text-xs text-gray-400" x-text="'#' + o.display_id"></span>
-                <span class="text-xs text-gray-400">兑换了</span>
-                <span class="text-sm font-medium text-primary-600" x-text="o.item_name"></span>
-              </div>
-              <div class="text-xs text-gray-400 mt-0.5"><span x-text="'-' + o.price + ' 积分'"></span> · <span x-text="relTime(o.created_at)"></span></div>
-            </div>
-          </div>
-        </template>
-        <p x-show="adminOrders.length === 0" class="text-sm text-gray-400 text-center py-8">暂无兑换记录</p>
-      </div>
-      <div x-show="adminOrdersPagination && adminOrdersPagination.pages > 1" class="flex justify-center gap-2 mt-4">
-        <button x-show="adminOrdersPagination.page > 1" @click="loadAdminOrders(adminOrdersPagination.page - 1)" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">上一页</button>
-        <span class="px-3 py-1.5 text-sm text-gray-500" x-text="adminOrdersPagination.page + ' / ' + adminOrdersPagination.pages"></span>
-        <button x-show="adminOrdersPagination.page < adminOrdersPagination.pages" @click="loadAdminOrders(adminOrdersPagination.page + 1)" class="px-3 py-1.5 text-sm border rounded-lg hover:bg-gray-50">下一页</button>
-      </div>
-    </div>
-
-    <div x-show="adminTab === 'smtp'" class="flex-1 overflow-y-auto p-5">
-      <div class="space-y-4 max-w-md mx-auto">
-        <div><label class="block text-xs font-medium text-gray-500 mb-1">SMTP 主机</label><input x-model="smtp.host" type="text" placeholder="smtp.qq.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-        <div class="flex gap-3">
-          <div class="flex-1"><label class="block text-xs font-medium text-gray-500 mb-1">端口</label><input x-model="smtp.port" type="text" placeholder="465" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-          <div class="flex items-end pb-2.5"><label class="flex items-center gap-2 cursor-pointer"><input x-model="smtp.secure" type="checkbox" checked class="w-4 h-4 rounded text-primary-600 focus:ring-primary-500"><span class="text-sm text-gray-600">SSL</span></label></div>
-        </div>
-        <div><label class="block text-xs font-medium text-gray-500 mb-1">发件邮箱</label><input x-model="smtp.user" type="email" placeholder="your@qq.com" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
-        <div>
-          <label class="block text-xs font-medium text-gray-500 mb-1">SMTP 密码/授权码</label>
-          <input x-model="smtp.pass" type="password" :placeholder="smtp.configured ? '已配置（留空不修改）' : '输入密码或授权码'" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
-          <p class="text-xs text-gray-400 mt-1">QQ邮箱需要授权码，在邮箱设置中获取</p>
-        </div>
-        <div class="flex gap-3 pt-2">
-          <button @click="saveSmtpConfig()" class="flex-1 py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存配置</button>
-          <button @click="testSmtpConfig()" class="flex-1 py-2.5 border border-gray-200 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-50 transition">测试连接</button>
-        </div>
-        <div x-show="smtpStatus" :class="smtpStatusOk ? 'text-green-600' : 'text-red-500'" class="text-center text-sm" x-text="smtpStatus"></div>
-      </div>
-    </div>
-    <div x-show="adminTab === 'about'" class="flex-1 overflow-y-auto p-5">
-      <div class="max-w-md mx-auto space-y-6">
-        <div class="text-center">
-          <div class="w-16 h-16 mx-auto mb-3 bg-gradient-to-br from-primary-500 to-primary-700 rounded-2xl flex items-center justify-center">
-            <svg class="w-8 h-8 text-white" viewBox="0 0 24 24" fill="currentColor"><path d="M12 2C6.48 2 2 6.48 2 12c0 1.85.5 3.58 1.36 5.07L2 22l4.93-1.36C8.42 21.5 10.15 22 12 22c5.52 0 10-4.48 10-10S17.52 2 12 2zm0 18c-1.61 0-3.14-.39-4.48-1.07l-.32-.17-2.93.81.81-2.93-.17-.32C4.39 15.14 4 13.61 4 12c0-4.41 3.59-8 8-8s8 3.59 8 8-3.59 8-8 8z"/></svg>
-          </div>
-          <h2 class="text-xl font-bold text-gray-900">MiForum</h2>
-          <p class="text-sm text-gray-500 mt-1">Flarum 风格的轻量论坛</p>
-        </div>
-        <div class="bg-gray-50 rounded-xl p-4 space-y-3">
-          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">当前版本</span><span class="text-sm font-medium text-gray-900" x-text="'v' + aboutVersion"></span></div>
-          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">许可证</span><span class="text-sm font-medium text-gray-900">MIT</span></div>
-          <div class="flex justify-between items-center"><span class="text-sm text-gray-600">GitHub</span><a href="https://github.com/parkes-mimir/miforum" target="_blank" class="text-sm font-medium text-primary-600 hover:underline">parkes-mimir/miforum</a></div>
-        </div>
-        <div class="space-y-3">
-          <button @click="checkUpdate()" :disabled="updateChecking" class="w-full py-2.5 bg-gray-100 text-gray-700 text-sm font-medium rounded-xl hover:bg-gray-200 transition" x-text="updateChecking ? '检查中...' : '检查更新'"></button>
-          <div x-show="updateResult" :class="updateResultOk ? 'text-green-600' : 'text-amber-600'" class="text-center text-sm" x-html="updateResult"></div>
-          <button x-show="updateHasNew" @click="doUpdate()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">立即更新</button>
-        </div>
-        <div class="text-center text-xs text-gray-400 pt-4">
-          <p>Node.js + Express + SQLite</p>
-          <p class="mt-1">Tailwind CSS + Alpine.js</p>
-        </div>
-      </div>
-    </div>
-  </div>
-</div>
-
 <!-- Create Section Modal -->
 <div x-show="createSectionOpen" x-transition.opacity @click.self="createSectionOpen = false" @keydown.escape.window="if(createSectionOpen) createSectionOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建板块">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
@@ -617,6 +452,123 @@
       <div><label class="block text-xs font-medium text-gray-500 mb-1">图标（emoji，可选）</label><input x-model="newSection.icon" type="text" placeholder="如：🎮" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
     </div>
     <button @click="doCreateSection()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">创建</button>
+  </div>
+</div>
+
+<!-- Channel Modal (Create/Edit) -->
+<div x-show="channelModalOpen" x-transition.opacity @click.self="channelModalOpen = false" @keydown.escape.window="if(channelModalOpen) channelModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建频道">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold" x-text="channelModalMode === 'create' ? '创建频道' : '编辑频道'"></h2>
+      <button @click="channelModalOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-3">
+      <div x-show="channelModalMode === 'create'">
+        <label class="block text-xs font-medium text-gray-500 mb-1">频道标识（英文）</label>
+        <input x-model="channelForm.name" type="text" placeholder="如：gaming、music" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">频道名称</label>
+        <input x-model="channelForm.label" type="text" placeholder="如：游戏频道" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">简介（可选）</label>
+        <textarea x-model="channelForm.description" rows="2" placeholder="频道简介" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">图标（emoji）</label>
+        <input x-model="channelForm.icon" type="text" placeholder="如：🎮" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">加入策略</label>
+        <select x-model="channelForm.joinPolicy" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+          <option value="open">所有人可加入</option>
+          <option value="verify">需要审核</option>
+          <option value="deny">不允许加入</option>
+        </select>
+      </div>
+    </div>
+    <button @click="saveChannel()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4" x-text="channelModalMode === 'create' ? '创建频道' : '保存修改'"></button>
+  </div>
+</div>
+
+<!-- Board Modal -->
+<div x-show="boardModalOpen" x-transition.opacity @click.self="boardModalOpen = false" @keydown.escape.window="if(boardModalOpen) boardModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建板块">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">创建板块</h2>
+      <button @click="boardModalOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-3">
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">板块标识（英文）</label><input x-model="boardForm.name" type="text" placeholder="如：pubg、valorant" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">板块名称</label><input x-model="boardForm.label" type="text" placeholder="如：绝地求生" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">简介（可选）</label><input x-model="boardForm.description" type="text" placeholder="板块简介" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+      <div><label class="block text-xs font-medium text-gray-500 mb-1">图标（emoji）</label><input x-model="boardForm.icon" type="text" placeholder="如：🎯" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition"></div>
+    </div>
+    <button @click="saveBoard()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">创建板块</button>
+  </div>
+</div>
+
+<!-- Channel Settings Modal -->
+<div x-show="channelSettingsOpen" x-transition.opacity @click.self="channelSettingsOpen = false" @keydown.escape.window="if(channelSettingsOpen) channelSettingsOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="频道设置">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-lg mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">频道设置</h2>
+      <button @click="channelSettingsOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex border-b border-gray-100">
+      <button @click="channelSettingsTab = 'info'" :class="channelSettingsTab === 'info' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">信息</button>
+      <button @click="channelSettingsTab = 'members'; loadChannelMembers(editingChannelId)" :class="channelSettingsTab === 'members' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">成员</button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <!-- Info Tab -->
+      <div x-show="channelSettingsTab === 'info'" class="space-y-4">
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">频道名称</label>
+          <input x-model="channelSettingsForm.label" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">简介</label>
+          <textarea x-model="channelSettingsForm.description" rows="2" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">图标</label>
+          <input x-model="channelSettingsForm.icon" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+        </div>
+        <div>
+          <label class="block text-xs font-medium text-gray-500 mb-1">加入策略</label>
+          <select x-model="channelSettingsForm.joinPolicy" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+            <option value="open">所有人可加入</option>
+            <option value="verify">需要审核</option>
+            <option value="deny">不允许加入</option>
+          </select>
+        </div>
+        <button @click="saveChannelSettings()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存设置</button>
+      </div>
+      <!-- Members Tab -->
+      <div x-show="channelSettingsTab === 'members'">
+        <div class="space-y-2">
+          <template x-for="m in channelMembers" :key="m.user_id">
+            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+              <div x-html="avatarHtml(m.avatar_url, m.username?.[0]?.toUpperCase(), 'w-8 h-8')" class="flex-shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <div class="flex items-center gap-2">
+                  <span class="text-sm font-medium text-gray-900 truncate" x-text="m.username"></span>
+                  <span class="text-xs text-gray-400" x-text="'#' + m.display_id"></span>
+                  <span x-show="m.role === 'owner'" class="text-xs px-1.5 py-0.5 rounded bg-amber-500 text-white">频道主</span>
+                  <span x-show="m.role === 'admin'" class="text-xs px-1.5 py-0.5 rounded bg-primary-500 text-white">管理员</span>
+                </div>
+              </div>
+              <div x-show="m.role !== 'owner'" class="flex gap-1">
+                <button x-show="m.role === 'member'" @click="setMemberRole(m.user_id, 'admin')" class="text-xs px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition">设为管理</button>
+                <button x-show="m.role === 'admin'" @click="setMemberRole(m.user_id, 'member')" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition">取消管理</button>
+              </div>
+            </div>
+          </template>
+          <p x-show="channelMembers.length === 0" class="text-sm text-gray-400 text-center py-8">暂无成员</p>
+        </div>
+      </div>
+    </div>
   </div>
 </div>
 

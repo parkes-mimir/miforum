@@ -55,41 +55,59 @@ module.exports = function registerShopRoutes(app, db) {
       }
     }
 
+    // 检查连续签到天数要求
+    if (item.checkin_required > 0) {
+      const today = new Date().toISOString().slice(0, 10);
+      const checkins = db
+        .prepare('SELECT check_in_date FROM check_ins WHERE user_id = ? ORDER BY check_in_date DESC')
+        .all(userId)
+        .map((c) => c.check_in_date);
+
+      // 计算连续签到天数
+      let streak = 0;
+      let checkDate = today;
+      for (const date of checkins) {
+        if (date === checkDate) {
+          streak++;
+          // 前一天
+          const d = new Date(checkDate + 'T00:00:00Z');
+          d.setUTCDate(d.getUTCDate() - 1);
+          checkDate = d.toISOString().slice(0, 10);
+        } else if (date < checkDate) {
+          break;
+        }
+      }
+
+      if (streak < item.checkin_required) {
+        return res.status(400).json({
+          error: `需要连续签到 ${item.checkin_required} 天才能兑换，当前连续签到 ${streak} 天`
+        });
+      }
+    }
+
     const doExchange = db.transaction(() => {
       db.prepare('UPDATE profiles SET points = points - ? WHERE id = ?').run(item.price, userId);
       if (item.stock > 0) db.prepare('UPDATE shop_items SET stock = stock - 1 WHERE id = ?').run(item.id);
 
       db.prepare(
-        `
-        INSERT INTO shop_orders (user_id, item_id, item_name, item_type, price, status, created_at)
-        VALUES (?, ?, ?, ?, ?, 'completed', datetime('now'))
-      `
+        `INSERT INTO shop_orders (user_id, item_id, item_name, item_type, price, status, created_at)
+        VALUES (?, ?, ?, ?, ?, 'completed', datetime('now'))`
       ).run(userId, item.id, item.name, item.type, item.price);
 
-      if (item.type === 'rename_card') {
-        db.prepare('UPDATE profiles SET rename_chances = rename_chances + 1 WHERE id = ?').run(userId);
-      } else if (item.type === 'title') {
-        db.prepare('UPDATE profiles SET title = ? WHERE id = ?').run(item.value, userId);
-      } else if (item.type === 'avatar_frame') {
-        db.prepare('UPDATE profiles SET avatar_frame = ? WHERE id = ?').run(
-          item.value === 'none' ? null : item.value,
-          userId
-        );
+      if (item.type === 'title') {
+        db.prepare('UPDATE profiles SET title = ? WHERE id = ?').run(item.value || item.name, userId);
       }
+      // "other" 类型只记录兑换，无实际效果
     });
     doExchange();
 
-    const updatedUser = db
-      .prepare('SELECT points, rename_chances, title, avatar_frame FROM profiles WHERE id = ?')
-      .get(userId);
+    const updatedUser = db.prepare('SELECT points, title FROM profiles WHERE id = ?').get(userId);
     res.json({
       ok: true,
       message: `成功兑换 ${item.name}`,
       order: { itemId: item.id, itemName: item.name, itemType: item.type, price: item.price },
       points: updatedUser.points || 0,
-      renameChances: updatedUser.rename_chances || 0,
-      title: updatedUser.title || null,
-      avatarFrame: updatedUser.avatar_frame || null
+      title: updatedUser.title || null
     });
   });
 
@@ -153,11 +171,11 @@ module.exports = function registerShopRoutes(app, db) {
 
   /** 创建商品 */
   app.post('/api/admin/shop/items', requireAdmin, (req, res) => {
-    const { name, description, icon, type, value, price, stock } = req.body;
+    const { name, description, icon, type, value, price, stock, checkinRequired } = req.body;
     if (!name || !type || price === undefined) {
       return res.status(400).json({ error: '缺少必填字段（name, type, price）' });
     }
-    const validTypes = ['title', 'avatar_frame', 'rename_card'];
+    const validTypes = ['title', 'other'];
     if (!validTypes.includes(type)) {
       return res.status(400).json({ error: '无效的商品类型，支持：title, avatar_frame, rename_card' });
     }
@@ -166,8 +184,8 @@ module.exports = function registerShopRoutes(app, db) {
     const result = db
       .prepare(
         `
-      INSERT INTO shop_items (name, description, icon, type, value, price, stock, enabled)
-      VALUES (?, ?, ?, ?, ?, ?, ?, 1)
+      INSERT INTO shop_items (name, description, icon, type, value, price, stock, enabled, checkin_required)
+      VALUES (?, ?, ?, ?, ?, ?, ?, 1, ?)
     `
       )
       .run(
@@ -177,7 +195,8 @@ module.exports = function registerShopRoutes(app, db) {
         type,
         value || null,
         Math.floor(price),
-        stock !== undefined ? Math.floor(stock) : -1
+        stock !== undefined ? Math.floor(stock) : -1,
+        checkinRequired ? Math.floor(checkinRequired) : 0
       );
 
     const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(result.lastInsertRowid);
@@ -189,13 +208,9 @@ module.exports = function registerShopRoutes(app, db) {
     const itemId = Number(req.params.id);
     const item = db.prepare('SELECT * FROM shop_items WHERE id = ?').get(itemId);
     if (!item) return res.status(404).json({ error: '商品不存在' });
-
-    const { name, description, icon, value, price, stock, enabled } = req.body;
+    const { name, description, icon, value, price, stock, enabled, checkinRequired } = req.body;
     db.prepare(
-      `
-      UPDATE shop_items SET name = ?, description = ?, icon = ?, value = ?, price = ?, stock = ?, enabled = ?
-      WHERE id = ?
-    `
+      'UPDATE shop_items SET name = ?, description = ?, icon = ?, value = ?, price = ?, stock = ?, enabled = ?, checkin_required = ? WHERE id = ?'
     ).run(
       name !== undefined ? String(name).slice(0, 50) : item.name,
       description !== undefined ? String(description).slice(0, 200) : item.description,
@@ -204,6 +219,7 @@ module.exports = function registerShopRoutes(app, db) {
       price !== undefined ? Math.floor(price) : item.price,
       stock !== undefined ? Math.floor(stock) : item.stock,
       enabled !== undefined ? (enabled ? 1 : 0) : item.enabled,
+      checkinRequired !== undefined ? Math.floor(checkinRequired) : item.checkin_required,
       itemId
     );
 

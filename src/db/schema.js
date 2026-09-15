@@ -90,7 +90,8 @@ const SCHEMA_SQL = `
     value TEXT,
     price INTEGER NOT NULL,
     stock INTEGER DEFAULT -1,
-    enabled INTEGER DEFAULT 1
+    enabled INTEGER DEFAULT 1,
+    checkin_required INTEGER DEFAULT 0
   );
 
   -- 订单表
@@ -142,7 +143,7 @@ const SCHEMA_SQL = `
   );
   CREATE INDEX IF NOT EXISTS idx_exp_log_user_date ON exp_log(user_id, date);
 
-  -- 分类表
+  -- 分类表（板块）
   CREATE TABLE IF NOT EXISTS categories (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT UNIQUE NOT NULL,
@@ -152,8 +153,79 @@ const SCHEMA_SQL = `
     icon TEXT DEFAULT '',
     section_type TEXT DEFAULT 'normal',
     created_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
+    channel_id INTEGER REFERENCES channels(id) ON DELETE CASCADE,
+    visibility TEXT DEFAULT 'all',
+    post_policy TEXT DEFAULT 'members',
     sort_order INTEGER DEFAULT 0
   );
+
+  -- 频道表
+  CREATE TABLE IF NOT EXISTS channels (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT UNIQUE NOT NULL,
+    label TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    icon TEXT DEFAULT '',
+    color TEXT DEFAULT 'bg-gray-100 text-gray-700',
+    created_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
+    is_official INTEGER DEFAULT 0,
+    join_policy TEXT DEFAULT 'open',
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- 频道成员表
+  CREATE TABLE IF NOT EXISTS channel_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    role TEXT DEFAULT 'member',
+    joined_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(channel_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id);
+  CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id);
+
+  -- 板块可见成员表
+  CREATE TABLE IF NOT EXISTS board_visible_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    UNIQUE(board_id, user_id)
+  );
+
+  -- 板块可发帖成员表
+  CREATE TABLE IF NOT EXISTS board_post_members (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    board_id INTEGER NOT NULL REFERENCES categories(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    UNIQUE(board_id, user_id)
+  );
+
+  -- 兑换码表
+  CREATE TABLE IF NOT EXISTS redemption_codes (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code TEXT UNIQUE NOT NULL,
+    reward_type TEXT NOT NULL,
+    reward_value TEXT NOT NULL,
+    max_uses INTEGER DEFAULT 1,
+    used_count INTEGER DEFAULT 0,
+    expires_at TEXT,
+    created_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+  CREATE INDEX IF NOT EXISTS idx_redemption_code ON redemption_codes(code);
+
+  -- 兑换码使用记录表
+  CREATE TABLE IF NOT EXISTS redemption_usage (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    code_id INTEGER NOT NULL REFERENCES redemption_codes(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    used_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(code_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_redemption_usage_code ON redemption_usage(code_id);
+  CREATE INDEX IF NOT EXISTS idx_redemption_usage_user ON redemption_usage(user_id);
 
   -- 索引
   CREATE INDEX IF NOT EXISTS idx_posts_author ON posts(author_id);

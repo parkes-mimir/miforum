@@ -35,6 +35,8 @@ document.addEventListener('alpine:init', () => {
     exchangeOpen: false,
     exchangeItem: null,
     exchanging: false,
+    redeemCode: '',
+    redeeming: false,
 
     get items() { return Alpine.store('shop').items; },
     get orders() { return Alpine.store('shop').orders; },
@@ -99,6 +101,25 @@ document.addEventListener('alpine:init', () => {
         Alpine.store('toast').show(e.message);
       } finally {
         this.exchanging = false;
+      }
+    },
+
+    async redeemCodeFn() {
+      if (!this.redeemCode.trim() || this.redeeming) return;
+      this.redeeming = true;
+      try {
+        const result = await api('/api/redemption/redeem', {
+          method: 'POST',
+          body: JSON.stringify({ code: this.redeemCode.trim() })
+        });
+        Alpine.store('toast').show(result.message);
+        if (result.points !== undefined) Alpine.store('auth').user.points = result.points;
+        this.redeemCode = '';
+        await Alpine.store('shop').loadOrders();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      } finally {
+        this.redeeming = false;
       }
     }
   }));

@@ -27,6 +27,30 @@ function registerRoutes(app, db) {
   require('../controllers/auth')(app, db);
 
   // ============================================================
+  // 频道相关
+  // ============================================================
+  // GET    /api/channels            频道列表
+  // GET    /api/channels/:id        频道详情
+  // POST   /api/channels            创建频道
+  // PUT    /api/channels/:id        编辑频道
+  // DELETE /api/channels/:id        删除频道
+  // POST   /api/channels/:id/join   加入频道
+  // POST   /api/channels/:id/leave  退出频道
+  // GET    /api/channels/:id/members 频道成员列表
+  // PUT    /api/channels/:id/members/:uid/role 设置成员角色
+  // GET    /api/channels/:id/boards 频道板块列表
+  require('../controllers/channels')(app, db);
+
+  // ============================================================
+  // 兑换码
+  // ============================================================
+  // GET    /api/admin/redemption-codes    管理员兑换码列表
+  // POST   /api/admin/redemption-codes    创建兑换码
+  // DELETE /api/admin/redemption-codes/:id 删除兑换码
+  // POST   /api/redemption/redeem         用户兑换
+  require('../controllers/redemption')(app, db);
+
+  // ============================================================
   // 帖子相关
   // ============================================================
   // GET    /api/posts              帖子列表

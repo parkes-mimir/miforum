@@ -34,7 +34,11 @@ Flarum 风格的轻量论坛，Alpine.js 前端，Node.js + Express 后端，SQL
 - 经验值系统（注册+50、签到+10、发帖+20、评论+5）
 - 装备系统（称号/头像框切换）
 - 等级排行榜
-- 关于页面（版本信息、检查更新、自动更新）
+- 管理面板（标签页切换：用户管理、商品管理、兑换码、兑换记录、邮箱设置、关于）
+- 管理面板移动端适配（自动换行布局、增大点击区域）
+- 兑换码系统（管理员创建兑换码，用户兑换积分）
+- 积分商店管理（商品 CRUD、上下架、签到天数限制）
+- 关于页面（GitHub 项目链接、版本信息、检查更新、自动更新）
 - 响应式布局（Tailwind CSS，适配手机和桌面）
 - 主题系统（亮色/暗色模式 + 5种主题色，localStorage 持久化）
 - 自定义表情（默认 emoji + 自定义图片上传 + 一键收藏）
@@ -131,12 +135,14 @@ docker-compose down
 │   │   ├── checkin.js          # 签到系统
 │   │   ├── likes.js            # 点赞/收藏
 │   │   ├── shop.js             # 积分商店
+│   │   ├── redemption.js       # 兑换码系统
 │   │   ├── level.js            # 经验值/等级
 │   │   ├── profile.js          # 个人资料
 │   │   ├── notifications.js    # 通知系统
 │   │   ├── messages.js         # 私信系统
 │   │   ├── polls.js            # 投票系统
 │   │   ├── emoji.js            # 表情系统
+│   │   ├── channels.js         # 频道/板块系统
 │   │   ├── admin-users.js      # 管理员-用户管理
 │   │   ├── admin-categories.js # 管理员-分类管理
 │   │   ├── admin-system.js     # 管理员-系统设置
@@ -163,7 +169,9 @@ docker-compose down
 │   ├── post.ejs                # 帖子详情
 │   ├── profile.ejs             # 个人资料
 │   ├── shop.ejs                # 积分商店
-│   └── messages.ejs            # 消息中心
+│   ├── admin.ejs               # 管理面板
+│   ├── messages.ejs            # 消息中心
+│   └── 404.ejs                 # 404 页面
 │
 ├── public/                     # 前端静态资源
 │   ├── js/
@@ -222,6 +230,7 @@ docker-compose down
 | 签到 | 5 | 自动签到、历史、补签 |
 | 点赞/收藏 | 7 | 点赞、取消、列表、收藏 |
 | 商店 | 6 | 商品、兑换、装备、卸下 |
+| 兑换码 | 4 | 创建、删除、列表、用户兑换 |
 | 等级 | 1 | 排行榜 |
 | 用户 | 4 | 资料、修改、帖子、点赞 |
 | 通知 | 4 | 列表、未读数、已读 |
@@ -263,7 +272,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.5** — 帖子草稿功能 + 防误触保护
+**最新版本 v1.2.6** — 管理面板标签页切换 + 移动端适配 + 兑换码系统
 
 ## 声明
 

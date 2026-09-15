@@ -2,7 +2,7 @@
  * admin-categories.js - 分类管理控制器
  *
  * 提供分类的创建、编辑、删除功能，
- * 支持管理员分类和用户自定义板块。
+ * 支持频道内板块管理和用户自定义板块。
  */
 
 const { requireAuth, requireAdmin: requireAdminFactory } = require('../middleware/auth');
@@ -13,8 +13,15 @@ const VALID_SECTION_TYPES = ['announcement', 'hot', 'normal'];
 module.exports = function (app, db) {
   const requireAdmin = requireAdminFactory(db);
 
+  /** 获取分类列表（支持按频道筛选） */
   app.get('/api/categories', (req, res) => {
-    const cats = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
+    const channelId = req.query.channelId;
+    let cats;
+    if (channelId) {
+      cats = db.prepare('SELECT * FROM categories WHERE channel_id = ? ORDER BY sort_order ASC').all(Number(channelId));
+    } else {
+      cats = db.prepare('SELECT * FROM categories ORDER BY sort_order ASC').all();
+    }
     res.json({
       categories: cats.map((c) => ({
         id: c.id,
@@ -24,14 +31,18 @@ module.exports = function (app, db) {
         color: c.color,
         icon: c.icon || '',
         sectionType: c.section_type || 'normal',
+        channelId: c.channel_id,
+        visibility: c.visibility || 'all',
+        postPolicy: c.post_policy || 'members',
         order: c.sort_order,
         created_by: c.created_by
       }))
     });
   });
 
+  /** 管理员创建板块 */
   app.post('/api/categories', requireAdmin, (req, res) => {
-    const { name, label, description, color, icon, sectionType } = req.body;
+    const { name, label, description, color, icon, sectionType, channelId, visibility, postPolicy } = req.body;
     if (!name || !label) return res.status(400).json({ error: '请填写分类标识和名称' });
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).json({ error: '分类标识只能包含英文、数字、下划线' });
     if (name.length < 2 || name.length > 20) return res.status(400).json({ error: '分类标识2-20字符' });
@@ -49,10 +60,22 @@ module.exports = function (app, db) {
     const result = db
       .prepare(
         `
-      INSERT INTO categories (name, label, description, color, icon, section_type, sort_order) VALUES (?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO categories (name, label, description, color, icon, section_type, channel_id, visibility, post_policy, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
       )
-      .run(name.slice(0, 20), label, description || '', color || 'bg-gray-100 text-gray-700', icon || '', type, order);
+      .run(
+        name.slice(0, 20),
+        label,
+        description || '',
+        color || 'bg-gray-100 text-gray-700',
+        icon || '',
+        type,
+        channelId || null,
+        visibility || 'all',
+        postPolicy || 'members',
+        order
+      );
 
     res.json({
       ok: true,
@@ -64,13 +87,17 @@ module.exports = function (app, db) {
         color: color || 'bg-gray-100 text-gray-700',
         icon: icon || '',
         sectionType: type,
+        channelId: channelId || null,
+        visibility: visibility || 'all',
+        postPolicy: postPolicy || 'members',
         order
       }
     });
   });
 
+  /** 用户创建板块 */
   app.post('/api/categories/user', requireAuth, (req, res) => {
-    const { name, label, description, color, icon } = req.body;
+    const { name, label, description, color, icon, channelId } = req.body;
     if (!name || !label) return res.status(400).json({ error: '请填写板块标识和名称' });
     if (!/^[a-zA-Z0-9_-]+$/.test(name)) return res.status(400).json({ error: '板块标识只能包含英文、数字、下划线' });
     if (name.length < 2 || name.length > 20) return res.status(400).json({ error: '板块标识2-20字符' });
@@ -91,7 +118,8 @@ module.exports = function (app, db) {
     const result = db
       .prepare(
         `
-      INSERT INTO categories (name, label, description, color, icon, section_type, created_by, sort_order) VALUES (?, ?, ?, ?, ?, 'normal', ?, ?)
+      INSERT INTO categories (name, label, description, color, icon, section_type, created_by, channel_id, visibility, post_policy, sort_order)
+      VALUES (?, ?, ?, ?, ?, 'normal', ?, ?, ?, ?, ?)
     `
       )
       .run(
@@ -101,6 +129,9 @@ module.exports = function (app, db) {
         color || 'bg-gray-100 text-gray-700',
         icon || '',
         req.session.userId,
+        channelId || null,
+        'all',
+        'members',
         order
       );
 
@@ -114,43 +145,56 @@ module.exports = function (app, db) {
         color: color || 'bg-gray-100 text-gray-700',
         icon: icon || '',
         sectionType: 'normal',
+        channelId: channelId || null,
+        visibility: 'all',
+        postPolicy: 'members',
         order
       }
     });
   });
 
+  /** 编辑板块 */
   app.put('/api/categories/:id', requireAdmin, (req, res) => {
-    const { label, description, color, icon, order } = req.body;
+    const { label, description, color, icon, order, visibility, postPolicy } = req.body;
     if (label && label.length > 20) return res.status(400).json({ error: '分类名称最多20字' });
     const cid = Number(req.params.id);
     const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
     if (!cat) return res.status(404).json({ error: '分类不存在' });
 
     db.prepare(
-      'UPDATE categories SET label = ?, description = ?, color = ?, icon = ?, sort_order = ? WHERE id = ?'
+      `
+      UPDATE categories SET label = ?, description = ?, color = ?, icon = ?, sort_order = ?, visibility = ?, post_policy = ?
+      WHERE id = ?
+    `
     ).run(
       label || cat.label,
       description !== undefined ? description : cat.description,
       color || cat.color,
       icon !== undefined ? icon : cat.icon,
       order !== undefined ? Number(order) : cat.sort_order,
+      visibility || cat.visibility || 'all',
+      postPolicy || cat.post_policy || 'members',
       cid
     );
 
+    const updated = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
     res.json({
       ok: true,
       category: {
         id: cid,
-        name: cat.name,
-        label: label || cat.label,
-        description: description !== undefined ? description : cat.description,
-        color: color || cat.color,
-        icon: icon !== undefined ? icon : cat.icon,
-        order: order !== undefined ? Number(order) : cat.sort_order
+        name: updated.name,
+        label: updated.label,
+        description: updated.description,
+        color: updated.color,
+        icon: updated.icon,
+        order: updated.sort_order,
+        visibility: updated.visibility,
+        postPolicy: updated.post_policy
       }
     });
   });
 
+  /** 删除板块 */
   app.delete('/api/categories/:id', requireAdmin, (req, res) => {
     const cid = Number(req.params.id);
     const cat = db.prepare('SELECT * FROM categories WHERE id = ?').get(cid);
@@ -160,7 +204,6 @@ module.exports = function (app, db) {
     }
 
     db.transaction(() => {
-      // 确保 uncategorized 分类存在
       const uncategorized = db.prepare("SELECT id FROM categories WHERE name = 'uncategorized'").get();
       if (!uncategorized) {
         const maxOrder = db.prepare('SELECT MAX(sort_order) as m FROM categories').get();
@@ -175,6 +218,7 @@ module.exports = function (app, db) {
     res.json({ ok: true });
   });
 
+  /** 获取标签云 */
   app.get('/api/tags', (req, res) => {
     const rows = db
       .prepare(

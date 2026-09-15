@@ -71,8 +71,12 @@ function injectThemeCSS() {
     [data-theme="dark"] textarea,
     [data-theme="dark"] select { background-color: var(--card); color: var(--txt); border-color: var(--bdr); }
     [data-theme="dark"] .skeleton { background: linear-gradient(90deg, #334155 25%, #475569 50%, #334155 75%) !important; }
+    /* 滚动条 - Chrome/Safari */
     [data-theme="dark"] ::-webkit-scrollbar-thumb { background: #475569; }
     [data-theme="dark"] ::-webkit-scrollbar-track { background: #1e293b; }
+    /* 滚动条 - Firefox */
+    [data-theme="dark"] .overflow-y-auto,
+    [data-theme="dark"] .overflow-x-auto { scrollbar-color: #475569 #1e293b; }
 
     /* 暗色模式 hover 状态 */
     [data-theme="dark"] .hover\\:bg-gray-50:hover { background-color: #1e293b; }

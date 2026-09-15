@@ -33,7 +33,7 @@
             </div>
           </a>
           <% if (typeof showAdminButton !== 'undefined' && showAdminButton) { %>
-          <button x-show="isAdmin" @click="$dispatch('open-admin-panel')" class="text-xs text-gray-400 hover:text-amber-600 ml-1 transition" title="管理面板">管理</button>
+          <button x-show="isAdmin" @click="location.href='/admin'" class="text-xs text-gray-400 hover:text-amber-600 ml-1 transition" title="管理面板">管理</button>
           <% } %>
           <button @click="logout()" class="text-xs text-gray-400 hover:text-gray-600 ml-1">退出</button>
           <button @click="$store.theme.toggleDark()" class="p-2 rounded-lg hover:bg-gray-100 transition ml-1" :title="$store.theme.isDark ? '切换亮色' : '切换暗色'">

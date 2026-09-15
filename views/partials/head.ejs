@@ -27,9 +27,17 @@
   @keyframes fadeIn{from{opacity:0;transform:translateY(-8px)}to{opacity:1;transform:translateY(0)}}
   .toast-in{animation:slideUp .3s ease-out}
   @keyframes slideUp{from{opacity:0;transform:translateY(20px)}to{opacity:1;transform:translateY(0)}}
-  ::-webkit-scrollbar{width:6px}::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+  /* 滚动条 - Chrome/Safari */
+  ::-webkit-scrollbar{width:6px}
+  ::-webkit-scrollbar-thumb{background:#cbd5e1;border-radius:3px}
+  /* 滚动条 - Firefox（仅应用于可滚动容器） */
+  .overflow-y-auto,.overflow-x-auto{scrollbar-width:thin;scrollbar-color:#cbd5e1 transparent}
   .skeleton{background:linear-gradient(90deg,#e2e8f0 25%,#f1f5f9 50%,#e2e8f0 75%);background-size:200% 100%;animation:shimmer 1.5s infinite}
   @keyframes shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  .line-clamp-1{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:1}
+  .line-clamp-2{overflow:hidden;display:-webkit-box;-webkit-box-orient:vertical;-webkit-line-clamp:2}
+  /* Firefox 暗色模式滚动条 */
+  [data-theme="dark"] *{scrollbar-color:#475569 #1e293b}
 </style>
 <script type="speculationrules">
 {

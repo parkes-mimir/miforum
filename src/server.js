@@ -270,6 +270,7 @@ function createApp() {
   app.get('/shop', renderPage('shop'));
   app.get('/messages', renderPage('messages'));
   app.get('/profile.html', renderPage('profile'));
+  app.get('/admin', renderPage('admin'));
 
   // 帖子详情页：服务端查询帖子数据用于 OG 标签（微信/社交分享卡片）
   app.get('/post.html', (req, res) => {

@@ -67,28 +67,71 @@ function createTables() {
     ['profiles', 'avatar_frame', 'TEXT'],
     ['profiles', 'force_password_change', 'INTEGER DEFAULT 0'],
     ['posts', 'private', 'INTEGER DEFAULT 0'],
-    ['categories', 'description', 'TEXT DEFAULT \'\''],
-    ['categories', 'icon', 'TEXT DEFAULT \'\''],
-    ['categories', 'section_type', 'TEXT DEFAULT \'normal\''],
+    ['categories', 'description', "TEXT DEFAULT ''"],
+    ['categories', 'icon', "TEXT DEFAULT ''"],
+    ['categories', 'section_type', "TEXT DEFAULT 'normal'"],
     ['categories', 'created_by', 'INTEGER'],
     ['profiles', 'theme', "TEXT DEFAULT 'auto'"],
-    ['profiles', 'theme_color', "TEXT DEFAULT 'purple'"]
+    ['profiles', 'theme_color', "TEXT DEFAULT 'purple'"],
+    ['categories', 'channel_id', 'INTEGER'],
+    ['categories', 'visibility', "TEXT DEFAULT 'all'"],
+    ['categories', 'post_policy', "TEXT DEFAULT 'members'"],
+    ['shop_items', 'checkin_required', 'INTEGER DEFAULT 0']
   ];
   for (const [table, column, definition] of migrations) {
     ensureColumn(table, column, definition);
   }
 
   // 迁移：更新超管 display_id 从 '000' 到 '000000'
-  const admin = db.prepare('SELECT id, display_id FROM profiles WHERE email = \'root@miforum.local\'').get();
+  const admin = db.prepare("SELECT id, display_id FROM profiles WHERE email = 'root@miforum.local'").get();
   if (admin && admin.display_id === '000') {
-    db.prepare('UPDATE profiles SET display_id = \'000000\' WHERE id = ?').run(admin.id);
+    db.prepare("UPDATE profiles SET display_id = '000000' WHERE id = ?").run(admin.id);
   }
 
   // 删除已废弃的「无头像框」商品
-  const noneItem = db.prepare('SELECT id FROM shop_items WHERE value = \'none\' AND type = \'avatar_frame\'').get();
+  const noneItem = db.prepare("SELECT id FROM shop_items WHERE value = 'none' AND type = 'avatar_frame'").get();
   if (noneItem) {
     db.prepare('DELETE FROM shop_orders WHERE item_id = ?').run(noneItem.id);
     db.prepare('DELETE FROM shop_items WHERE id = ?').run(noneItem.id);
+  }
+
+  // 频道系统迁移：创建官方频道并将现有板块归入
+  const officialChannel = db.prepare('SELECT id FROM channels WHERE is_official = 1').get();
+  if (!officialChannel) {
+    console.log('  → 创建官方频道...');
+    const result = db
+      .prepare(
+        `
+      INSERT INTO channels (name, label, description, icon, is_official, join_policy, sort_order)
+      VALUES ('official', '官方频道', 'MiForum 官方频道', '🏠', 1, 'open', 0)
+    `
+      )
+      .run();
+    const channelId = result.lastInsertRowid;
+
+    // 将现有板块归入官方频道
+    db.prepare('UPDATE categories SET channel_id = ? WHERE channel_id IS NULL').run(channelId);
+
+    // 超管自动成为官方频道 owner
+    const superAdmin = db.prepare("SELECT id FROM profiles WHERE role = 'super_admin' LIMIT 1").get();
+    if (superAdmin) {
+      db.prepare('INSERT OR IGNORE INTO channel_members (channel_id, user_id, role) VALUES (?, ?, ?)').run(
+        channelId,
+        superAdmin.id,
+        'owner'
+      );
+    }
+
+    // 所有用户自动成为官方频道成员
+    const allUsers = db.prepare('SELECT id FROM profiles').all();
+    const insertMember = db.prepare(
+      'INSERT OR IGNORE INTO channel_members (channel_id, user_id, role) VALUES (?, ?, ?)'
+    );
+    for (const user of allUsers) {
+      insertMember.run(channelId, user.id, 'member');
+    }
+
+    console.log(`  ✓ 官方频道创建完成 (ID: ${channelId})`);
   }
 }
 
@@ -96,14 +139,33 @@ function createTables() {
  * 字段迁移：若表中不存在指定列则 ALTER ADD
  */
 function ensureColumn(table, column, definition) {
-  const allowedTables = ['profiles', 'posts', 'comments', 'check_ins', 'post_likes', 'bookmarks', 'shop_items', 'shop_orders', 'categories', 'verification_codes', 'settings', 'exp_log', 'custom_emoji', 'user_emoji'];
+  const allowedTables = [
+    'profiles',
+    'posts',
+    'comments',
+    'check_ins',
+    'post_likes',
+    'bookmarks',
+    'shop_items',
+    'shop_orders',
+    'categories',
+    'verification_codes',
+    'settings',
+    'exp_log',
+    'custom_emoji',
+    'user_emoji',
+    'channels',
+    'channel_members',
+    'board_visible_members',
+    'board_post_members'
+  ];
   const columnRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   if (!allowedTables.includes(table) || !columnRegex.test(column)) {
     console.error(`  ✗ ensureColumn 参数无效: table=${table}, column=${column}`);
     return;
   }
   const cols = db.prepare(`PRAGMA table_info(${table})`).all();
-  if (!cols.some(c => c.name === column)) {
+  if (!cols.some((c) => c.name === column)) {
     db.exec(`ALTER TABLE ${table} ADD COLUMN ${column} ${definition}`);
     console.log(`  ✓ 已为 ${table} 表添加字段 ${column}`);
   }
@@ -114,12 +176,16 @@ function ensureColumn(table, column, definition) {
  * @returns {string} 六位数ID
  */
 function getNextDisplayId() {
-  const row = db.prepare(`
+  const row = db
+    .prepare(
+      `
     SELECT display_id FROM profiles 
     WHERE display_id != '000000' 
     ORDER BY CAST(display_id AS INTEGER) DESC 
     LIMIT 1
-  `).get();
+  `
+    )
+    .get();
 
   if (!row) return '000001';
 

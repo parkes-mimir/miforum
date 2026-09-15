@@ -18,6 +18,18 @@ module.exports = defineConfig({
         screenshot: 'on',
       },
     },
+    {
+      name: 'firefox',
+      use: {
+        browserName: 'firefox',
+        launchOptions: {
+          executablePath: '/run/current-system/sw/bin/firefox',
+        },
+        baseURL: 'http://localhost:3000',
+        headless: true,
+        screenshot: 'on',
+      },
+    },
   ],
   webServer: {
     command: 'node src/server.js',
