@@ -166,8 +166,7 @@ function registerRoutes(app, db) {
   // PUT    /api/admin/users/:id/mute    禁言
   // DELETE /api/admin/users/:id     删除用户
   // PUT    /api/posts/:id/pin       置顶帖子
-  // PUT    /api/admin/users/:id/points        设置积分
-  // PUT    /api/admin/users/:id/points/add    增加积分
+  // PUT    /api/admin/users/:id/points      设置积分
   require('../controllers/admin-users')(app, db);
 
   // ============================================================

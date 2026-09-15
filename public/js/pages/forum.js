@@ -964,17 +964,6 @@ document.addEventListener('alpine:init', () => {
       return avatarHtml(u.avatar_url, u.username?.[0]?.toUpperCase(), 'w-9 h-9');
     },
 
-    rewardPoints(u) {
-      const amount = prompt(`奖励「${u.username}」多少积分？`, '100');
-      if (!amount) return;
-      const num = parseInt(amount, 10);
-      if (!Number.isFinite(num) || num <= 0 || num > 10000) { Alpine.store('toast').show('积分必须为1-10000'); return; }
-      const reason = prompt('奖励原因（可选）', '反馈bug奖励') || '';
-      api('/api/admin/users/' + u.id + '/points/add', { method: 'PUT', body: JSON.stringify({ amount: num, reason }) })
-        .then(data => { Alpine.store('toast').show(data.message || '奖励成功'); this.loadAdminUsers(); })
-        .catch(e => Alpine.store('toast').show(e.message));
-    },
-
     async toggleMute(u) {
       if (!confirm(`确认${u.muted ? '解禁' : '禁言'}用户「${u.username}」？`)) return;
       try {

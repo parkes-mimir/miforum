@@ -134,16 +134,4 @@ module.exports = function (app, db) {
     db.prepare('UPDATE profiles SET points = ? WHERE id = ?').run(Math.floor(points), uid);
     res.json({ ok: true, points: Math.floor(points) });
   });
-
-  app.put('/api/admin/users/:id/points/add', requireAdmin, (req, res) => {
-    const uid = Number(req.params.id);
-    const user = db.prepare('SELECT id, points FROM profiles WHERE id = ?').get(uid);
-    if (!user) return res.status(404).json({ error: '用户不存在' });
-    const { amount, reason } = req.body;
-    if (!Number.isFinite(amount) || amount <= 0) return res.status(400).json({ error: '积分必须为正数' });
-    if (amount > 10000) return res.status(400).json({ error: '单次最多增加 10000 积分' });
-    db.prepare('UPDATE profiles SET points = points + ? WHERE id = ?').run(amount, uid);
-    const updated = db.prepare('SELECT points FROM profiles WHERE id = ?').get(uid);
-    res.json({ ok: true, points: updated.points, message: `已奖励 ${amount} 积分${reason ? '：' + reason : ''}` });
-  });
 };

@@ -49,7 +49,6 @@
             </template>
             <template x-if="u.role !== 'super_admin'">
               <span class="contents">
-                <button @click="rewardPoints(u)" class="text-[11px] px-2 py-1 rounded bg-green-50 text-green-600 hover:bg-green-100">奖分</button>
                 <button @click="toggleMute(u)" :class="u.muted ? 'bg-green-50 text-green-600' : 'bg-gray-100 text-gray-500'" class="text-[11px] px-2 py-1 rounded hover:opacity-80" x-text="u.muted ? '解禁' : '禁言'"></button>
                 <button @click="deleteUser(u)" class="text-[11px] px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100">删除</button>
               </span>

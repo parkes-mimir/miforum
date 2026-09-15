@@ -24,9 +24,7 @@ beforeAll(async () => {
   app = createApp();
   registerRoutes(app, db);
 
-  await request(app)
-    .post('/api/register')
-    .send({ username: randomUsername, email: randomEmail, password: '123456' });
+  await request(app).post('/api/register').send({ username: randomUsername, email: randomEmail, password: '123456' });
 
   userAgent = request.agent(app);
   await userAgent.post('/api/login').send({ email: randomEmail, password: '123456' });
@@ -35,17 +33,11 @@ beforeAll(async () => {
   userId = meRes.body.user?.id;
 
   adminAgent = request.agent(app);
-  const adminLogin = await adminAgent
-    .post('/api/login')
-    .send({ email: 'root@miforum.local', password: '123456' });
+  const adminLogin = await adminAgent.post('/api/login').send({ email: 'root@miforum.local', password: '123456' });
 
   if (adminLogin.body.user?.force_password_change) {
-    await adminAgent
-      .post('/api/change-password')
-      .send({ oldPassword: '123456', newPassword: 'admin123' });
-    await adminAgent
-      .post('/api/login')
-      .send({ email: 'root@miforum.local', password: 'admin123' });
+    await adminAgent.post('/api/change-password').send({ oldPassword: '123456', newPassword: 'admin123' });
+    await adminAgent.post('/api/login').send({ email: 'root@miforum.local', password: 'admin123' });
   }
 });
 
@@ -56,7 +48,9 @@ afterAll(() => {
 
 describe('帖子高级功能', () => {
   test('POST /api/posts - 创建帖子', async () => {
-    const res = await userAgent.post('/api/posts').send({ title: 'ApiTest Post', content: 'Content for search', category: 'tech', tags: ['js', 'search'] });
+    const res = await userAgent
+      .post('/api/posts')
+      .send({ title: 'ApiTest Post', content: 'Content for search', category: 'tech', tags: ['js', 'search'] });
     expect(res.status).toBe(200);
     expect(res.body).toHaveProperty('postId');
     postId = res.body.postId;
@@ -66,13 +60,13 @@ describe('帖子高级功能', () => {
     const res = await request(app).get('/api/posts?search=ApiTest');
     expect(res.status).toBe(200);
     expect(res.body.posts.length).toBeGreaterThan(0);
-    expect(res.body.posts.some(p => p.title.includes('ApiTest'))).toBe(true);
+    expect(res.body.posts.some((p) => p.title.includes('ApiTest'))).toBe(true);
   });
 
   test('GET /api/posts - 分类筛选', async () => {
     const res = await request(app).get('/api/posts?category=tech');
     expect(res.status).toBe(200);
-    expect(res.body.posts.every(p => p.category === 'tech')).toBe(true);
+    expect(res.body.posts.every((p) => p.category === 'tech')).toBe(true);
   });
 
   test('GET /api/posts - 标签筛选', async () => {
@@ -137,7 +131,7 @@ describe('商店高级功能', () => {
 
   test('POST /api/shop/equip - 未购买', async () => {
     const items = await request(app).get('/api/shop/items');
-    const titleItem = items.body.items.find(i => i.type === 'title');
+    const titleItem = items.body.items.find((i) => i.type === 'title');
     if (titleItem) {
       const res = await userAgent.post('/api/shop/equip').send({ itemId: titleItem.id });
       expect(res.status).toBe(403);
@@ -157,22 +151,6 @@ describe('商店高级功能', () => {
 });
 
 describe('管理员高级功能', () => {
-  test('PUT /api/admin/users/:id/points/add - 奖励积分', async () => {
-    const res = await adminAgent.put(`/api/admin/users/${userId}/points/add`).send({ amount: 50, reason: 'test reward' });
-    expect(res.status).toBe(200);
-    expect(res.body.points).toBeGreaterThanOrEqual(50);
-  });
-
-  test('PUT /api/admin/users/:id/points/add - 无效金额(负数)', async () => {
-    const res = await adminAgent.put(`/api/admin/users/${userId}/points/add`).send({ amount: -1 });
-    expect(res.status).toBe(400);
-  });
-
-  test('PUT /api/admin/users/:id/points/add - 无效金额(零)', async () => {
-    const res = await adminAgent.put(`/api/admin/users/${userId}/points/add`).send({ amount: 0 });
-    expect(res.status).toBe(400);
-  });
-
   test('POST /api/categories - 创建分类', async () => {
     const res = await adminAgent.post('/api/categories').send({ name: 'apitestcat', label: 'APITest Category' });
     expect(res.status).toBe(200);
@@ -186,7 +164,7 @@ describe('管理员高级功能', () => {
 
   test('PUT /api/categories/:id - 更新分类', async () => {
     const cats = await request(app).get('/api/categories');
-    const cat = cats.body.categories.find(c => c.name === 'apitestcat');
+    const cat = cats.body.categories.find((c) => c.name === 'apitestcat');
     if (cat) {
       const res = await adminAgent.put(`/api/categories/${cat.id}`).send({ label: 'Updated Label' });
       expect(res.status).toBe(200);
@@ -196,7 +174,7 @@ describe('管理员高级功能', () => {
 
   test('DELETE /api/categories/:id - 删除分类', async () => {
     const cats = await request(app).get('/api/categories');
-    const cat = cats.body.categories.find(c => c.name === 'apitestcat');
+    const cat = cats.body.categories.find((c) => c.name === 'apitestcat');
     if (cat) {
       const res = await adminAgent.delete(`/api/categories/${cat.id}`);
       expect(res.status).toBe(200);
@@ -216,7 +194,9 @@ describe('通知 API', () => {
 
   test('POST /api/like/:postId - 触发点赞通知', async () => {
     // 先用管理员发一个帖子
-    const postRes = await adminAgent.post('/api/posts').send({ title: 'Notify Test Post', content: 'For notification test', category: 'tech' });
+    const postRes = await adminAgent
+      .post('/api/posts')
+      .send({ title: 'Notify Test Post', content: 'For notification test', category: 'tech' });
     const adminPostId = postRes.body.postId;
 
     // 用户点赞管理员的帖子 -> 管理员应收到通知
@@ -234,7 +214,7 @@ describe('通知 API', () => {
   test('GET /api/notifications - 按类型筛选', async () => {
     const res = await adminAgent.get('/api/notifications?type=like');
     expect(res.status).toBe(200);
-    expect(res.body.notifications.every(n => n.type === 'like')).toBe(true);
+    expect(res.body.notifications.every((n) => n.type === 'like')).toBe(true);
   });
 
   test('GET /api/notifications/unread-count - 未读数量', async () => {
@@ -323,7 +303,9 @@ describe('私信 API', () => {
 
   test('GET /api/conversations/:id/messages - 非参与者拒绝', async () => {
     // 创建另一个用户
-    const otherRes = await request(app).post('/api/register').send({ username: 'othermsg', email: 'othermsg@test.com', password: '123456' });
+    const otherRes = await request(app)
+      .post('/api/register')
+      .send({ username: 'othermsg', email: 'othermsg@test.com', password: '123456' });
     const otherAgent = request.agent(app);
     await otherAgent.post('/api/login').send({ email: 'othermsg@test.com', password: '123456' });
 
@@ -336,7 +318,9 @@ describe('私密帖子', () => {
   let privatePostId;
 
   test('POST /api/posts - 创建私密帖子', async () => {
-    const res = await userAgent.post('/api/posts').send({ title: 'Private Post', content: 'Secret content', category: 'tech', private: true });
+    const res = await userAgent
+      .post('/api/posts')
+      .send({ title: 'Private Post', content: 'Secret content', category: 'tech', private: true });
     expect(res.status).toBe(200);
     privatePostId = res.body.postId;
   });
@@ -363,7 +347,7 @@ describe('私密帖子', () => {
     const otherAgent = request.agent(app);
     await otherAgent.post('/api/login').send({ email: 'othermsg@test.com', password: '123456' });
     const res = await otherAgent.get('/api/posts');
-    const found = res.body.posts.find(p => p.id === privatePostId);
+    const found = res.body.posts.find((p) => p.id === privatePostId);
     expect(found).toBeUndefined();
   });
 });
@@ -484,9 +468,10 @@ describe('安全测试补充', () => {
 
   test('速率限制头存在', async () => {
     const res = await request(app).get('/api/posts');
-    const hasRateLimitHeader = res.headers['ratelimit-limit'] !== undefined
-      || res.headers['ratelimit-remaining'] !== undefined
-      || res.headers['x-ratelimit-limit'] !== undefined;
+    const hasRateLimitHeader =
+      res.headers['ratelimit-limit'] !== undefined ||
+      res.headers['ratelimit-remaining'] !== undefined ||
+      res.headers['x-ratelimit-limit'] !== undefined;
     expect(hasRateLimitHeader).toBe(true);
   });
 });
@@ -513,11 +498,12 @@ describe('表情 API', () => {
 
   test('POST /api/emoji - 登录后上传表情', async () => {
     // 创建一个 1x1 PNG 图片并转为 base64
-    const pngBuffer = Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==', 'base64');
+    const pngBuffer = Buffer.from(
+      'iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAYAAAAfFcSJAAAADUlEQVR42mNk+M9QDwADhgGAWjR9awAAAABJRU5ErkJggg==',
+      'base64'
+    );
     const imageData = `data:image/png;base64,${pngBuffer.toString('base64')}`;
-    const res = await userAgent
-      .post('/api/emoji')
-      .send({ imageData });
+    const res = await userAgent.post('/api/emoji').send({ imageData });
     expect(res.status).toBe(200);
     expect(res.body.ok).toBe(true);
     expect(res.body.emoji).toHaveProperty('id');

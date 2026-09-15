@@ -75,31 +75,40 @@ module.exports = function (app, db) {
     const validPolicies = ['open', 'verify', 'deny'];
     const policy = validPolicies.includes(joinPolicy) ? joinPolicy : 'open';
 
-    const result = db
-      .prepare(
-        `
-      INSERT INTO channels (name, label, description, icon, color, created_by, join_policy, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM channels))
-    `
-      )
-      .run(
-        name.slice(0, 20),
-        label,
-        (description || '').slice(0, 200),
-        icon || '',
-        color || 'bg-gray-100 text-gray-700',
+    const result = db.transaction(() => {
+      // 扣除积分
+      db.prepare('UPDATE profiles SET points = points - 500 WHERE id = ?').run(userId);
+
+      const result = db
+        .prepare(
+          `
+        INSERT INTO channels (name, label, description, icon, color, created_by, join_policy, sort_order)
+        VALUES (?, ?, ?, ?, ?, ?, ?, (SELECT COALESCE(MAX(sort_order), 0) + 1 FROM channels))
+      `
+        )
+        .run(
+          name.slice(0, 20),
+          label,
+          (description || '').slice(0, 200),
+          icon || '',
+          color || 'bg-gray-100 text-gray-700',
+          userId,
+          policy
+        );
+
+      const channelId = result.lastInsertRowid;
+
+      // 创建者自动成为 owner
+      db.prepare('INSERT INTO channel_members (channel_id, user_id, role) VALUES (?, ?, ?)').run(
+        channelId,
         userId,
-        policy
+        'owner'
       );
 
-    const channelId = result.lastInsertRowid;
+      return { channelId, result };
+    })();
 
-    // 创建者自动成为 owner
-    db.prepare('INSERT INTO channel_members (channel_id, user_id, role) VALUES (?, ?, ?)').run(
-      channelId,
-      userId,
-      'owner'
-    );
+    const channelId = result.channelId;
 
     const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channelId);
     res.json({ ok: true, channel });
