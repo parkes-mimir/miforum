@@ -186,8 +186,27 @@ module.exports = function (app, db) {
       } else {
         // Git 模式：拉取最新代码
         try {
+          // 检查是否有未提交的更改
+          const gitStatus = execSync('git status --porcelain', { cwd: safePath(projectRoot), timeout: 10000 })
+            .toString()
+            .trim();
+          if (gitStatus) {
+            // 有未提交的更改，先暂存
+            execSync('git stash', { cwd: safePath(projectRoot), timeout: 10000 });
+          }
+
+          // 拉取最新代码
           execSync('git fetch origin main', { cwd: safePath(projectRoot), timeout: 30000 });
           execSync('git reset --hard origin/main', { cwd: safePath(projectRoot), timeout: 30000 });
+
+          // 如果之前有暂存的更改，尝试恢复
+          if (gitStatus) {
+            try {
+              execSync('git stash pop', { cwd: safePath(projectRoot), timeout: 10000 });
+            } catch (e) {
+              console.warn('恢复暂存的更改失败:', e.message);
+            }
+          }
         } catch (gitErr) {
           throw new Error('Git 拉取失败: ' + gitErr.message);
         }
@@ -200,9 +219,22 @@ module.exports = function (app, db) {
 
         res.json({
           ok: true,
-          message: '更新成功，需要重启服务器才能生效',
+          message: '更新成功，正在重启服务器...',
           backup: backupName
         });
+
+        // 延迟重启，让响应先发送
+        setTimeout(() => {
+          console.log('正在重启服务器以应用更新...');
+          // 根据环境选择重启方式
+          if (process.env.DOCKER_CONTAINER) {
+            // Docker 环境：发送信号让容器重启
+            process.kill(1, 'SIGUSR2');
+          } else {
+            // 直接退出，由 PM2/systemd 自动重启
+            process.exit(0);
+          }
+        }, 2000);
       }
     } catch (err) {
       res.status(500).json({ error: '更新失败: ' + err.message });

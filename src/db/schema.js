@@ -186,6 +186,21 @@ const SCHEMA_SQL = `
   CREATE INDEX IF NOT EXISTS idx_channel_members_user ON channel_members(user_id);
   CREATE INDEX IF NOT EXISTS idx_channel_members_channel ON channel_members(channel_id);
 
+  -- 频道加入申请表
+  CREATE TABLE IF NOT EXISTS channel_join_requests (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    channel_id INTEGER NOT NULL REFERENCES channels(id) ON DELETE CASCADE,
+    user_id INTEGER NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+    status TEXT DEFAULT 'pending',
+    reason TEXT DEFAULT '',
+    created_at TEXT DEFAULT (datetime('now')),
+    reviewed_at TEXT,
+    reviewed_by INTEGER REFERENCES profiles(id) ON DELETE SET NULL,
+    UNIQUE(channel_id, user_id)
+  );
+  CREATE INDEX IF NOT EXISTS idx_channel_join_requests_channel ON channel_join_requests(channel_id, status);
+  CREATE INDEX IF NOT EXISTS idx_channel_join_requests_user ON channel_join_requests(user_id);
+
   -- 板块可见成员表
   CREATE TABLE IF NOT EXISTS board_visible_members (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

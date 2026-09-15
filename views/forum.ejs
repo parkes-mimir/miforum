@@ -80,8 +80,14 @@
               <span class="text-xs text-gray-400" x-text="ch.member_count || 0"></span>
               <svg class="w-4 h-4 text-gray-400 transition-transform flex-shrink-0" :class="expandedChannels[ch.id] ? 'rotate-90' : ''" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"/></svg>
             </button>
+            <button x-show="isLoggedIn && !ch.user_role && ch.join_policy !== 'deny'" @click="showJoinChannelModal(ch)" class="p-1.5 rounded-lg hover:bg-primary-50 transition text-primary-500 hover:text-primary-600" title="加入频道">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
+            </button>
             <button x-show="ch.user_role === 'owner' || ch.user_role === 'admin' || isSuperAdmin" @click="showChannelSettings(ch)" class="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600" title="频道设置">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
+            </button>
+            <button x-show="(ch.user_role === 'owner' || ch.user_role === 'admin' || isSuperAdmin) && ch.join_policy === 'verify'" @click="showChannelRequests(ch)" class="p-1.5 rounded-lg hover:bg-amber-50 transition text-amber-500 hover:text-amber-600" title="审核申请">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"/></svg>
             </button>
           </div>
           <!-- 频道板块列表 -->
@@ -455,6 +461,55 @@
   </div>
 </div>
 
+<!-- Join Channel Modal -->
+<div x-show="joinChannelModalOpen" x-transition.opacity @click.self="joinChannelModalOpen = false" @keydown.escape.window="if(joinChannelModalOpen) joinChannelModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="加入频道">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
+    <div class="flex items-center justify-between mb-5">
+      <h2 class="text-lg font-bold">加入频道</h2>
+      <button @click="joinChannelModalOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="space-y-3">
+      <p class="text-sm text-gray-600">确定加入「<span x-text="joinChannelName" class="font-medium"></span>」？</p>
+      <div x-show="channelsData.find(c => c.id === joinChannelId)?.join_policy === 'verify'">
+        <label class="block text-xs font-medium text-gray-500 mb-1">申请理由（可选）</label>
+        <textarea x-model="joinReason" rows="2" placeholder="简单介绍一下自己" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+      </div>
+    </div>
+    <button @click="joinChannel()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition mt-4">确认加入</button>
+  </div>
+</div>
+
+<!-- Channel Requests Modal -->
+<div x-show="channelRequestsOpen" x-transition.opacity @click.self="channelRequestsOpen = false" @keydown.escape.window="if(channelRequestsOpen) channelRequestsOpen = false" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="审核申请">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[80vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">审核申请</h2>
+      <button @click="channelRequestsOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div class="space-y-3">
+        <template x-for="r in channelRequests" :key="r.id">
+          <div class="p-3 bg-gray-50 rounded-xl">
+            <div class="flex items-center gap-3 mb-2">
+              <div x-html="avatarHtml(r.avatar_url, r.username?.[0]?.toUpperCase(), 'w-8 h-8')" class="flex-shrink-0"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900" x-text="r.username"></div>
+                <div class="text-xs text-gray-400" x-text="'#' + r.display_id"></div>
+              </div>
+            </div>
+            <p x-show="r.reason" class="text-xs text-gray-500 mb-2" x-text="'理由：' + r.reason"></p>
+            <div class="flex gap-2">
+              <button @click="reviewRequest(r.id, 'approve')" class="flex-1 text-xs py-1.5 rounded-lg bg-green-50 text-green-600 hover:bg-green-100 transition">批准</button>
+              <button @click="reviewRequest(r.id, 'reject')" class="flex-1 text-xs py-1.5 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">拒绝</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="channelRequests.length === 0" class="text-sm text-gray-400 text-center py-8">暂无待审核的申请</p>
+      </div>
+    </div>
+  </div>
+</div>
+
 <!-- Channel Modal (Create/Edit) -->
 <div x-show="channelModalOpen" x-transition.opacity @click.self="channelModalOpen = false" @keydown.escape.window="if(channelModalOpen) channelModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建频道">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 p-6 fade-in">
@@ -493,7 +548,7 @@
 </div>
 
 <!-- Board Modal -->
-<div x-show="boardModalOpen" x-transition.opacity @click.self="boardModalOpen = false" @keydown.escape.window="if(boardModalOpen) boardModalOpen = false" class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建板块">
+<div x-show="boardModalOpen" x-transition.opacity @click.self="boardModalOpen = false" @keydown.escape.window="if(boardModalOpen) boardModalOpen = false" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="创建板块">
   <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 p-6 fade-in">
     <div class="flex items-center justify-between mb-5">
       <h2 class="text-lg font-bold">创建板块</h2>
@@ -519,6 +574,7 @@
     <div class="flex border-b border-gray-100">
       <button @click="channelSettingsTab = 'info'" :class="channelSettingsTab === 'info' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">信息</button>
       <button @click="channelSettingsTab = 'members'; loadChannelMembers(editingChannelId)" :class="channelSettingsTab === 'members' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">成员</button>
+      <button @click="channelSettingsTab = 'boards'; loadChannelBoardsList(editingChannelId)" :class="channelSettingsTab === 'boards' ? 'text-primary-600 border-primary-600' : 'text-gray-400 border-transparent'" class="flex-1 py-3 text-sm font-medium border-b-2 transition">板块</button>
     </div>
     <div class="flex-1 overflow-y-auto p-5">
       <!-- Info Tab -->
@@ -568,12 +624,127 @@
           <p x-show="channelMembers.length === 0" class="text-sm text-gray-400 text-center py-8">暂无成员</p>
         </div>
       </div>
+      <!-- Boards Tab -->
+      <div x-show="channelSettingsTab === 'boards'">
+        <div class="space-y-3">
+          <div class="flex justify-end">
+            <button @click="showCreateBoardModal(editingChannelId)" class="text-xs px-3 py-1.5 rounded-lg bg-primary-600 text-white hover:bg-primary-700 transition">添加板块</button>
+          </div>
+          <template x-for="board in channelBoardsList" :key="board.id">
+            <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+              <div class="w-8 h-8 rounded-lg flex items-center justify-center text-sm" :class="board.color" x-text="board.icon || board.label[0]"></div>
+              <div class="flex-1 min-w-0">
+                <div class="text-sm font-medium text-gray-900 truncate" x-text="board.label"></div>
+                <div class="flex items-center gap-2 mt-0.5">
+                  <span class="text-xs text-gray-400" x-text="'#' + board.name"></span>
+                  <span x-show="board.visibility === 'members'" class="text-xs px-1 py-0.5 rounded bg-blue-50 text-blue-500">仅成员</span>
+                  <span x-show="board.visibility === 'selected'" class="text-xs px-1 py-0.5 rounded bg-purple-50 text-purple-500">指定成员</span>
+                  <span x-show="board.postPolicy === 'members'" class="text-xs px-1 py-0.5 rounded bg-green-50 text-green-500">成员可发帖</span>
+                </div>
+              </div>
+              <div class="flex gap-1">
+                <button @click="showBoardEdit(board)" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition">编辑</button>
+                <button @click="deleteBoard(board)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">删除</button>
+              </div>
+            </div>
+          </template>
+          <p x-show="channelBoardsList.length === 0" class="text-sm text-gray-400 text-center py-8">暂无板块</p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- Board Edit Modal -->
+<div x-show="boardEditOpen" x-transition.opacity @click.self="boardEditOpen = false" @keydown.escape.window="if(boardEditOpen) boardEditOpen = false" class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="编辑板块">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-md mx-4 max-h-[85vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">编辑板块</h2>
+      <button @click="boardEditOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5 space-y-4">
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">板块名称</label>
+        <input x-model="boardEditForm.label" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">简介</label>
+        <textarea x-model="boardEditForm.description" rows="2" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition resize-none"></textarea>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">图标</label>
+        <input x-model="boardEditForm.icon" type="text" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition">
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">可见性</label>
+        <select x-model="boardEditForm.visibility" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+          <option value="all">所有人可见</option>
+          <option value="members">仅频道成员</option>
+          <option value="selected">指定成员</option>
+        </select>
+      </div>
+      <!-- 指定成员管理 -->
+      <div x-show="boardEditForm.visibility === 'selected'" class="border border-gray-200 rounded-xl p-3 space-y-2">
+        <div class="flex items-center justify-between">
+          <label class="text-xs font-medium text-gray-500">可见成员</label>
+          <button @click="showBoardMemberSelect()" class="text-xs px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition">添加成员</button>
+        </div>
+        <div class="space-y-1 max-h-32 overflow-y-auto">
+          <template x-for="m in boardVisibleMembers" :key="m.user_id">
+            <div class="flex items-center gap-2 p-1.5 bg-gray-50 rounded-lg">
+              <div x-html="avatarHtml(m.avatar_url, m.username?.[0]?.toUpperCase(), 'w-5 h-5')" class="flex-shrink-0"></div>
+              <span class="text-xs text-gray-700 flex-1 truncate" x-text="m.username"></span>
+              <button @click="removeBoardVisibleMember(m.user_id)" class="text-xs text-red-400 hover:text-red-600">移除</button>
+            </div>
+          </template>
+          <p x-show="boardVisibleMembers.length === 0" class="text-xs text-gray-400 text-center py-2">暂无成员</p>
+        </div>
+      </div>
+      <div>
+        <label class="block text-xs font-medium text-gray-500 mb-1">发帖权限</label>
+        <select x-model="boardEditForm.postPolicy" class="w-full px-4 py-2.5 border border-gray-200 rounded-xl text-sm focus:outline-none focus:ring-2 focus:ring-primary-300 transition bg-white">
+          <option value="all">所有人可发帖</option>
+          <option value="members">仅频道成员</option>
+          <option value="selected">指定成员</option>
+        </select>
+      </div>
+    </div>
+    <div class="p-5 border-t border-gray-100">
+      <button @click="saveBoardEdit()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存</button>
+    </div>
+  </div>
+</div>
+
+<!-- Board Member Select Modal -->
+<div x-show="boardMemberSelectOpen" x-transition.opacity @click.self="boardMemberSelectOpen = false" @keydown.escape.window="if(boardMemberSelectOpen) boardMemberSelectOpen = false" class="fixed inset-0 z-[70] flex items-center justify-center bg-black/40 backdrop-blur-sm" style="display:none" role="dialog" aria-modal="true" aria-label="选择成员">
+  <div class="bg-white rounded-2xl shadow-2xl w-full max-w-sm mx-4 max-h-[70vh] flex flex-col fade-in">
+    <div class="flex items-center justify-between p-5 border-b border-gray-100">
+      <h2 class="text-lg font-bold">选择成员</h2>
+      <button @click="boardMemberSelectOpen = false" class="p-1 rounded-lg hover:bg-gray-100"><svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/></svg></button>
+    </div>
+    <div class="flex-1 overflow-y-auto p-5">
+      <div class="space-y-2">
+        <template x-for="c in boardMemberCandidates" :key="c.user_id">
+          <label class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl cursor-pointer hover:bg-gray-100 transition">
+            <input type="checkbox" :value="c.user_id" class="board-member-checkbox rounded text-primary-600">
+            <div x-html="avatarHtml(c.avatar_url, c.username?.[0]?.toUpperCase(), 'w-8 h-8')" class="flex-shrink-0"></div>
+            <div class="flex-1 min-w-0">
+              <div class="text-sm font-medium text-gray-900 truncate" x-text="c.username"></div>
+              <div class="text-xs text-gray-400" x-text="'#' + c.display_id"></div>
+            </div>
+          </label>
+        </template>
+        <p x-show="boardMemberCandidates.length === 0" class="text-sm text-gray-400 text-center py-8">没有可添加的成员</p>
+      </div>
+    </div>
+    <div class="p-5 border-t border-gray-100">
+      <button @click="addBoardVisibleMembers(Array.from(document.querySelectorAll('.board-member-checkbox:checked')).map(el => Number(el.value)))" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">添加选中成员</button>
     </div>
   </div>
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/forum.js?v=1.2.7"></script>
-<script src="/js/alpine.min.js?v=1.2.7"></script>
+<script src="/js/pages/forum.js?v=1.3.0"></script>
+<script src="/js/alpine.min.js?v=1.3.0"></script>
 </body>
 </html>

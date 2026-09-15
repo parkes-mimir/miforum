@@ -52,6 +52,7 @@ ENV PORT=3000
 ENV NODE_ENV=production
 ENV DB_PATH=/data/db/data.db
 ENV UPLOADS_PATH=/data/uploads
+ENV DOCKER_CONTAINER=true
 
 # 暴露端口
 EXPOSE 3000

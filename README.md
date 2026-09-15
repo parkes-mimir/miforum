@@ -53,6 +53,7 @@ Flarum 风格的轻量论坛，Alpine.js 前端，Node.js + Express 后端，SQL
 - 单元测试（jest + supertest，160 个用例）
 - 环境变量管理（dotenv）
 - Docker 支持（一键部署、自动更新）
+- PM2 进程管理（自动重启、开机自启、日志管理）
 - CI/CD（GitHub Actions）
 - 端口占用自动杀旧进程重启
 
@@ -71,7 +72,35 @@ npm start
 npm run dev
 ```
 
-### 方式二：Docker 部署
+### 方式二：PM2 生产环境部署（推荐）
+
+```bash
+# 安装依赖
+npm install
+
+# 使用 PM2 启动
+npm run prod
+
+# 设置开机自启（首次执行一次）
+pm2 startup
+pm2 save
+```
+
+**PM2 常用命令**：
+
+| 命令 | 说明 |
+|------|------|
+| `npm run prod` | PM2 启动服务 |
+| `npm run stop` | 停止服务 |
+| `npm run restart` | 重启服务 |
+| `npm run logs` | 查看日志 |
+| `pm2 list` | 查看所有进程 |
+| `pm2 monit` | 监控面板 |
+| `pm2 flush miforum` | 清空日志 |
+
+**PM2 自动重启**：服务崩溃或服务器重启后会自动恢复，更新功能也会自动重启生效。
+
+### 方式三：Docker 部署
 
 ```bash
 # 构建镜像
@@ -108,13 +137,14 @@ docker-compose down
 
 | 层级 | 技术 | 说明 |
 |------|------|------|
-| **前端** | Alpine.js 3.14 | 响应式 UI 框架（15KB，替代 Vue/React） |
+| **前端** | Alpine.js 3.14 | 响应式 UI 棰架（15KB，替代 Vue/React） |
 | **模板** | EJS | 服务端模板渲染，公共 partials 复用 |
 | **样式** | Tailwind CSS | 原子化 CSS 框架 |
 | **后端** | Node.js + Express 4 | Web 框架 |
 | **数据库** | SQLite (better-sqlite3) | 单文件数据库，WAL 模式 |
 | **认证** | express-session + bcryptjs | Session 持久化（SQLite 存储） |
 | **安全** | helmet + express-rate-limit | 安全头、速率限制 |
+| **进程管理** | PM2 | 自动重启、日志管理、开机自启 |
 | **测试** | Jest + Supertest | 160 个测试用例 |
 
 ## 项目结构
@@ -272,7 +302,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.7** — 创建频道权限限制 + 删除管理员奖励积分
+**最新版本 v1.3.0** — 频道板块管理 + 频道加入审核 + PM2 进程管理
 
 ## 声明
 

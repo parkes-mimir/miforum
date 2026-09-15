@@ -207,7 +207,9 @@ function createApp() {
   // 如果未设置 SESSION_SECRET 环境变量，则生成一个持久化的随机密钥
   let SESSION_SECRET = process.env.SESSION_SECRET;
   if (!SESSION_SECRET) {
-    const secretFile = path.join(__dirname, '../data/.session-secret');
+    // 将 secret 存储到与数据库同目录
+    const dbDir = path.dirname(require('./database').DB_FILE);
+    const secretFile = path.join(dbDir, '.session-secret');
     try {
       if (fs.existsSync(secretFile)) {
         SESSION_SECRET = fs.readFileSync(secretFile, 'utf8').trim();

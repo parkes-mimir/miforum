@@ -35,6 +35,19 @@ document.addEventListener('alpine:init', () => {
     channelSettingsTab: 'info',
     channelMembers: [],
     channelSettingsForm: { label: '', description: '', icon: '', joinPolicy: 'open' },
+    channelBoardsList: [],
+    editingBoardId: null,
+    boardEditForm: { label: '', description: '', icon: '', color: 'bg-gray-100 text-gray-700', visibility: 'all', postPolicy: 'members' },
+    boardEditOpen: false,
+    boardVisibleMembers: [],
+    boardMemberSelectOpen: false,
+    boardMemberCandidates: [],
+    joinChannelModalOpen: false,
+    joinChannelId: null,
+    joinChannelName: '',
+    joinReason: '',
+    channelRequests: [],
+    channelRequestsOpen: false,
 
     posts: [],
     tagCloud: [],
@@ -405,6 +418,7 @@ document.addEventListener('alpine:init', () => {
       this.channelSettingsTab = 'info';
       this.channelSettingsOpen = true;
       this.loadChannelMembers(ch.id);
+      this.loadChannelBoardsList(ch.id);
     },
 
     async loadChannelMembers(channelId) {
@@ -438,6 +452,162 @@ document.addEventListener('alpine:init', () => {
         });
         Alpine.store('toast').show('角色已更新');
         await this.loadChannelMembers(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async loadChannelBoardsList(channelId) {
+      try {
+        const { boards } = await api('/api/channels/' + channelId + '/boards');
+        this.channelBoardsList = boards || [];
+      } catch (e) {
+        this.channelBoardsList = [];
+      }
+    },
+
+    showBoardEdit(board) {
+      this.editingBoardId = board.id;
+      this.boardEditForm = {
+        label: board.label || '',
+        description: board.description || '',
+        icon: board.icon || '',
+        color: board.color || 'bg-gray-100 text-gray-700',
+        visibility: board.visibility || 'all',
+        postPolicy: board.postPolicy || 'members'
+      };
+      this.boardVisibleMembers = [];
+      this.boardEditOpen = true;
+      this.loadBoardVisibleMembers(board.id);
+    },
+
+    async saveBoardEdit() {
+      if (!this.boardEditForm.label.trim()) {
+        Alpine.store('toast').show('请填写板块名称');
+        return;
+      }
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/boards/' + this.editingBoardId, {
+          method: 'PUT',
+          body: JSON.stringify(this.boardEditForm)
+        });
+        Alpine.store('toast').show('板块已更新');
+        this.boardEditOpen = false;
+        await this.loadChannelBoardsList(this.editingChannelId);
+        await this.loadChannelBoards(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async deleteBoard(board) {
+      if (!confirm(`确定删除板块「${board.label}」？\n该板块下的帖子将移至未分类。`)) return;
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/boards/' + board.id, { method: 'DELETE' });
+        Alpine.store('toast').show('板块已删除');
+        await this.loadChannelBoardsList(this.editingChannelId);
+        await this.loadChannelBoards(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async loadBoardVisibleMembers(boardId) {
+      try {
+        const { members } = await api('/api/channels/' + this.editingChannelId + '/boards/' + boardId + '/members');
+        this.boardVisibleMembers = members || [];
+      } catch (e) {
+        this.boardVisibleMembers = [];
+      }
+    },
+
+    async showBoardMemberSelect() {
+      // 加载频道成员作为候选
+      try {
+        const { members } = await api('/api/channels/' + this.editingChannelId + '/members');
+        const existingIds = new Set(this.boardVisibleMembers.map(m => m.user_id));
+        this.boardMemberCandidates = (members || []).filter(m => !existingIds.has(m.user_id));
+        this.boardMemberSelectOpen = true;
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async addBoardVisibleMembers(userIds) {
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/boards/' + this.editingBoardId + '/members', {
+          method: 'POST',
+          body: JSON.stringify({ userIds })
+        });
+        Alpine.store('toast').show('已添加');
+        this.boardMemberSelectOpen = false;
+        await this.loadBoardVisibleMembers(this.editingBoardId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async removeBoardVisibleMember(userId) {
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/boards/' + this.editingBoardId + '/members/' + userId, {
+          method: 'DELETE'
+        });
+        Alpine.store('toast').show('已移除');
+        await this.loadBoardVisibleMembers(this.editingBoardId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    showJoinChannelModal(ch) {
+      this.joinChannelId = ch.id;
+      this.joinChannelName = ch.label;
+      this.joinReason = '';
+      this.joinChannelModalOpen = true;
+    },
+
+    async joinChannel() {
+      try {
+        const result = await api('/api/channels/' + this.joinChannelId + '/join', {
+          method: 'POST',
+          body: JSON.stringify({ reason: this.joinReason })
+        });
+        if (result.pending) {
+          Alpine.store('toast').show('申请已提交，等待审核');
+        } else {
+          Alpine.store('toast').show('已加入频道');
+        }
+        this.joinChannelModalOpen = false;
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async loadChannelRequests(channelId) {
+      try {
+        const { requests } = await api('/api/channels/' + channelId + '/requests');
+        this.channelRequests = requests || [];
+      } catch (e) {
+        this.channelRequests = [];
+      }
+    },
+
+    async showChannelRequests(ch) {
+      this.editingChannelId = ch.id;
+      this.channelRequestsOpen = true;
+      await this.loadChannelRequests(ch.id);
+    },
+
+    async reviewRequest(requestId, action) {
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/requests/' + requestId, {
+          method: 'PUT',
+          body: JSON.stringify({ action })
+        });
+        Alpine.store('toast').show(action === 'approve' ? '已批准' : '已拒绝');
+        await this.loadChannelRequests(this.editingChannelId);
+        await this.loadChannels();
       } catch (e) {
         Alpine.store('toast').show(e.message);
       }
