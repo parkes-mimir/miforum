@@ -272,7 +272,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.2.6** — 管理面板标签页切换 + 移动端适配 + 兑换码系统
+**最新版本 v1.2.7** — 创建频道权限限制 + 删除管理员奖励积分
 
 ## 声明
 
