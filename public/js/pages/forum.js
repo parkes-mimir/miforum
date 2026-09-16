@@ -443,6 +443,17 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    async leaveChannel(channelId, channelName) {
+      if (!confirm(`确定退出频道「${channelName}」？`)) return;
+      try {
+        await api('/api/channels/' + channelId + '/leave', { method: 'POST' });
+        Alpine.store('toast').show('已退出频道');
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
     async setMemberRole(userId, role) {
       try {
         await api('/api/channels/' + this.editingChannelId + '/members/' + userId + '/role', {
@@ -451,6 +462,43 @@ document.addEventListener('alpine:init', () => {
         });
         Alpine.store('toast').show('角色已更新');
         await this.loadChannelMembers(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async removeMember(userId, username) {
+      if (!confirm(`确定移除成员「${username}」？`)) return;
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/members/' + userId, { method: 'DELETE' });
+        Alpine.store('toast').show('已移除成员');
+        await this.loadChannelMembers(this.editingChannelId);
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async deleteChannel(channelId, channelName) {
+      if (!confirm(`确定删除频道「${channelName}」？\n该频道下的所有板块和帖子将被删除，此操作不可撤销。`)) return;
+      try {
+        await api('/api/channels/' + channelId, { method: 'DELETE' });
+        Alpine.store('toast').show('频道已删除');
+        await this.loadChannels();
+      } catch (e) {
+        Alpine.store('toast').show(e.message);
+      }
+    },
+
+    async transferChannel(userId, username) {
+      if (!confirm(`确定将频道转让给「${username}」？\n转让后您将变为管理员，对方将成为频道主。`)) return;
+      try {
+        await api('/api/channels/' + this.editingChannelId + '/transfer', {
+          method: 'PUT',
+          body: JSON.stringify({ targetUserId: userId })
+        });
+        Alpine.store('toast').show('频道已转让');
+        this.channelSettingsOpen = false;
+        await this.loadChannels();
       } catch (e) {
         Alpine.store('toast').show(e.message);
       }

@@ -123,31 +123,66 @@ module.exports = function (app, db) {
         if (fs.existsSync(tmpDir)) fs.rmSync(tmpDir, { recursive: true });
         fs.mkdirSync(tmpDir, { recursive: true });
 
-        await new Promise((resolve, reject) => {
-          const file = fs.createWriteStream(path.join(tmpDir, 'update.tar.gz'));
-          https
-            .get(tarUrl, { headers: { 'User-Agent': 'MiForum' } }, (response) => {
-              if (response.statusCode === 302 || response.statusCode === 301) {
-                https
-                  .get(response.headers.location, { headers: { 'User-Agent': 'MiForum' } }, (res2) => {
-                    res2.pipe(file);
-                    file.on('finish', () => {
-                      file.close();
-                      resolve();
-                    });
-                  })
-                  .on('error', reject);
-              } else {
-                response.pipe(file);
-                file.on('finish', () => {
-                  file.close();
-                  resolve();
-                });
-              }
-            })
-            .on('error', reject);
-          file.on('error', reject);
-        });
+        const tarFile = path.join(tmpDir, 'update.tar.gz');
+
+        // 下载文件并检查完整性
+        async function downloadFile(url, dest) {
+          return new Promise((resolve, reject) => {
+            const file = fs.createWriteStream(dest);
+            let totalBytes = 0;
+
+            function doDownload(downloadUrl) {
+              https
+                .get(downloadUrl, { headers: { 'User-Agent': 'MiForum' } }, (response) => {
+                  if (response.statusCode === 302 || response.statusCode === 301) {
+                    doDownload(response.headers.location);
+                    return;
+                  }
+                  if (response.statusCode !== 200) {
+                    reject(new Error(`下载失败: HTTP ${response.statusCode}`));
+                    return;
+                  }
+                  response.on('data', (chunk) => {
+                    totalBytes += chunk.length;
+                  });
+                  response.pipe(file);
+                  file.on('finish', () => {
+                    file.close();
+                    if (totalBytes < 1000) {
+                      reject(new Error('下载的文件太小，可能不是有效的压缩包'));
+                    } else {
+                      resolve(totalBytes);
+                    }
+                  });
+                })
+                .on('error', reject);
+            }
+
+            file.on('error', reject);
+            doDownload(url);
+          });
+        }
+
+        // 最多重试3次
+        let lastError;
+        for (let attempt = 1; attempt <= 3; attempt++) {
+          try {
+            const size = await downloadFile(tarUrl, tarFile);
+            console.log(`下载完成: ${size} bytes (尝试 ${attempt})`);
+            break;
+          } catch (e) {
+            lastError = e;
+            console.warn(`下载失败 (尝试 ${attempt}):`, e.message);
+            if (attempt < 3) {
+              if (fs.existsSync(tarFile)) fs.unlinkSync(tarFile);
+              await new Promise((r) => setTimeout(r, 2000));
+            }
+          }
+        }
+
+        if (!fs.existsSync(tarFile)) {
+          throw new Error('下载失败: ' + (lastError?.message || '未知错误'));
+        }
 
         execSync('tar -xzf update.tar.gz --strip-components=1', { cwd: safePath(tmpDir), timeout: 30000 });
 

@@ -33,6 +33,8 @@ module.exports = function (app, db) {
         display_id: u.display_id,
         username: u.username,
         email: u.email,
+        avatar_url: u.avatar_url || null,
+        avatar_frame: u.avatar_frame || null,
         points: u.points || 0,
         muted: intToBool(u.muted),
         role: u.role || 'user',

@@ -182,6 +182,49 @@ module.exports = function (app, db) {
     res.json({ ok: true });
   });
 
+  /** 转让频道主 */
+  app.put('/api/channels/:id/transfer', requireAuth, (req, res) => {
+    const channelId = Number(req.params.id);
+    const userId = req.session.userId;
+    const { targetUserId } = req.body;
+
+    const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channelId);
+    if (!channel) return res.status(404).json({ error: '频道不存在' });
+    if (channel.is_official) return res.status(403).json({ error: '官方频道不可转让' });
+
+    // 检查权限：只有频道主可以转让
+    const member = db
+      .prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+      .get(channelId, userId);
+    if (!member || member.role !== 'owner') {
+      return res.status(403).json({ error: '只有频道主可以转让频道' });
+    }
+
+    // 检查目标用户是否是频道成员
+    const targetMember = db
+      .prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+      .get(channelId, targetUserId);
+    if (!targetMember) return res.status(400).json({ error: '目标用户不是频道成员' });
+    if (targetMember.role === 'owner') return res.status(400).json({ error: '不能转让给自己' });
+
+    // 执行转让
+    db.transaction(() => {
+      // 原频道主降为管理员
+      db.prepare("UPDATE channel_members SET role = 'admin' WHERE channel_id = ? AND user_id = ?").run(
+        channelId,
+        userId
+      );
+      // 目标用户升级为频道主
+      db.prepare("UPDATE channel_members SET role = 'owner' WHERE channel_id = ? AND user_id = ?").run(
+        channelId,
+        targetUserId
+      );
+    })();
+
+    const targetUser = db.prepare('SELECT username FROM profiles WHERE id = ?').get(targetUserId);
+    res.json({ ok: true, message: `已将频道转让给 ${targetUser?.username}` });
+  });
+
   /** 加入频道 */
   app.post('/api/channels/:id/join', requireAuth, (req, res) => {
     const channelId = Number(req.params.id);
@@ -397,6 +440,43 @@ module.exports = function (app, db) {
       channelId,
       targetUserId
     );
+    res.json({ ok: true });
+  });
+
+  /** 移除频道成员 */
+  app.delete('/api/channels/:id/members/:uid', requireAuth, (req, res) => {
+    const channelId = Number(req.params.id);
+    const targetUserId = Number(req.params.uid);
+    const userId = req.session.userId;
+
+    const channel = db.prepare('SELECT * FROM channels WHERE id = ?').get(channelId);
+    if (!channel) return res.status(404).json({ error: '频道不存在' });
+
+    // 检查权限：频道主或全局管理员
+    const member = db
+      .prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+      .get(channelId, userId);
+    const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(userId);
+    const isOwner = member && member.role === 'owner';
+    const isGlobalAdmin = isAdmin(user);
+
+    if (!isOwner && !isGlobalAdmin) {
+      return res.status(403).json({ error: '无权移除成员' });
+    }
+
+    // 不能移除自己
+    if (userId === targetUserId) return res.status(400).json({ error: '不能移除自己' });
+
+    // 检查目标用户是否是频道成员
+    const targetMember = db
+      .prepare('SELECT role FROM channel_members WHERE channel_id = ? AND user_id = ?')
+      .get(channelId, targetUserId);
+    if (!targetMember) return res.status(400).json({ error: '用户不是频道成员' });
+
+    // 不能移除频道主
+    if (targetMember.role === 'owner') return res.status(403).json({ error: '不能移除频道主' });
+
+    db.prepare('DELETE FROM channel_members WHERE channel_id = ? AND user_id = ?').run(channelId, targetUserId);
     res.json({ ok: true });
   });
 

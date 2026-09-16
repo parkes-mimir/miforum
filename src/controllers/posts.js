@@ -45,8 +45,8 @@ module.exports = function (app, db) {
     const { page, limit, offset } = parsePagination(req.query);
     const userId = req.session.userId || null;
 
-    // 热门板块使用独立算法
-    if (category === 'hot') {
+    // 热门板块使用独立算法（支持搜索和标签）
+    if (category === 'hot' && !search && !tag) {
       const result = getHotPosts(db, userId, page, limit);
       return res.json(result);
     }

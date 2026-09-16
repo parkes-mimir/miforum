@@ -83,6 +83,9 @@
             <button x-show="isLoggedIn && !ch.user_role && ch.join_policy !== 'deny'" @click="showJoinChannelModal(ch)" class="p-1.5 rounded-lg hover:bg-primary-50 transition text-primary-500 hover:text-primary-600" title="加入频道">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
             </button>
+            <button x-show="ch.user_role && ch.user_role !== 'owner' && !ch.is_official" @click="leaveChannel(ch.id, ch.label)" class="p-1.5 rounded-lg hover:bg-red-50 transition text-red-400 hover:text-red-500" title="退出频道">
+              <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1"/></svg>
+            </button>
             <button x-show="ch.user_role === 'owner' || ch.user_role === 'admin' || isSuperAdmin" @click="showChannelSettings(ch)" class="p-1.5 rounded-lg hover:bg-gray-100 transition text-gray-400 hover:text-gray-600" title="频道设置">
               <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.066 2.573c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.573 1.066c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.066-2.573c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"/></svg>
             </button>
@@ -159,7 +162,7 @@
         发布新话题
       </button>
     </div>
-    <div class="flex items-center gap-1 mb-4 overflow-x-auto">
+    <div x-show="currentCat !== 'hot'" class="flex items-center gap-1 mb-4 overflow-x-auto">
       <template x-for="s in sortOptions" :key="s.value">
         <button @click="setSort(s.value)" :class="currentSort === s.value ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 text-xs font-medium rounded-lg transition whitespace-nowrap" x-text="s.label"></button>
       </template>
@@ -600,6 +603,7 @@
           </select>
         </div>
         <button @click="saveChannelSettings()" class="w-full py-2.5 bg-primary-600 text-white text-sm font-semibold rounded-xl hover:bg-primary-700 transition">保存设置</button>
+        <button x-show="!channelsData.find(c => c.id === editingChannelId)?.is_official && (channelMembers.some(cm => cm.user_id === Alpine.store('auth').user?.id && cm.role === 'owner') || isSuperAdmin)" @click="deleteChannel(editingChannelId, channelSettingsForm.label)" class="w-full py-2.5 bg-red-50 text-red-500 text-sm font-semibold rounded-xl hover:bg-red-100 transition">删除频道</button>
       </div>
       <!-- Members Tab -->
       <div x-show="channelSettingsTab === 'members'">
@@ -616,8 +620,10 @@
                 </div>
               </div>
               <div x-show="m.role !== 'owner'" class="flex gap-1">
+                <button x-show="channelMembers.some(cm => cm.user_id === Alpine.store('auth').user?.id && cm.role === 'owner')" @click="transferChannel(m.user_id, m.username)" class="text-xs px-2 py-1 rounded-lg bg-amber-50 text-amber-600 hover:bg-amber-100 transition">转让</button>
                 <button x-show="m.role === 'member'" @click="setMemberRole(m.user_id, 'admin')" class="text-xs px-2 py-1 rounded-lg bg-primary-50 text-primary-600 hover:bg-primary-100 transition">设为管理</button>
                 <button x-show="m.role === 'admin'" @click="setMemberRole(m.user_id, 'member')" class="text-xs px-2 py-1 rounded-lg bg-gray-100 text-gray-500 hover:bg-gray-200 transition">取消管理</button>
+                <button x-show="channelMembers.some(cm => cm.user_id === Alpine.store('auth').user?.id && cm.role === 'owner') || isSuperAdmin" @click="removeMember(m.user_id, m.username)" class="text-xs px-2 py-1 rounded-lg bg-red-50 text-red-500 hover:bg-red-100 transition">移除</button>
               </div>
             </div>
           </template>

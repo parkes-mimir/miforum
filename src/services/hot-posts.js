@@ -162,7 +162,7 @@ function getHotPosts(db, userId, page, limit) {
       (SELECT COUNT(*) FROM bookmarks WHERE post_id = p.id) AS bookmarks_count
     FROM posts p
     LEFT JOIN profiles pr ON pr.id = p.author_id
-    WHERE p.created_at >= ? ${privacyFilter} ${visibilityFilter}
+    WHERE (p.created_at >= ? OR p.pinned = 1) ${privacyFilter} ${visibilityFilter}
     ORDER BY p.pinned DESC,
       ((SELECT COUNT(*) FROM post_likes WHERE post_id = p.id) * 3 +
        (SELECT COUNT(*) FROM comments WHERE post_id = p.id) * 2 +
@@ -180,7 +180,12 @@ function getHotPosts(db, userId, page, limit) {
     score: calculateScore(row, interactedCategories, interactedAuthors)
   }));
 
-  scored.sort((a, b) => b.score - a.score);
+  scored.sort((a, b) => {
+    // 置顶帖子优先
+    if (a.row.pinned !== b.row.pinned) return b.row.pinned - a.row.pinned;
+    // 否则按热度排序
+    return b.score - a.score;
+  });
 
   const total = scored.length;
   const pages = Math.max(1, Math.ceil(total / limit));

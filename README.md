@@ -302,7 +302,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.3.1** — 修复板块可见性漏洞 + 默认显示热门板块
+**最新版本 v1.3.1** — 频道管理功能完善
 
 ## 声明
 
