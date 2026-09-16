@@ -302,7 +302,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.3.2** — 频道管理功能完善 + 修复热门置顶
+**最新版本 v1.3.3** — 修复Docker更新持久化
 
 ## 声明
 

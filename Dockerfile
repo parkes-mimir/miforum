@@ -54,8 +54,13 @@ ENV DB_PATH=/data/db/data.db
 ENV UPLOADS_PATH=/data/uploads
 ENV DOCKER_CONTAINER=true
 
+# 复制启动脚本
+COPY scripts/docker-entrypoint.sh /docker-entrypoint.sh
+RUN chmod +x /docker-entrypoint.sh
+
 # 暴露端口
 EXPOSE 3000
 
 # 启动应用
+ENTRYPOINT ["/docker-entrypoint.sh"]
 CMD ["node", "src/server.js"]
