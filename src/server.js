@@ -261,10 +261,17 @@ function createApp() {
 
   function renderPage(view) {
     const siteUrl = process.env.SITE_URL || '';
+    const gamesJson = process.env.GAMES || '';
+    let games = [];
+    try {
+      if (gamesJson) games = JSON.parse(gamesJson);
+    } catch (e) {
+      console.warn('GAMES 配置格式错误:', e.message);
+    }
     return (req, res) => {
       const theme = getUserTheme(req.session?.userId);
       const pageUrl = siteUrl ? siteUrl + req.path : '';
-      res.render(view, { theme, siteUrl, pageUrl });
+      res.render(view, { theme, siteUrl, pageUrl, games });
     };
   }
 

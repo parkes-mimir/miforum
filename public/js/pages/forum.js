@@ -49,6 +49,10 @@ document.addEventListener('alpine:init', () => {
     channelRequests: [],
     channelRequestsOpen: false,
 
+    // Game modal
+    gameModalOpen: false,
+    games: [],
+
     posts: [],
     tagCloud: [],
     likedIds: new Set(),
@@ -658,6 +662,12 @@ document.addEventListener('alpine:init', () => {
       } catch (e) {
         Alpine.store('toast').show(e.message);
       }
+    },
+
+    showGameModal() {
+      // 加载游戏列表
+      this.games = window.__GAMES__ || [];
+      this.gameModalOpen = true;
     },
 
     async loadCheckin() {
