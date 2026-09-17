@@ -81,6 +81,12 @@ function authRoutes(app, db) {
       if (exists) return res.status(400).json({ error: '邮箱已被注册' });
     }
 
+    // 检查邮箱是否存在（重置密码类型）
+    if (codeType === 'reset-password') {
+      const exists = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
+      if (!exists) return res.status(400).json({ error: '该邮箱未注册' });
+    }
+
     // 检查发送频率（60秒内只能发一次）
     const recent = db
       .prepare(
@@ -326,6 +332,56 @@ function authRoutes(app, db) {
     db.prepare('UPDATE profiles SET password_hash = ?, force_password_change = 0 WHERE id = ?').run(hash, user.id);
 
     res.json({ ok: true, message: '密码修改成功' });
+  });
+
+  // 忘记密码（通过邮箱验证码重置）
+  app.post('/api/reset-password', async (req, res) => {
+    const { email, code, newPassword } = req.body;
+
+    if (!email || !code || !newPassword) {
+      return res.status(400).json({ error: '请填写所有字段' });
+    }
+    if (newPassword.length < 6) {
+      return res.status(400).json({ error: '新密码至少6位' });
+    }
+    if (newPassword.length > 72) {
+      return res.status(400).json({ error: '新密码最多72位' });
+    }
+
+    // 检查用户是否存在
+    const user = db.prepare('SELECT id FROM profiles WHERE email = ?').get(email);
+    if (!user) return res.status(400).json({ error: '该邮箱未注册' });
+
+    // 检查是否被锁定
+    const lockoutKey = email + ':reset-password';
+    const lockout = getLockout(lockoutKey);
+    if (lockout && lockout.locked_until && new Date(lockout.locked_until) > new Date()) {
+      const remaining = Math.ceil((new Date(lockout.locked_until) - Date.now()) / 60000);
+      return res.status(429).json({ error: `验证码错误次数过多，请${remaining}分钟后再试` });
+    }
+
+    // 验证验证码
+    const verification = db
+      .prepare(
+        "SELECT id FROM verification_codes WHERE email = ? AND code = ? AND type = 'reset-password' AND used = 0 AND expires_at > datetime('now') ORDER BY id DESC LIMIT 1"
+      )
+      .get(email, code);
+
+    if (!verification) {
+      incrementAttempts(lockoutKey);
+      return res.status(400).json({ error: '验证码无效或已过期' });
+    }
+
+    // 清除锁定
+    clearLockout(lockoutKey);
+    // 标记验证码已使用
+    db.prepare('UPDATE verification_codes SET used = 1 WHERE id = ?').run(verification.id);
+
+    // 重置密码
+    const hash = await bcrypt.hash(newPassword, 10);
+    db.prepare('UPDATE profiles SET password_hash = ?, force_password_change = 0 WHERE id = ?').run(hash, user.id);
+
+    res.json({ ok: true, message: '密码重置成功，请登录' });
   });
 }
 

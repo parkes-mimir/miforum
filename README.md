@@ -302,7 +302,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.4.1** — 修复Docker更新持久化
+**最新版本 v1.4.2** — 忘记密码功能
 
 ## 声明
 
