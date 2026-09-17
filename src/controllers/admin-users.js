@@ -58,6 +58,7 @@ module.exports = function (app, db) {
 
   app.delete('/api/admin/users/:id', requireAdmin, (req, res) => {
     const uid = Number(req.params.id);
+    if (!Number.isInteger(uid) || uid <= 0) return res.status(400).json({ error: '无效的用户ID' });
     const user = db.prepare('SELECT role FROM profiles WHERE id = ?').get(uid);
     if (!user) return res.status(404).json({ error: '用户不存在' });
     if (user.role === 'super_admin') return res.status(403).json({ error: '不能删除超级管理员' });
