@@ -210,32 +210,11 @@ module.exports = function (app, db) {
 
         fs.rmSync(safePath(tmpDir), { recursive: true, force: true });
 
-        // Docker模式：将更新保存到持久化卷
-        const dataDir = process.env.DB_PATH ? path.dirname(process.env.DB_PATH) : '/data';
-        const updateDir = path.join(dataDir, 'update');
-        if (!fs.existsSync(updateDir)) fs.mkdirSync(updateDir, { recursive: true });
-
-        // 复制更新文件到持久化目录
-        for (const item of copyItems) {
-          const src = safePath(path.join(projectRoot, item));
-          const dest = path.join(updateDir, item);
-          if (fs.existsSync(src)) {
-            if (fs.statSync(src).isDirectory()) {
-              if (fs.existsSync(dest)) fs.rmSync(dest, { recursive: true, force: true });
-              fs.cpSync(src, dest, { recursive: true });
-            } else {
-              fs.copyFileSync(src, dest);
-            }
-          }
-        }
-        // 保存版本号
-        fs.writeFileSync(path.join(updateDir, 'version.txt'), latestTag);
-
         execSync('npm install --omit=dev', { cwd: safePath(projectRoot), timeout: 120000 });
 
         res.json({
           ok: true,
-          message: `已更新到 ${latestTag}，请重启容器以应用更新`,
+          message: `已更新到 ${latestTag}，需要重启容器才能生效`,
           backup: backupName,
           version: latestTag
         });
