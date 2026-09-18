@@ -664,9 +664,14 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    showGameModal() {
-      // 加载游戏列表
-      this.games = window.__GAMES__ || [];
+    async showGameModal() {
+      // 从API加载游戏列表
+      try {
+        const { games } = await api('/api/games');
+        this.games = games || [];
+      } catch (e) {
+        this.games = [];
+      }
       this.gameModalOpen = true;
     },
 

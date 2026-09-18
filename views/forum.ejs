@@ -528,12 +528,20 @@
     </div>
     <div class="flex-1 overflow-y-auto p-5">
       <div x-show="games.length > 0" class="space-y-4">
-        <template x-for="game in games" :key="game.name">
+        <template x-for="game in games" :key="game.id">
           <div class="bg-gray-50 rounded-xl p-4">
             <div class="flex items-center justify-between mb-3">
-              <div>
-                <h3 class="font-semibold text-gray-900" x-text="game.name"></h3>
-                <p class="text-sm text-gray-500" x-text="game.description"></p>
+              <div class="flex items-center gap-3">
+                <span class="text-2xl" x-text="game.icon || '🎮'"></span>
+                <div>
+                  <div class="flex items-center gap-2">
+                    <h3 class="font-semibold text-gray-900" x-text="game.name"></h3>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600" x-text="game.game_type === 'multi' ? '联机' : '单机'"></span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600" x-text="game.source_type === 'open' ? '开源' : '闭源'"></span>
+                  </div>
+                  <p x-show="game.description" class="text-sm text-gray-500" x-text="game.description"></p>
+                  <p x-show="game.author" class="text-xs text-gray-400 mt-1" x-text="'作者：' + game.author"></p>
+                </div>
               </div>
               <a :href="game.url" target="_blank" class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition">全屏打开</a>
             </div>
@@ -789,7 +797,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/forum.js?v=1.4.2"></script>
-<script src="/js/alpine.min.js?v=1.4.2"></script>
+<script src="/js/pages/forum.js?v=1.5.2"></script>
+<script src="/js/alpine.min.js?v=1.5.2"></script>
 </body>
 </html>

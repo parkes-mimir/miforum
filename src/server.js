@@ -23,6 +23,7 @@ const rateLimit = require('express-rate-limit');
 const { getDb, closeDb } = require('./database');
 const { UPLOADS_DIR } = require('./utils/helpers');
 const { registerRoutes } = require('./routes');
+const { initBotService } = require('./services/bot');
 
 /**
  * 获取本机所有局域网 IP
@@ -338,6 +339,9 @@ function startServer() {
   const db = getDb();
   const app = createApp();
   registerRoutes(app, db);
+
+  // 初始化BOT服务
+  initBotService(app, db);
 
   // 404 处理（在所有 API 路由之后）
   app.use((req, res) => {

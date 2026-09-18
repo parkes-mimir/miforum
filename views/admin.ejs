@@ -16,6 +16,8 @@
     <button @click="tab = 'shop'; loadShopItems()" :class="tab === 'shop' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">🎁 商品</button>
     <button @click="tab = 'codes'; loadCodes()" :class="tab === 'codes' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">🎫 兑换码</button>
     <button @click="tab = 'orders'; loadOrders()" :class="tab === 'orders' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">📋 记录</button>
+    <button @click="tab = 'bots'; loadBots()" :class="tab === 'bots' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">🤖 BOT</button>
+    <button @click="tab = 'games'; loadGames()" :class="tab === 'games' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">🎮 游戏</button>
     <button @click="tab = 'smtp'; loadSmtp()" :class="tab === 'smtp' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">📧 邮箱</button>
     <button @click="tab = 'about'; loadVersion()" :class="tab === 'about' ? 'bg-primary-600 text-white' : 'bg-white text-gray-600 hover:bg-gray-100'" class="px-3 py-2 rounded-lg text-xs font-medium transition whitespace-nowrap flex-shrink-0">ℹ️ 关于</button>
   </div>
@@ -202,6 +204,150 @@
     </div>
   </section>
 
+  <!-- BOT管理 -->
+  <section x-show="tab === 'bots'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-700">BOT管理</h2>
+      <button @click="showBotForm()" class="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">+ 添加BOT</button>
+    </div>
+    <div class="p-4">
+      <div x-show="showBotFormFlag" class="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+        <div>
+          <input x-model="botForm.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="BOT名称">
+          <p class="text-[10px] text-gray-400 mt-1">显示在帖子作者处的名称</p>
+        </div>
+        <div>
+          <input x-model="botForm.rssUrl" type="url" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="RSS地址">
+          <p class="text-[10px] text-gray-400 mt-1">RSS/Atom订阅源的完整URL</p>
+        </div>
+        <div class="grid grid-cols-2 gap-2">
+          <div>
+            <select x-model="botForm.category" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+              <template x-for="cat in categories" :key="cat.name">
+                <option :value="cat.name" x-text="cat.label"></option>
+              </template>
+            </select>
+            <p class="text-[10px] text-gray-400 mt-1">帖子发布到哪个板块</p>
+          </div>
+          <div>
+            <input x-model.number="botForm.intervalMinutes" type="number" min="5" max="1440" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="拉取间隔">
+            <p class="text-[10px] text-gray-400 mt-1">自动拉取间隔，最少5分钟</p>
+          </div>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveBot()" class="flex-1 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700">保存</button>
+          <button @click="showBotFormFlag = false" class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">取消</button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <template x-for="bot in bots" :key="bot.id">
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900" x-text="bot.name"></span>
+                <span x-show="bot.enabled" class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-600">启用</span>
+                <span x-show="!bot.enabled" class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">禁用</span>
+              </div>
+              <div class="text-xs text-gray-400 mt-1">
+                <span x-text="'每' + bot.interval_minutes + '分钟'"></span>
+                <span x-text="' · ' + (categories.find(c => c.name === bot.category)?.label || bot.category)"></span>
+                <span x-text="' · ' + (bot.post_count || 0) + '篇帖子'"></span>
+              </div>
+              <div class="text-xs text-gray-300 mt-1 truncate" x-text="bot.rss_url"></div>
+            </div>
+            <div class="flex gap-1">
+              <button @click="showBotForm(bot)" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">编辑</button>
+              <button @click="fetchBot(bot.id)" class="text-xs px-2 py-1 rounded bg-blue-50 text-blue-600 hover:bg-blue-100">拉取</button>
+              <button @click="toggleBot(bot)" class="text-xs px-2 py-1 rounded" :class="bot.enabled ? 'bg-yellow-50 text-yellow-600' : 'bg-green-50 text-green-600'" x-text="bot.enabled ? '禁用' : '启用'"></button>
+              <button @click="deleteBot(bot)" class="text-xs px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100">删除</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="bots.length === 0" class="text-sm text-gray-400 text-center py-8">暂无BOT，点击上方按钮添加</p>
+      </div>
+    </div>
+  </section>
+
+  <!-- 游戏管理 -->
+  <section x-show="tab === 'games'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
+    <div class="flex items-center justify-between px-4 py-3 border-b border-gray-100">
+      <h2 class="text-sm font-semibold text-gray-700">游戏管理</h2>
+      <button @click="showGameForm()" class="text-xs px-3 py-1.5 bg-primary-600 text-white rounded-lg hover:bg-primary-700 transition">+ 添加游戏</button>
+    </div>
+    <div class="p-4">
+      <div x-show="showGameFormFlag" class="mb-4 p-4 bg-gray-50 rounded-xl space-y-3">
+        <div>
+          <input x-model="gameForm.name" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="游戏名称">
+          <p class="text-[10px] text-gray-400 mt-1">显示在侧边栏的游戏名称</p>
+        </div>
+        <div>
+          <input x-model="gameForm.description" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="游戏简介">
+          <p class="text-[10px] text-gray-400 mt-1">简短描述游戏内容，可留空</p>
+        </div>
+        <div>
+          <input x-model="gameForm.url" type="url" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="游戏地址">
+          <p class="text-[10px] text-gray-400 mt-1">游戏页面的完整URL地址</p>
+        </div>
+        <div>
+          <input x-model="gameForm.author" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="作者">
+          <p class="text-[10px] text-gray-400 mt-1">游戏开发者或团队名称</p>
+        </div>
+        <div class="grid grid-cols-3 gap-2">
+          <div>
+            <select x-model="gameForm.gameType" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+              <option value="single">单机</option>
+              <option value="multi">联机</option>
+            </select>
+            <p class="text-[10px] text-gray-400 mt-1">游戏类型</p>
+          </div>
+          <div>
+            <select x-model="gameForm.sourceType" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+              <option value="open">开源</option>
+              <option value="closed">闭源</option>
+            </select>
+            <p class="text-[10px] text-gray-400 mt-1">源码类型</p>
+          </div>
+          <div>
+            <input x-model="gameForm.icon" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="图标">
+            <p class="text-[10px] text-gray-400 mt-1">emoji图标</p>
+          </div>
+        </div>
+        <div>
+          <input x-model.number="gameForm.sortOrder" type="number" min="0" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="排序">
+          <p class="text-[10px] text-gray-400 mt-1">数字越小越靠前</p>
+        </div>
+        <div class="flex gap-2">
+          <button @click="saveGame()" class="flex-1 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700">保存</button>
+          <button @click="showGameFormFlag = false" class="flex-1 py-2 bg-gray-100 text-gray-600 text-sm rounded-lg hover:bg-gray-200">取消</button>
+        </div>
+      </div>
+      <div class="space-y-2">
+        <template x-for="game in games" :key="game.id">
+          <div class="flex items-center gap-3 p-3 bg-gray-50 rounded-xl">
+            <span class="text-2xl" x-text="game.icon || '🎮'"></span>
+            <div class="flex-1 min-w-0">
+              <div class="flex items-center gap-2">
+                <span class="text-sm font-medium text-gray-900" x-text="game.name"></span>
+                <span x-show="game.enabled" class="text-xs px-1.5 py-0.5 rounded bg-green-100 text-green-600">启用</span>
+                <span x-show="!game.enabled" class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">禁用</span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600" x-text="game.game_type === 'multi' ? '联机' : '单机'"></span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600" x-text="game.source_type === 'open' ? '开源' : '闭源'"></span>
+              </div>
+              <div class="text-xs text-gray-400 mt-1 truncate" x-text="game.url"></div>
+              <div x-show="game.author" class="text-xs text-gray-400 mt-0.5" x-text="'作者：' + game.author"></div>
+            </div>
+            <div class="flex gap-1">
+              <button @click="showGameForm(game)" class="text-xs px-2 py-1 rounded bg-gray-100 text-gray-600 hover:bg-gray-200">编辑</button>
+              <button @click="toggleGame(game)" class="text-xs px-2 py-1 rounded" :class="game.enabled ? 'bg-yellow-50 text-yellow-600' : 'bg-green-50 text-green-600'" x-text="game.enabled ? '禁用' : '启用'"></button>
+              <button @click="deleteGame(game)" class="text-xs px-2 py-1 rounded bg-red-50 text-red-500 hover:bg-red-100">删除</button>
+            </div>
+          </div>
+        </template>
+        <p x-show="games.length === 0" class="text-sm text-gray-400 text-center py-8">暂无游戏，点击上方按钮添加</p>
+      </div>
+    </div>
+  </section>
+
   <!-- 邮箱设置 -->
   <section x-show="tab === 'smtp'" class="bg-white rounded-xl border border-gray-200 overflow-hidden">
     <div class="px-4 py-3 border-b border-gray-100">
@@ -237,7 +383,7 @@
         <div>
           <h3 class="text-base font-bold text-gray-900">MiForum</h3>
           <p class="text-xs text-gray-500">Flarum 风格轻量论坛</p>
-          <p class="text-xs text-gray-400">v<%= '1.4.2' %> · MIT License</p>
+          <p class="text-xs text-gray-400">v<%= '1.5.2' %> · MIT License</p>
         </div>
       </div>
       <div class="bg-gray-50 rounded-lg p-3 space-y-2">
@@ -260,7 +406,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/admin.js?v=1.4.2"></script>
-<script src="/js/alpine.min.js?v=1.4.2"></script>
+<script src="/js/pages/admin.js?v=1.5.2"></script>
+<script src="/js/alpine.min.js?v=1.5.2"></script>
 </body>
 </html>

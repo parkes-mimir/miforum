@@ -28,6 +28,19 @@ document.addEventListener('alpine:init', () => {
 
     // SMTP
     smtp: { host: '', port: '465', secure: true, user: '', pass: '', configured: false },
+
+    // Bots
+    bots: [],
+    categories: [],
+    showBotFormFlag: false,
+    botForm: { name: '', rssUrl: '', category: 'tech', intervalMinutes: 30 },
+    editingBotId: null,
+
+    // Games
+    games: [],
+    showGameFormFlag: false,
+    gameForm: { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', sortOrder: 0 },
+    editingGameId: null,
     smtpStatus: '',
     smtpStatusOk: true,
 
@@ -48,6 +61,7 @@ document.addEventListener('alpine:init', () => {
         return;
       }
       await this.loadUsers();
+      await this.loadCategories();
     },
 
     async loadUsers() {
@@ -240,6 +254,137 @@ document.addEventListener('alpine:init', () => {
         const data = await api('/api/admin/smtp/test', { method: 'POST' });
         this.smtpStatus = '✓ ' + data.message; this.smtpStatusOk = true;
       } catch (e) { this.smtpStatus = '✗ ' + e.message; this.smtpStatusOk = false; }
+    },
+
+    // Bots
+    async loadCategories() {
+      try {
+        const { categories } = await api('/api/categories');
+        this.categories = categories || [];
+      } catch (e) { this.categories = []; }
+    },
+
+    async loadBots() {
+      try {
+        const { bots } = await api('/api/admin/bots');
+        this.bots = bots || [];
+      } catch (e) { this.bots = []; }
+    },
+
+    showBotForm(bot) {
+      if (bot) {
+        this.editingBotId = bot.id;
+        this.botForm = { name: bot.name, rssUrl: bot.rss_url, category: bot.category, intervalMinutes: bot.interval_minutes };
+      } else {
+        this.editingBotId = null;
+        this.botForm = { name: '', rssUrl: '', category: 'tech', intervalMinutes: 30 };
+      }
+      this.showBotFormFlag = true;
+    },
+
+    async saveBot() {
+      if (!this.botForm.name.trim() || !this.botForm.rssUrl.trim()) {
+        Alpine.store('toast').show('请填写名称和RSS地址');
+        return;
+      }
+      try {
+        if (this.editingBotId) {
+          await api('/api/admin/bots/' + this.editingBotId, { method: 'PUT', body: JSON.stringify(this.botForm) });
+        } else {
+          await api('/api/admin/bots', { method: 'POST', body: JSON.stringify(this.botForm) });
+        }
+        Alpine.store('toast').show('保存成功');
+        this.showBotFormFlag = false;
+        await this.loadBots();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async toggleBot(bot) {
+      try {
+        await api('/api/admin/bots/' + bot.id, { method: 'PUT', body: JSON.stringify({ enabled: !bot.enabled }) });
+        Alpine.store('toast').show(bot.enabled ? '已禁用' : '已启用');
+        await this.loadBots();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async fetchBot(botId) {
+      Alpine.store('toast').show('正在拉取...');
+      try {
+        const data = await api('/api/admin/bots/' + botId + '/fetch', { method: 'POST' });
+        Alpine.store('toast').show(data.message || '拉取完成');
+        await this.loadBots();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async deleteBot(bot) {
+      if (!confirm(`确定删除BOT「${bot.name}」？`)) return;
+      try {
+        await api('/api/admin/bots/' + bot.id, { method: 'DELETE' });
+        Alpine.store('toast').show('已删除');
+        await this.loadBots();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    // Games
+    async loadGames() {
+      try {
+        const { games } = await api('/api/admin/games');
+        this.games = games || [];
+      } catch (e) { this.games = []; }
+    },
+
+    showGameForm(game) {
+      if (game) {
+        this.editingGameId = game.id;
+        this.gameForm = {
+          name: game.name,
+          description: game.description || '',
+          url: game.url,
+          icon: game.icon || '🎮',
+          author: game.author || '',
+          gameType: game.game_type || 'single',
+          sourceType: game.source_type || 'closed',
+          sortOrder: game.sort_order || 0
+        };
+      } else {
+        this.editingGameId = null;
+        this.gameForm = { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', sortOrder: 0 };
+      }
+      this.showGameFormFlag = true;
+    },
+
+    async saveGame() {
+      if (!this.gameForm.name.trim() || !this.gameForm.url.trim()) {
+        Alpine.store('toast').show('请填写名称和地址');
+        return;
+      }
+      try {
+        if (this.editingGameId) {
+          await api('/api/admin/games/' + this.editingGameId, { method: 'PUT', body: JSON.stringify(this.gameForm) });
+        } else {
+          await api('/api/admin/games', { method: 'POST', body: JSON.stringify(this.gameForm) });
+        }
+        Alpine.store('toast').show('保存成功');
+        this.showGameFormFlag = false;
+        await this.loadGames();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async toggleGame(game) {
+      try {
+        await api('/api/admin/games/' + game.id, { method: 'PUT', body: JSON.stringify({ enabled: !game.enabled }) });
+        Alpine.store('toast').show(game.enabled ? '已禁用' : '已启用');
+        await this.loadGames();
+      } catch (e) { Alpine.store('toast').show(e.message); }
+    },
+
+    async deleteGame(game) {
+      if (!confirm(`确定删除游戏「${game.name}」？`)) return;
+      try {
+        await api('/api/admin/games/' + game.id, { method: 'DELETE' });
+        Alpine.store('toast').show('已删除');
+        await this.loadGames();
+      } catch (e) { Alpine.store('toast').show(e.message); }
     },
 
     // About

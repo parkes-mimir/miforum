@@ -302,7 +302,7 @@ npm run backup
 
 详见 [docs/CHANGELOG.md](./docs/CHANGELOG.md)
 
-**最新版本 v1.4.2** — 忘记密码功能
+**最新版本 v1.5.0** — 中文RSS源BOT配置
 
 ## 声明
 

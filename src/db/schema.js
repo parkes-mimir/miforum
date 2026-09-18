@@ -350,6 +350,46 @@ const SCHEMA_SQL = `
     UNIQUE(user_id, emoji_id)
   );
   CREATE INDEX IF NOT EXISTS idx_user_emoji_user ON user_emoji(user_id);
+
+  -- BOT表
+  CREATE TABLE IF NOT EXISTS bots (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    avatar_url TEXT DEFAULT '',
+    rss_url TEXT NOT NULL,
+    category TEXT DEFAULT 'tech',
+    interval_minutes INTEGER DEFAULT 30,
+    enabled INTEGER DEFAULT 1,
+    last_fetched_at TEXT,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
+
+  -- BOT发帖记录表（用于去重）
+  CREATE TABLE IF NOT EXISTS bot_posts (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    bot_id INTEGER NOT NULL REFERENCES bots(id) ON DELETE CASCADE,
+    post_id INTEGER NOT NULL REFERENCES posts(id) ON DELETE CASCADE,
+    rss_guid TEXT NOT NULL,
+    created_at TEXT DEFAULT (datetime('now')),
+    UNIQUE(rss_guid)
+  );
+  CREATE INDEX IF NOT EXISTS idx_bot_posts_bot ON bot_posts(bot_id);
+  CREATE INDEX IF NOT EXISTS idx_bot_posts_guid ON bot_posts(rss_guid);
+
+  -- 游戏配置表
+  CREATE TABLE IF NOT EXISTS games (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    description TEXT DEFAULT '',
+    url TEXT NOT NULL,
+    icon TEXT DEFAULT '🎮',
+    author TEXT DEFAULT '',
+    game_type TEXT DEFAULT 'single',
+    source_type TEXT DEFAULT 'closed',
+    enabled INTEGER DEFAULT 1,
+    sort_order INTEGER DEFAULT 0,
+    created_at TEXT DEFAULT (datetime('now'))
+  );
 `;
 
 module.exports = { SCHEMA_SQL };

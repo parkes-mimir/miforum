@@ -197,6 +197,27 @@ function registerRoutes(app, db) {
   // PUT    /api/superadmin/transfer/:id      转让超管
   // POST   /api/admin/update                 系统更新
   require('../controllers/admin-superadmin')(app, db);
+
+  // ============================================================
+  // 管理后台 - BOT管理
+  // ============================================================
+  // GET    /api/admin/bots           BOT列表
+  // POST   /api/admin/bots           创建BOT
+  // PUT    /api/admin/bots/:id       更新BOT
+  // DELETE /api/admin/bots/:id       删除BOT
+  // POST   /api/admin/bots/:id/fetch 手动拉取
+  // GET    /api/admin/bots/:id/posts BOT发帖记录
+  require('../controllers/admin-bots')(app, db);
+
+  // ============================================================
+  // 游戏管理
+  // ============================================================
+  // GET    /api/games                游戏列表（公开）
+  // GET    /api/admin/games          游戏列表（管理员）
+  // POST   /api/admin/games          创建游戏
+  // PUT    /api/admin/games/:id      更新游戏
+  // DELETE /api/admin/games/:id      删除游戏
+  require('../controllers/admin-games')(app, db);
 }
 
 module.exports = { registerRoutes };
