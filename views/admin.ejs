@@ -308,8 +308,12 @@
             <p class="text-[10px] text-gray-400 mt-1">源码类型</p>
           </div>
           <div>
-            <input x-model="gameForm.icon" type="text" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm" placeholder="图标">
-            <p class="text-[10px] text-gray-400 mt-1">emoji图标</p>
+            <select x-model="gameForm.platform" class="w-full px-3 py-2 border border-gray-200 rounded-lg text-sm bg-white">
+              <option value="pc">电脑端</option>
+              <option value="mobile">移动端</option>
+              <option value="both">双端</option>
+            </select>
+            <p class="text-[10px] text-gray-400 mt-1">支持平台</p>
           </div>
         </div>
         <div>
@@ -332,6 +336,7 @@
                 <span x-show="!game.enabled" class="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-500">禁用</span>
                 <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600" x-text="game.game_type === 'multi' ? '联机' : '单机'"></span>
                 <span class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600" x-text="game.source_type === 'open' ? '开源' : '闭源'"></span>
+                <span class="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-600" x-text="game.platform === 'mobile' ? '移动端' : game.platform === 'both' ? '双端' : '电脑端'"></span>
               </div>
               <div class="text-xs text-gray-400 mt-1 truncate" x-text="game.url"></div>
               <div x-show="game.author" class="text-xs text-gray-400 mt-0.5" x-text="'作者：' + game.author"></div>
@@ -383,7 +388,7 @@
         <div>
           <h3 class="text-base font-bold text-gray-900">MiForum</h3>
           <p class="text-xs text-gray-500">Flarum 风格轻量论坛</p>
-          <p class="text-xs text-gray-400">v<%= '1.5.2' %> · MIT License</p>
+          <p class="text-xs text-gray-400">v<%= '1.5.0' %> · MIT License</p>
         </div>
       </div>
       <div class="bg-gray-50 rounded-lg p-3 space-y-2">
@@ -406,7 +411,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/admin.js?v=1.5.2"></script>
-<script src="/js/alpine.min.js?v=1.5.2"></script>
+<script src="/js/pages/admin.js?v=1.5.0"></script>
+<script src="/js/alpine.min.js?v=1.5.0"></script>
 </body>
 </html>

@@ -23,7 +23,7 @@ module.exports = function (app, db) {
 
   /** 创建游戏 */
   app.post('/api/admin/games', requireAdmin, (req, res) => {
-    const { name, description, url, icon, author, gameType, sourceType } = req.body;
+    const { name, description, url, icon, author, gameType, sourceType, platform } = req.body;
 
     if (!name || !url) return res.status(400).json({ error: '请填写名称和地址' });
     if (name.length > 50) return res.status(400).json({ error: '名称最多50字' });
@@ -40,8 +40,8 @@ module.exports = function (app, db) {
     const result = db
       .prepare(
         `
-      INSERT INTO games (name, description, url, icon, author, game_type, source_type, sort_order)
-      VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+      INSERT INTO games (name, description, url, icon, author, game_type, source_type, platform, sort_order)
+      VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)
     `
       )
       .run(
@@ -52,6 +52,7 @@ module.exports = function (app, db) {
         (author || '').slice(0, 50),
         gameType || 'single',
         sourceType || 'closed',
+        platform || 'pc',
         order
       );
 
@@ -66,6 +67,7 @@ module.exports = function (app, db) {
         author: (author || '').slice(0, 50),
         game_type: gameType || 'single',
         source_type: sourceType || 'closed',
+        platform: platform || 'pc',
         sort_order: order
       }
     });
@@ -74,7 +76,7 @@ module.exports = function (app, db) {
   /** 更新游戏 */
   app.put('/api/admin/games/:id', requireAdmin, (req, res) => {
     const gameId = Number(req.params.id);
-    const { name, description, url, icon, author, gameType, sourceType, enabled, sortOrder } = req.body;
+    const { name, description, url, icon, author, gameType, sourceType, platform, enabled, sortOrder } = req.body;
 
     const game = db.prepare('SELECT * FROM games WHERE id = ?').get(gameId);
     if (!game) return res.status(404).json({ error: '游戏不存在' });
@@ -90,7 +92,7 @@ module.exports = function (app, db) {
 
     db.prepare(
       `
-      UPDATE games SET name = ?, description = ?, url = ?, icon = ?, author = ?, game_type = ?, source_type = ?, enabled = ?, sort_order = ?
+      UPDATE games SET name = ?, description = ?, url = ?, icon = ?, author = ?, game_type = ?, source_type = ?, platform = ?, enabled = ?, sort_order = ?
       WHERE id = ?
     `
     ).run(
@@ -101,6 +103,7 @@ module.exports = function (app, db) {
       author !== undefined ? author.slice(0, 50) : game.author,
       gameType || game.game_type,
       sourceType || game.source_type,
+      platform || game.platform,
       enabled !== undefined ? (enabled ? 1 : 0) : game.enabled,
       sortOrder !== undefined ? Number(sortOrder) : game.sort_order,
       gameId

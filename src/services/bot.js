@@ -140,7 +140,8 @@ async function fetchBot(db, bot) {
 
   let newPosts = 0;
 
-  for (const item of feed.items.slice(0, 10)) {
+  // 拉取所有新内容（不限制数量）
+  for (const item of feed.items) {
     // 生成唯一标识
     const guid = item.guid || item.link || item.title;
 

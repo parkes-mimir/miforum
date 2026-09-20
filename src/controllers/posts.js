@@ -11,6 +11,7 @@ const { postUpload, multerUpload } = require('../utils/upload');
 const { addExp, EXP_REWARDS, getLevelInfo } = require('../services/level');
 const { createPoll } = require('../services/poll');
 const { getHotPosts } = require('../services/hot-posts');
+const { getRecommendPosts } = require('../services/recommend');
 const { formatPost, parsePagination, isAdmin } = require('../services/post-helper');
 
 /** 解析标签（支持数组、JSON 字符串、逗号分隔字符串） */
@@ -44,6 +45,12 @@ module.exports = function (app, db) {
     const sort = req.query.sort || 'newest';
     const { page, limit, offset } = parsePagination(req.query);
     const userId = req.session.userId || null;
+
+    // 推荐板块使用独立算法（无搜索和标签时）
+    if (category === 'recommend' && !search && !tag) {
+      const result = getRecommendPosts(db, userId, page, limit);
+      return res.json(result);
+    }
 
     // 热门板块使用独立算法（支持搜索和标签）
     if (category === 'hot' && !search && !tag) {

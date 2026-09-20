@@ -386,6 +386,7 @@ const SCHEMA_SQL = `
     author TEXT DEFAULT '',
     game_type TEXT DEFAULT 'single',
     source_type TEXT DEFAULT 'closed',
+    platform TEXT DEFAULT 'pc',
     enabled INTEGER DEFAULT 1,
     sort_order INTEGER DEFAULT 0,
     created_at TEXT DEFAULT (datetime('now'))

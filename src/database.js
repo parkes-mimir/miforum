@@ -76,7 +76,11 @@ function createTables() {
     ['categories', 'channel_id', 'INTEGER'],
     ['categories', 'visibility', "TEXT DEFAULT 'all'"],
     ['categories', 'post_policy', "TEXT DEFAULT 'members'"],
-    ['shop_items', 'checkin_required', 'INTEGER DEFAULT 0']
+    ['shop_items', 'checkin_required', 'INTEGER DEFAULT 0'],
+    ['games', 'author', "TEXT DEFAULT ''"],
+    ['games', 'game_type', "TEXT DEFAULT 'single'"],
+    ['games', 'source_type', "TEXT DEFAULT 'closed'"],
+    ['games', 'platform', "TEXT DEFAULT 'pc'"]
   ];
   for (const [table, column, definition] of migrations) {
     ensureColumn(table, column, definition);
@@ -157,7 +161,8 @@ function ensureColumn(table, column, definition) {
     'channels',
     'channel_members',
     'board_visible_members',
-    'board_post_members'
+    'board_post_members',
+    'games'
   ];
   const columnRegex = /^[a-zA-Z_][a-zA-Z0-9_]*$/;
   if (!allowedTables.includes(table) || !columnRegex.test(column)) {

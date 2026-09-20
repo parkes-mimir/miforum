@@ -66,10 +66,6 @@
           <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"/></svg>
         </button>
       </div>
-      <button @click="filterCategory('hot')" :class="currentCat === 'hot' ? 'active' : ''" class="sidebar-link w-full flex items-center gap-3 px-3 py-2.5 rounded-xl text-sm text-gray-600 hover:bg-gray-50 transition">
-        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M17.657 18.657A8 8 0 016.343 7.343S7 9 9 10c0-2 .5-5 2.986-7C14 5 16.09 5.777 17.656 7.343A7.975 7.975 0 0120 13a7.975 7.975 0 01-2.343 5.657z"/><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.879 16.121A3 3 0 1012.015 11L11 14H9c0 .768.293 1.536.879 2.121z"/></svg>
-        热门
-      </button>
       <!-- 频道列表 -->
       <template x-for="ch in channelsData" :key="ch.id">
         <div class="mt-1">
@@ -168,7 +164,7 @@
         发布新话题
       </button>
     </div>
-    <div x-show="currentCat !== 'hot'" class="flex items-center gap-1 mb-4 overflow-x-auto">
+    <div x-show="currentCat !== 'hot' && currentCat !== 'recommend'" class="flex items-center gap-1 mb-4 overflow-x-auto">
       <template x-for="s in sortOptions" :key="s.value">
         <button @click="setSort(s.value)" :class="currentSort === s.value ? 'bg-primary-100 text-primary-700' : 'bg-gray-100 text-gray-500 hover:bg-gray-200'" class="px-3 py-1.5 text-xs font-medium rounded-lg transition whitespace-nowrap" x-text="s.label"></button>
       </template>
@@ -538,15 +534,13 @@
                     <h3 class="font-semibold text-gray-900" x-text="game.name"></h3>
                     <span class="text-xs px-1.5 py-0.5 rounded bg-blue-100 text-blue-600" x-text="game.game_type === 'multi' ? '联机' : '单机'"></span>
                     <span class="text-xs px-1.5 py-0.5 rounded bg-purple-100 text-purple-600" x-text="game.source_type === 'open' ? '开源' : '闭源'"></span>
+                    <span class="text-xs px-1.5 py-0.5 rounded bg-orange-100 text-orange-600" x-text="game.platform === 'mobile' ? '移动端' : game.platform === 'both' ? '双端' : '电脑端'"></span>
                   </div>
                   <p x-show="game.description" class="text-sm text-gray-500" x-text="game.description"></p>
                   <p x-show="game.author" class="text-xs text-gray-400 mt-1" x-text="'作者：' + game.author"></p>
                 </div>
               </div>
               <a :href="game.url" target="_blank" class="px-4 py-2 bg-primary-600 text-white text-sm rounded-lg hover:bg-primary-700 transition">全屏打开</a>
-            </div>
-            <div class="relative rounded-lg overflow-hidden" style="padding-top: 60%;">
-              <iframe :src="game.url" class="absolute inset-0 w-full h-full border-0" allow="fullscreen" :title="game.name"></iframe>
             </div>
           </div>
         </template>
@@ -797,7 +791,7 @@
 </div>
 
 <%- include('partials/scripts') %>
-<script src="/js/pages/forum.js?v=1.5.2"></script>
-<script src="/js/alpine.min.js?v=1.5.2"></script>
+<script src="/js/pages/forum.js?v=1.5.0"></script>
+<script src="/js/alpine.min.js?v=1.5.0"></script>
 </body>
 </html>

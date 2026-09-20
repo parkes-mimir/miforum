@@ -164,7 +164,7 @@ document.addEventListener('alpine:init', () => {
 
     get pageSub() {
       if (this.currentTag || this.searchQuery) return '';
-      if (this.currentCat === 'hot') return '根据你的兴趣推荐的热门帖子';
+      if (this.currentCat === 'hot') return '社区热门帖子';
       const cat = this.categoriesData.find(c => c.name === this.currentCat);
       if (cat && cat.sectionType === 'announcement') return '官方公告和通知';
       if (cat && cat.description) return cat.description;

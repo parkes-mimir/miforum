@@ -39,7 +39,7 @@ document.addEventListener('alpine:init', () => {
     // Games
     games: [],
     showGameFormFlag: false,
-    gameForm: { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', sortOrder: 0 },
+    gameForm: { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', platform: 'pc', sortOrder: 0 },
     editingGameId: null,
     smtpStatus: '',
     smtpStatusOk: true,
@@ -344,11 +344,12 @@ document.addEventListener('alpine:init', () => {
           author: game.author || '',
           gameType: game.game_type || 'single',
           sourceType: game.source_type || 'closed',
+          platform: game.platform || 'pc',
           sortOrder: game.sort_order || 0
         };
       } else {
         this.editingGameId = null;
-        this.gameForm = { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', sortOrder: 0 };
+        this.gameForm = { name: '', description: '', url: '', icon: '🎮', author: '', gameType: 'single', sourceType: 'closed', platform: 'pc', sortOrder: 0 };
       }
       this.showGameFormFlag = true;
     },
